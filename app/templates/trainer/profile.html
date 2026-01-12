@@ -1,0 +1,810 @@
+{% extends "base.html" %}
+
+{% block title %}Profilo - Atlas Performance{% endblock %}
+
+{% block content %}
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            background-position: -1000px 0;
+        }
+        100% {
+            background-position: 1000px 0;
+        }
+    }
+
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .slide-in-left {
+        animation: slideInLeft 0.5s ease-out forwards;
+    }
+
+    .scale-in {
+        animation: scaleIn 0.4s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Premium Header */
+    .profile-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 1.5rem;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: 0 20px 25px -5px rgba(102, 126, 234, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .profile-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        animation: shimmer 3s infinite;
+    }
+
+    .profile-header-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        font-weight: 800;
+        flex-shrink: 0;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .profile-info h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    .profile-info p {
+        opacity: 0.95;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .profile-badge {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        font-size: 0.875rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    /* Tabs Premium */
+    .tabs-container {
+        background: white;
+        border-radius: 1.25rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+        margin-bottom: 2rem;
+    }
+
+    .tabs-header {
+        display: flex;
+        background: #f9fafb;
+        border-bottom: 2px solid #e5e7eb;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .tabs-header::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-button {
+        flex: 1;
+        min-width: fit-content;
+        padding: 1.25rem 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #6b7280;
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .tab-button:hover {
+        background: white;
+        color: #667eea;
+    }
+
+    .tab-button.active {
+        background: white;
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+        padding: 2rem;
+    }
+
+    /* Form Styling */
+    .form-section {
+        background: white;
+        border-radius: 1.25rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    .form-section-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #4b5563;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 0.75rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: #f9fafb;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-input:disabled {
+        background: #f3f4f6;
+        cursor: not-allowed;
+    }
+
+    .form-help {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: 0.375rem;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .save-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.875rem 2rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .save-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Info Cards */
+    .info-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-card {
+        background: #f9fafb;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 1rem;
+        padding: 1.25rem;
+        transition: all 0.3s ease;
+    }
+
+    .info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: #667eea;
+    }
+
+    .info-card-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .info-card-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #1f2937;
+    }
+
+    /* Plan Card */
+    .plan-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 1.25rem;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 20px 25px rgba(102, 126, 234, 0.3);
+    }
+
+    .plan-features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .plan-feature {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        padding: 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    /* Danger Zone */
+    .danger-zone {
+        background: #fef2f2;
+        border: 2px solid #fecaca;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .danger-button {
+        background: #dc2626;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .danger-button:hover {
+        background: #b91c1c;
+        transform: translateY(-2px);
+    }
+
+    /* Mobile Optimization */
+    @media (max-width: 768px) {
+        .profile-header {
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+        }
+
+        .profile-header-content {
+            flex-direction: column;
+            text-align: center;
+            gap: 1.5rem;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            font-size: 2.5rem;
+        }
+
+        .profile-info h1 {
+            font-size: 1.5rem;
+        }
+
+        .profile-info p {
+            font-size: 0.9rem;
+            justify-content: center;
+        }
+
+        .tabs-header {
+            flex-wrap: nowrap;
+        }
+
+        .tab-button {
+            padding: 1rem 0.875rem;
+            font-size: 0.875rem;
+        }
+
+        .tab-content {
+            padding: 1.5rem;
+        }
+
+        .form-section {
+            padding: 1.5rem;
+        }
+
+        .info-cards-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .plan-features {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .profile-header {
+            padding: 1.25rem;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            font-size: 2rem;
+        }
+
+        .tab-content {
+            padding: 1rem;
+        }
+
+        .form-section {
+            padding: 1.25rem;
+        }
+    }
+</style>
+
+<div style="max-width: 1400px; margin: 0 auto; padding: 0 1rem;">
+    <!-- Premium Header -->
+    <div class="profile-header fade-in-up">
+        <div class="profile-header-content">
+            <div class="profile-avatar">
+                {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+            </div>
+            <div class="profile-info">
+                <h1>{{ current_user.first_name }} {{ current_user.last_name }}</h1>
+                <p>
+                    <i class="fas fa-envelope"></i>
+                    {{ current_user.email }}
+                </p>
+                <div class="profile-badge">
+                    <i class="fas fa-dumbbell"></i>
+                    <span>Personal Trainer</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs Container -->
+    <div class="tabs-container scale-in" style="animation-delay: 0.1s;">
+        <!-- Tabs Header -->
+        <div class="tabs-header">
+            <button onclick="showTab('overview')" id="overview-tab" class="tab-button active">
+                <i class="fas fa-th-large"></i>
+                <span>Panoramica</span>
+            </button>
+            <button onclick="showTab('profile')" id="profile-tab" class="tab-button">
+                <i class="fas fa-user"></i>
+                <span>Profilo</span>
+            </button>
+            <button onclick="showTab('account')" id="account-tab" class="tab-button">
+                <i class="fas fa-shield-alt"></i>
+                <span>Sicurezza</span>
+            </button>
+            <button onclick="showTab('business')" id="business-tab" class="tab-button">
+                <i class="fas fa-building"></i>
+                <span>Azienda</span>
+            </button>
+            <button onclick="showTab('subscription')" id="subscription-tab" class="tab-button">
+                <i class="fas fa-star"></i>
+                <span>Abbonamento</span>
+            </button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview-content" class="tab-content">
+            <div class="info-cards-grid">
+                <div class="info-card scale-in" style="animation-delay: 0.1s;">
+                    <div class="info-card-label">🆔 ID Utente</div>
+                    <div class="info-card-value">#{{ current_user.id }}</div>
+                </div>
+
+                <div class="info-card scale-in" style="animation-delay: 0.15s;">
+                    <div class="info-card-label">📅 Membro da</div>
+                    <div class="info-card-value">{{ current_user.created_at.strftime('%d/%m/%Y') }}</div>
+                </div>
+
+                <div class="info-card scale-in" style="animation-delay: 0.2s;">
+                    <div class="info-card-label">🕐 Ultimo Accesso</div>
+                    <div class="info-card-value">{{ current_user.last_login.strftime('%d/%m/%Y') if current_user.last_login else 'Mai' }}</div>
+                </div>
+
+                <div class="info-card scale-in" style="animation-delay: 0.25s;">
+                    <div class="info-card-label">🛡️ Ruolo</div>
+                    <div class="info-card-value">{{ current_user.role|replace('_', ' ')|title }}</div>
+                </div>
+            </div>
+
+            <div class="form-section scale-in" style="animation-delay: 0.3s;">
+                <h3 class="form-section-title">
+                    <i class="fas fa-info-circle" style="color: #667eea;"></i>
+                    Informazioni Account
+                </h3>
+
+                <div class="info-cards-grid">
+                    <div class="info-card">
+                        <div class="info-card-label">👤 Nome Completo</div>
+                        <div class="info-card-value">{{ current_user.first_name }} {{ current_user.last_name }}</div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-card-label">✉️ Email</div>
+                        <div class="info-card-value" style="font-size: 1rem;">{{ current_user.email }}</div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-card-label">📱 Telefono</div>
+                        <div class="info-card-value" style="font-size: 1rem;">{{ current_user.phone or 'Non impostato' }}</div>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-card-label">🏢 Azienda</div>
+                        <div class="info-card-value" style="font-size: 1rem;">{{ tenant.name }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Tab -->
+        <div id="profile-content" class="tab-content" style="display: none;">
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <i class="fas fa-user-edit" style="color: #667eea;"></i>
+                    Modifica Informazioni Personali
+                </h3>
+
+                <form method="POST" action="{{ url_for('trainer.profile') }}">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-user"></i>
+                                Nome
+                            </label>
+                            <input type="text" name="first_name" value="{{ current_user.first_name }}" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-user"></i>
+                                Cognome
+                            </label>
+                            <input type="text" name="last_name" value="{{ current_user.last_name }}" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-envelope"></i>
+                                Email
+                            </label>
+                            <input type="email" value="{{ current_user.email }}" class="form-input" disabled>
+                            <p class="form-help">
+                                <i class="fas fa-lock"></i>
+                                L'email non può essere modificata
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-phone"></i>
+                                Telefono
+                            </label>
+                            <input type="tel" name="phone" value="{{ current_user.phone or '' }}" class="form-input" placeholder="+39 123 456 7890">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button type="submit" class="save-button">
+                            <i class="fas fa-save"></i>
+                            Salva Modifiche
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Account/Security Tab -->
+        <div id="account-content" class="tab-content" style="display: none;">
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <i class="fas fa-key" style="color: #667eea;"></i>
+                    Cambia Password
+                </h3>
+
+                <form method="POST" action="{{ url_for('trainer.profile') }}">
+                    <div style="max-width: 500px;">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-lock"></i>
+                                Password Attuale
+                            </label>
+                            <input type="password" name="current_password" class="form-input" placeholder="••••••••">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-lock"></i>
+                                Nuova Password
+                            </label>
+                            <input type="password" name="new_password" class="form-input" placeholder="••••••••">
+                            <p class="form-help">
+                                <i class="fas fa-info-circle"></i>
+                                Minimo 6 caratteri
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-lock"></i>
+                                Conferma Nuova Password
+                            </label>
+                            <input type="password" name="confirm_password" class="form-input" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button type="submit" class="save-button">
+                            <i class="fas fa-shield-alt"></i>
+                            Aggiorna Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="danger-zone">
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: #991b1b; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Zona Pericolosa
+                </h3>
+                <p style="color: #991b1b; margin-bottom: 1rem;">
+                    Una volta eliminato il tuo account, non c'è modo di tornare indietro. Assicurati di essere certo.
+                </p>
+                <button class="danger-button">
+                    <i class="fas fa-trash"></i>
+                    Elimina Account
+                </button>
+            </div>
+        </div>
+
+        <!-- Business Tab -->
+        <div id="business-content" class="tab-content" style="display: none;">
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <i class="fas fa-briefcase" style="color: #667eea;"></i>
+                    Informazioni Aziendali
+                </h3>
+
+                <form method="POST" action="{{ url_for('trainer.profile') }}">
+                    <div style="max-width: 600px;">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-building"></i>
+                                Nome Azienda
+                            </label>
+                            <input type="text" name="business_name" value="{{ tenant.name }}" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-globe"></i>
+                                Sottodominio
+                            </label>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="text" value="{{ tenant.subdomain }}" class="form-input" style="flex: 1;" disabled>
+                                <span style="color: #4b5563; font-weight: 700; white-space: nowrap;">.atlasperformance.app</span>
+                            </div>
+                            <p class="form-help">
+                                <i class="fas fa-lock"></i>
+                                Il sottodominio non può essere modificato
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button type="submit" class="save-button">
+                            <i class="fas fa-save"></i>
+                            Salva Modifiche
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Subscription Tab -->
+        <div id="subscription-content" class="tab-content" style="display: none;">
+            <div class="plan-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                            <i class="fas fa-crown" style="font-size: 2rem; color: #fbbf24;"></i>
+                            <h3 style="font-size: 2rem; font-weight: 800;">Piano {{ tenant.subscription_tier|replace('_', ' ')|title if tenant.subscription_tier else 'Gratuito' }}</h3>
+                        </div>
+                        <p style="opacity: 0.95; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-calendar-check"></i>
+                            Attivo da {{ tenant.created_at.strftime('%B %Y') }}
+                        </p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-size: 3rem; font-weight: 800;">{{ tenant.max_athletes }}</p>
+                        <p style="opacity: 0.95; display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;">
+                            <i class="fas fa-users"></i>
+                            Limite Atleti
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                    Funzionalità Attuali
+                </h3>
+
+                <div class="plan-features">
+                    <div class="plan-feature" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
+                        <i class="fas fa-check-circle" style="font-size: 1.5rem; color: #10b981;"></i>
+                        <span style="font-weight: 700;">Fino a {{ tenant.max_athletes }} atleti</span>
+                    </div>
+                    <div class="plan-feature" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
+                        <i class="fas fa-check-circle" style="font-size: 1.5rem; color: #10b981;"></i>
+                        <span style="font-weight: 700;">Allenamenti illimitati</span>
+                    </div>
+                    <div class="plan-feature" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
+                        <i class="fas fa-check-circle" style="font-size: 1.5rem; color: #10b981;"></i>
+                        <span style="font-weight: 700;">Monitoraggio progressi</span>
+                    </div>
+                    <div class="plan-feature" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
+                        <i class="fas fa-check-circle" style="font-size: 1.5rem; color: #10b981;"></i>
+                        <span style="font-weight: 700;">Libreria esercizi</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+                    <a href="{{ url_for('trainer.billing') }}" style="background: #f3f4f6; color: #1f2937; padding: 0.875rem 1.5rem; border-radius: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                        <i class="fas fa-file-invoice"></i>
+                        Portale Fatturazione
+                    </a>
+                    <button class="save-button">
+                        <i class="fas fa-arrow-up"></i>
+                        Aggiorna Piano
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+    function showTab(tabName) {
+        // Nascondi tutti i contenuti
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.style.display = 'none';
+        });
+
+        // Rimuovi styling attivo da tutti i tab
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+
+        // Mostra il contenuto selezionato
+        document.getElementById(tabName + '-content').style.display = 'block';
+
+        // Aggiungi styling attivo al tab selezionato
+        document.getElementById(tabName + '-tab').classList.add('active');
+    }
+
+    // Validazione password
+    document.addEventListener('DOMContentLoaded', function() {
+        const newPasswordInput = document.querySelector('input[name="new_password"]');
+        const confirmPasswordInput = document.querySelector('input[name="confirm_password"]');
+
+        if (newPasswordInput && confirmPasswordInput) {
+            confirmPasswordInput.addEventListener('input', function() {
+                if (this.value && newPasswordInput.value !== this.value) {
+                    this.style.borderColor = '#dc2626';
+                } else if (this.value && newPasswordInput.value === this.value) {
+                    this.style.borderColor = '#10b981';
+                } else {
+                    this.style.borderColor = '#e5e7eb';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

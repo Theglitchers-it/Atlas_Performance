@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to Atlas Performance{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Welcome Header -->
+    <div class="text-center mb-12">
+        <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fas fa-dumbbell text-white text-3xl"></i>
+        </div>
+        <h1 class="text-4xl font-bold text-gray-900 mb-3">Welcome to Atlas Performance!</h1>
+        <p class="text-xl text-gray-600">Let's get your training business set up in just a few steps</p>
+    </div>
+
+    <!-- Onboarding Steps -->
+    <div class="space-y-6">
+        <!-- Step 1: Profile Setup -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+            <div class="flex items-start">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-blue-600 font-bold text-lg">1</span>
+                </div>
+                <div class="ml-6 flex-1">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Complete Your Profile</h3>
+                    <p class="text-gray-600 mb-4">Add your business information and contact details</p>
+                    <a href="{{ url_for('trainer.settings') }}" class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition">
+                        Complete Profile <i class="fas fa-arrow-right ml-2"></i>
+                    </a>
+                </div>
+                <div class="text-green-500">
+                    <i class="fas fa-check-circle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Add Athletes -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+            <div class="flex items-start">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-blue-600 font-bold text-lg">2</span>
+                </div>
+                <div class="ml-6 flex-1">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Add Your First Athlete</h3>
+                    <p class="text-gray-600 mb-4">Start building your roster by onboarding your clients</p>
+                    <a href="{{ url_for('trainer.add_athlete') }}" class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition">
+                        Add Athlete <i class="fas fa-arrow-right ml-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Create Workout -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+            <div class="flex items-start">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-blue-600 font-bold text-lg">3</span>
+                </div>
+                <div class="ml-6 flex-1">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Create Your First Workout</h3>
+                    <p class="text-gray-600 mb-4">Design a training program for your athletes</p>
+                    <a href="{{ url_for('trainer.create_workout') }}" class="inline-flex items-center px-6 py-3 bg-gray-300 text-gray-600 rounded-lg font-semibold cursor-not-allowed">
+                        Create Workout <i class="fas fa-lock ml-2"></i>
+                    </a>
+                    <p class="text-xs text-gray-500 mt-2">Add an athlete first to unlock this step</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Explore Features -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+            <div class="flex items-start">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-blue-600 font-bold text-lg">4</span>
+                </div>
+                <div class="ml-6 flex-1">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Explore Platform Features</h3>
+                    <p class="text-gray-600 mb-4">Discover all the tools available to grow your business</p>
+                    <div class="grid grid-cols-2 gap-3 mt-4">
+                        <a href="{{ url_for('trainer.exercises_library') }}" class="px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-center font-medium text-gray-700 transition">
+                            <i class="fas fa-book mr-2"></i>Exercise Library
+                        </a>
+                        <a href="{{ url_for('trainer.messages') }}" class="px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-center font-medium text-gray-700 transition">
+                            <i class="fas fa-comments mr-2"></i>Messages
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resources Section -->
+    <div class="mt-12 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-8 text-white">
+        <h2 class="text-2xl font-bold mb-4">Need Help Getting Started?</h2>
+        <p class="text-blue-100 mb-6">Check out our resources to make the most of Atlas Performance</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="#" class="px-6 py-4 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-lg text-center font-semibold transition backdrop-blur-sm">
+                <i class="fas fa-book-open block text-2xl mb-2"></i>
+                Documentation
+            </a>
+            <a href="#" class="px-6 py-4 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-lg text-center font-semibold transition backdrop-blur-sm">
+                <i class="fas fa-video block text-2xl mb-2"></i>
+                Video Tutorials
+            </a>
+            <a href="#" class="px-6 py-4 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-lg text-center font-semibold transition backdrop-blur-sm">
+                <i class="fas fa-headset block text-2xl mb-2"></i>
+                Contact Support
+            </a>
+        </div>
+    </div>
+
+    <!-- Skip Button -->
+    <div class="text-center mt-8">
+        <a href="{{ url_for('trainer.dashboard') }}" class="text-gray-600 hover:text-gray-900 font-medium">
+            Skip and go to dashboard <i class="fas fa-arrow-right ml-2"></i>
+        </a>
+    </div>
+</div>
+{% endblock %}

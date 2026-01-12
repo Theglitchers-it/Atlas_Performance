@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Flask
+instance/
+.webassets-cache
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Migrations (keep migrations folder but ignore generated files)
+migrations/versions/*.pyc
+
+# Node.js & Frontend Build
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache & Temp Files
+*.cache
+.cache/
+tmp/
+temp/
+*.tmp
+
+# Backup Files
+*.bak
+*.backup
+*~.nib
+
+# Security & Secrets
+*.pem
+*.key
+*.cert
+secrets/
+.secrets/
+
+# Claude Code (optional - remove if you want to track .claude/)
+.claude/

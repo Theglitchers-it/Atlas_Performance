@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+
+{% block title %}Check-in Settimanale - Atlas Performance{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Animations */
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideInLeft {
+        from { opacity: 0; transform: translateX(-30px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+
+    /* Utility Classes */
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+        opacity: 1;
+        transform: translateY(0);
+    }
+    .slide-in-left {
+        animation: slideInLeft 0.6s ease-out forwards;
+        opacity: 1;
+        transform: translateX(0);
+    }
+    .scale-in {
+        animation: scaleIn 0.5s ease-out forwards;
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    /* Premium Card */
+    .premium-card {
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+
+    .premium-card:hover {
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        transform: translateY(-4px);
+    }
+
+    /* Gradient Header */
+    .gradient-header {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .gradient-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 3s infinite;
+    }
+
+    /* Input Fields */
+    .premium-input {
+        width: 100%;
+        padding: 14px 18px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .premium-input:focus {
+        outline: none;
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+    }
+
+    /* Range Slider */
+    .range-slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 12px;
+        border-radius: 10px;
+        background: linear-gradient(to right, #e2e8f0 0%, #e2e8f0 100%);
+        outline: none;
+        margin: 10px 0;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+        transition: all 0.3s ease;
+    }
+
+    .range-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.6);
+    }
+
+    .range-slider::-moz-range-thumb {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+    }
+
+    /* Slider Value Display */
+    .slider-value {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        border-radius: 50%;
+        font-weight: 800;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    /* Section Header */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 3px solid #f3f4f6;
+    }
+
+    .section-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    /* Button */
+    .btn-premium {
+        padding: 16px 32px;
+        border-radius: 14px;
+        font-weight: 700;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-premium::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .btn-premium:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    }
+
+    .btn-primary:hover {
+        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.6);
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+
+    /* Last Check-in Card */
+    .last-checkin-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-radius: 20px;
+        padding: 24px;
+        border: 3px solid #f59e0b;
+        margin-bottom: 32px;
+    }
+
+    .comparison-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .badge-positive {
+        background: rgba(16, 185, 129, 0.2);
+        color: #059669;
+    }
+
+    .badge-negative {
+        background: rgba(239, 68, 68, 0.2);
+        color: #dc2626;
+    }
+
+    .badge-neutral {
+        background: rgba(107, 114, 128, 0.2);
+        color: #4b5563;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .section-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+        }
+
+        .slider-value {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Header -->
+    <div class="premium-card gradient-header fade-in-up">
+        <div class="relative z-10 px-8 py-12">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="text-center md:text-left">
+                    <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">
+                        📋 Check-in Settimanale
+                    </h1>
+                    <p class="text-xl text-white/90">Traccia i tuoi progressi e aggiorna le misurazioni</p>
+                </div>
+                <a href="{{ url_for('athlete.progress') }}" class="btn-premium" style="background: rgba(255, 255, 255, 0.2); color: white; backdrop-filter: blur(10px);">
+                    <i class="fas fa-chart-line mr-2"></i>Vedi Progressi
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Last Check-in Reference -->
+    {% if last_check_in %}
+    <div class="last-checkin-card scale-in" style="animation-delay: 0.1s;">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-history text-white text-2xl"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-gray-900">Ultimo Check-in</h3>
+                <p class="text-gray-700">{{ last_check_in.check_in_date.strftime('%d/%m/%Y') }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            {% if last_check_in.weight %}
+            <div class="bg-white rounded-xl p-4 text-center">
+                <p class="text-sm font-semibold text-gray-600 mb-1">Peso</p>
+                <p class="text-2xl font-bold text-gray-900">{{ last_check_in.weight }} kg</p>
+            </div>
+            {% endif %}
+
+            {% if last_check_in.body_fat_percentage %}
+            <div class="bg-white rounded-xl p-4 text-center">
+                <p class="text-sm font-semibold text-gray-600 mb-1">BF%</p>
+                <p class="text-2xl font-bold text-gray-900">{{ last_check_in.body_fat_percentage }}%</p>
+            </div>
+            {% endif %}
+
+            {% if last_check_in.chest %}
+            <div class="bg-white rounded-xl p-4 text-center">
+                <p class="text-sm font-semibold text-gray-600 mb-1">Petto</p>
+                <p class="text-2xl font-bold text-gray-900">{{ last_check_in.chest }} cm</p>
+            </div>
+            {% endif %}
+
+            {% if last_check_in.waist %}
+            <div class="bg-white rounded-xl p-4 text-center">
+                <p class="text-sm font-semibold text-gray-600 mb-1">Vita</p>
+                <p class="text-2xl font-bold text-gray-900">{{ last_check_in.waist }} cm</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Check-in Form -->
+    <form method="POST" class="premium-card slide-in-left" style="animation-delay: 0.2s;">
+        <div class="p-8 space-y-10">
+
+            <!-- Body Metrics Section -->
+            <div>
+                <div class="section-header">
+                    <div class="section-icon bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                        <i class="fas fa-weight"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Misurazioni Corporee</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Weight -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-weight-hanging text-blue-500"></i>
+                            Peso Corporeo *
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="weight" step="0.1" min="0" max="300" required
+                                   class="premium-input" placeholder="75.5"
+                                   value="{{ last_check_in.weight if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">kg</span>
+                        </div>
+                    </div>
+
+                    <!-- Body Fat % -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-percentage text-purple-500"></i>
+                            Percentuale Grasso Corporeo
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="body_fat_percentage" step="0.1" min="0" max="100"
+                                   class="premium-input" placeholder="15.5"
+                                   value="{{ last_check_in.body_fat_percentage if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Measurements Section -->
+            <div>
+                <div class="section-header">
+                    <div class="section-icon bg-gradient-to-br from-green-500 to-green-600 text-white">
+                        <i class="fas fa-ruler"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Circonferenze</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Chest -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-expand text-green-500"></i>
+                            Petto
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="chest" step="0.1" min="0" max="200"
+                                   class="premium-input" placeholder="100"
+                                   value="{{ last_check_in.chest if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Waist -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-ruler-horizontal text-orange-500"></i>
+                            Vita
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="waist" step="0.1" min="0" max="200"
+                                   class="premium-input" placeholder="80"
+                                   value="{{ last_check_in.waist if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Hips -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-arrows-alt-h text-pink-500"></i>
+                            Fianchi
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="hips" step="0.1" min="0" max="200"
+                                   class="premium-input" placeholder="95"
+                                   value="{{ last_check_in.hips if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Thigh Left -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-ruler-vertical text-indigo-500"></i>
+                            Coscia Sinistra
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="thigh_left" step="0.1" min="0" max="100"
+                                   class="premium-input" placeholder="55"
+                                   value="{{ last_check_in.thigh_left if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Arm Left -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <i class="fas fa-ruler-combined text-red-500"></i>
+                            Braccio Sinistro
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="arm_left" step="0.1" min="0" max="100"
+                                   class="premium-input" placeholder="35"
+                                   value="{{ last_check_in.arm_left if last_check_in else '' }}">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">cm</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wellness Metrics Section -->
+            <div>
+                <div class="section-header">
+                    <div class="section-icon bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                        <i class="fas fa-heartbeat"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Benessere Generale</h2>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Energy Level -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-bolt text-yellow-500"></i>
+                                Livello di Energia
+                            </label>
+                            <div class="slider-value" id="energy-value">5</div>
+                        </div>
+                        <input type="range" name="energy_level" min="1" max="10" value="5"
+                               class="range-slider" id="energy-slider"
+                               oninput="document.getElementById('energy-value').textContent = this.value">
+                        <div class="flex justify-between text-xs text-gray-500 mt-2">
+                            <span>Molto Basso</span>
+                            <span>Molto Alto</span>
+                        </div>
+                    </div>
+
+                    <!-- Sleep Quality -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-moon text-indigo-500"></i>
+                                Qualità del Sonno
+                            </label>
+                            <div class="slider-value" id="sleep-value">5</div>
+                        </div>
+                        <input type="range" name="sleep_quality" min="1" max="10" value="5"
+                               class="range-slider" id="sleep-slider"
+                               oninput="document.getElementById('sleep-value').textContent = this.value">
+                        <div class="flex justify-between text-xs text-gray-500 mt-2">
+                            <span>Pessima</span>
+                            <span>Eccellente</span>
+                        </div>
+                    </div>
+
+                    <!-- Stress Level -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-brain text-red-500"></i>
+                                Livello di Stress
+                            </label>
+                            <div class="slider-value" id="stress-value">5</div>
+                        </div>
+                        <input type="range" name="stress_level" min="1" max="10" value="5"
+                               class="range-slider" id="stress-slider"
+                               oninput="document.getElementById('stress-value').textContent = this.value">
+                        <div class="flex justify-between text-xs text-gray-500 mt-2">
+                            <span>Molto Basso</span>
+                            <span>Molto Alto</span>
+                        </div>
+                    </div>
+
+                    <!-- Hunger Level -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-utensils text-orange-500"></i>
+                                Livello di Fame
+                            </label>
+                            <div class="slider-value" id="hunger-value">5</div>
+                        </div>
+                        <input type="range" name="hunger_level" min="1" max="10" value="5"
+                               class="range-slider" id="hunger-slider"
+                               oninput="document.getElementById('hunger-value').textContent = this.value">
+                        <div class="flex justify-between text-xs text-gray-500 mt-2">
+                            <span>Poco Affamato</span>
+                            <span>Molto Affamato</span>
+                        </div>
+                    </div>
+
+                    <!-- Motivation -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-trophy text-green-500"></i>
+                                Motivazione
+                            </label>
+                            <div class="slider-value" id="motivation-value">5</div>
+                        </div>
+                        <input type="range" name="motivation" min="1" max="10" value="5"
+                               class="range-slider" id="motivation-slider"
+                               oninput="document.getElementById('motivation-value').textContent = this.value">
+                        <div class="flex justify-between text-xs text-gray-500 mt-2">
+                            <span>Molto Bassa</span>
+                            <span>Molto Alta</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes Section -->
+            <div>
+                <div class="section-header">
+                    <div class="section-icon bg-gradient-to-br from-pink-500 to-pink-600 text-white">
+                        <i class="fas fa-sticky-note"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Note Aggiuntive</h2>
+                </div>
+
+                <textarea name="notes" rows="4" class="premium-input"
+                          placeholder="Aggiungi eventuali note o osservazioni (es: mi sento più forte, ho dormito male questa settimana, ecc.)"></textarea>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex gap-4 pt-6">
+                <a href="{{ url_for('athlete.progress') }}" class="btn-premium btn-secondary flex-1">
+                    <i class="fas fa-times mr-2"></i>Annulla
+                </a>
+                <button type="submit" class="btn-premium btn-primary flex-1">
+                    <i class="fas fa-check mr-2"></i>Salva Check-in
+                </button>
+            </div>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

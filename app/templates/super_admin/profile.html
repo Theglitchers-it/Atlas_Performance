@@ -1,0 +1,1653 @@
+{% extends "base.html" %}
+
+{% block title %}Profilo Amministratore - Atlas Performance{% endblock %}
+
+{% block content %}
+<style>
+    /* ============================================================================
+       PROFILE PAGE - Premium Design System
+       Inline CSS per garantire rendering corretto
+    ============================================================================ */
+
+    /* Base Container */
+    .profile-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .slide-in-right {
+        animation: slideInRight 0.6s ease-out forwards;
+    }
+
+    .scale-in {
+        animation: scaleIn 0.5s ease-out forwards;
+    }
+
+    /* Header Section */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2.5rem;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .header-content h1 {
+        font-size: 2.75rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 0.75rem;
+        line-height: 1.2;
+    }
+
+    .header-content h1 i {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .header-content p {
+        font-size: 1.125rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.75rem;
+        background: white;
+        color: #374151;
+        font-weight: 600;
+        font-size: 1rem;
+        border-radius: 1rem;
+        border: 2px solid #e5e7eb;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .back-button:hover {
+        background: #f9fafb;
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+    }
+
+    /* Profile Header Card - COMPACT */
+    .profile-header-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5e7eb;
+        margin-bottom: 2rem;
+    }
+
+    .gradient-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        position: relative;
+        padding: 1.5rem 1.25rem;
+        overflow: hidden;
+    }
+
+    .gradient-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+        animation: shimmer 3s infinite linear;
+    }
+
+    .profile-info-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 2.5rem;
+        position: relative;
+        z-index: 1;
+        flex-wrap: wrap;
+    }
+
+    /* Avatar */
+    .avatar-wrapper {
+        position: relative;
+        width: 140px;
+        height: 140px;
+        border-radius: 1.75rem;
+        overflow: hidden;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+        flex-shrink: 0;
+    }
+
+    .avatar-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.5rem;
+        font-weight: 800;
+        color: white;
+    }
+
+    .avatar-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        cursor: pointer;
+    }
+
+    .avatar-wrapper:hover .avatar-overlay {
+        opacity: 1;
+    }
+
+    .avatar-overlay i {
+        color: white;
+        font-size: 2.5rem;
+    }
+
+    /* User Info */
+    .user-info {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .user-name-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .user-name {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: white;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(10px);
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 700;
+        border-radius: 1rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .user-email {
+        font-size: 1.125rem;
+        color: rgba(255, 255, 255, 0.95);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .user-meta {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .user-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Quick Stats */
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        padding: 2rem;
+        background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+        border-top: 2px solid #f3f4f6;
+    }
+
+    .stat-card {
+        padding: 1.75rem;
+        border-radius: 1.25rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-6px) scale(1.03);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .stat-card:hover::before {
+        opacity: 1;
+    }
+
+    .stat-card.purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-card.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .stat-card.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-card.orange {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .stat-header i {
+        font-size: 2rem;
+        opacity: 0.85;
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        position: relative;
+        z-index: 1;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Tabs Container */
+    .tabs-container {
+        background: white;
+        border-radius: 1.5rem;
+        overflow: visible;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        border: 2px solid #f3f4f6;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .tab-nav-wrapper {
+        padding: 2rem;
+        border-bottom: 2px solid #f3f4f6;
+        background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+        width: 100%;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+
+    .tab-nav {
+        display: flex;
+        gap: 0.75rem;
+        background: #f3f4f6;
+        padding: 0.75rem;
+        border-radius: 1.25rem;
+        overflow-x: auto;
+        overflow-y: visible;
+        scrollbar-width: thin;
+        width: 100%;
+        box-sizing: border-box;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-nav::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .tab-nav::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 10px;
+    }
+
+    .tab-nav::-webkit-scrollbar-thumb {
+        background: rgba(102, 126, 234, 0.3);
+        border-radius: 10px;
+    }
+
+    .tab-nav::-webkit-scrollbar-thumb:hover {
+        background: rgba(102, 126, 234, 0.5);
+    }
+
+    .tab-button {
+        padding: 1rem 1.75rem;
+        border-radius: 1rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #6b7280;
+        background: transparent;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        box-sizing: border-box;
+    }
+
+    .tab-button:hover {
+        color: #374151;
+        background: white;
+        border-color: #e5e7eb;
+        transform: translateY(-2px);
+    }
+
+    .tab-button.active {
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .tab-content {
+        display: none;
+        padding: 2.5rem;
+        animation: fadeInUp 0.5s ease-out;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Form Elements */
+    .premium-input {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 1rem;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: white;
+        color: #1f2937;
+    }
+
+    .premium-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+    }
+
+    .premium-button {
+        padding: 1rem 2rem;
+        border-radius: 1rem;
+        font-weight: 700;
+        font-size: 1rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        border: 2px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .premium-button-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .premium-button-primary:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+    }
+
+    .premium-button-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        border-color: #e5e7eb;
+    }
+
+    .premium-button-secondary:hover {
+        background: #e5e7eb;
+        border-color: #d1d5db;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Info Cards - COMPACT */
+    .info-card {
+        padding: 1rem;
+        border-radius: 1rem;
+        border: 2px solid;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s ease;
+    }
+
+    .info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-card.purple {
+        background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+        border-color: #c4b5fd;
+    }
+
+    .info-card.blue {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border-color: #93c5fd;
+    }
+
+    .info-card.green {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-color: #6ee7b7;
+    }
+
+    .info-card.orange {
+        background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+        border-color: #fb923c;
+    }
+
+    .info-card.indigo {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        border-color: #a5b4fc;
+    }
+
+    .info-card.pink {
+        background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+        border-color: #f9a8d4;
+    }
+
+    .info-card-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        /* FIX: Garantisce visibilità icone */
+        overflow: visible;
+        position: relative;
+    }
+
+    .info-card-icon i {
+        font-family: "Font Awesome 6 Free" !important;
+        font-weight: 900 !important;
+        font-style: normal !important;
+        display: inline-block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        color: white !important;
+        -webkit-font-smoothing: antialiased !important;
+        -moz-osx-font-smoothing: grayscale !important;
+        line-height: 1 !important;
+        transform: none !important;
+        filter: none !important;
+    }
+
+    .info-card-icon i::before {
+        display: inline-block !important;
+        font-family: "Font Awesome 6 Free" !important;
+        font-weight: 900 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        color: white !important;
+        background: transparent !important;
+    }
+
+    .info-card-icon.purple-icon {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .info-card-icon.blue-icon {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .info-card-icon.green-icon {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .info-card-icon.orange-icon {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .info-card-icon.indigo-icon {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+
+    .info-card-icon.pink-icon {
+        background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+        position: relative;
+        width: 56px;
+        height: 32px;
+        flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background-color: #cbd5e1;
+        border-radius: 34px;
+        transition: 0.4s;
+    }
+
+    .toggle-slider::before {
+        position: absolute;
+        content: "";
+        height: 24px;
+        width: 24px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        border-radius: 50%;
+        transition: 0.4s;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    input:checked + .toggle-slider {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    input:checked + .toggle-slider::before {
+        transform: translateX(24px);
+    }
+
+    /* Activity List */
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1.75rem;
+        background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+        border-radius: 1.25rem;
+        border: 2px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+
+    .activity-item:hover {
+        border-color: #667eea;
+        transform: translateX(8px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+    }
+
+    .activity-avatar {
+        width: 4rem;
+        height: 4rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: white;
+        flex-shrink: 0;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Responsive - MOBILE FIRST */
+    @media (max-width: 768px) {
+        .profile-container {
+            padding: 0.75rem;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            padding: 0;
+            margin: 0 0 1.5rem 0;
+        }
+
+        .header-content {
+            width: 100%;
+            text-align: center;
+        }
+
+        .header-content h1 {
+            font-size: 1.75rem;
+            text-align: center;
+        }
+
+        .header-content p {
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .back-button {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .profile-header-card {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            margin: 0 0 1.5rem 0;
+        }
+
+        .gradient-header {
+            padding: 1.5rem 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .profile-info-wrapper {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .avatar-wrapper {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto;
+        }
+
+        .user-info {
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .user-name-wrapper {
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .user-name {
+            font-size: 1.5rem;
+            text-align: center;
+            width: 100%;
+        }
+
+        .role-badge {
+            margin: 0 auto;
+        }
+
+        .user-email {
+            justify-content: center;
+            text-align: center;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        .user-meta {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .user-meta-item {
+            justify-content: center;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+
+        .quick-stats {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            padding: 1.25rem 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .stat-card {
+            padding: 1.25rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .tabs-container {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            border-radius: 1rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        .tab-nav-wrapper {
+            padding: 0.75rem 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: visible;
+            background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .tab-nav {
+            gap: 0.5rem;
+            padding: 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+            overflow-x: auto;
+            overflow-y: visible;
+            display: flex;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .tab-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-height: 44px;
+            min-width: fit-content;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            cursor: pointer;
+            touch-action: manipulation;
+            border-radius: 0.875rem;
+        }
+
+        .tab-button i {
+            font-size: 0.875rem;
+        }
+
+        .tab-content {
+            padding: 1rem 0.75rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .tab-content > div[style*="grid"] {
+            grid-template-columns: 1fr !important;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .info-card {
+            padding: 0.875rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .info-card > div {
+            width: 100%;
+        }
+
+        .activity-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+        }
+
+        .activity-avatar {
+            width: 3rem;
+            height: 3rem;
+            font-size: 1.25rem;
+        }
+
+        form {
+            width: 100%;
+        }
+
+        .premium-input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .premium-button {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Ottimizzazione form informazioni personali */
+        #content-personal > div {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+
+        #content-personal > div > div:first-child {
+            padding: 1rem !important;
+            margin-bottom: 1.5rem !important;
+            border-radius: 0.875rem !important;
+        }
+
+        #content-personal > div > div:first-child h3 {
+            font-size: 1rem !important;
+        }
+
+        #content-personal > div > div:first-child p {
+            font-size: 0.8rem !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .profile-container {
+            padding: 0.5rem 0.375rem;
+            width: 100%;
+        }
+
+        .header-content h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-content p {
+            font-size: 0.9rem;
+        }
+
+        .gradient-header {
+            padding: 1.25rem 0.875rem;
+        }
+
+        .avatar-wrapper {
+            width: 100px;
+            height: 100px;
+        }
+
+        .user-name {
+            font-size: 1.25rem;
+        }
+
+        .user-email {
+            font-size: 0.9rem;
+        }
+
+        .user-meta-item {
+            font-size: 0.8rem;
+        }
+
+        .stat-card {
+            padding: 1rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+        }
+
+        .tab-nav-wrapper {
+            padding: 0.625rem 0.375rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .tab-nav {
+            padding: 0.375rem;
+            gap: 0.375rem;
+            scrollbar-width: none;
+        }
+
+        .tab-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-button {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.75rem;
+            min-height: 40px;
+            gap: 0.3rem;
+            border-radius: 0.75rem;
+        }
+
+        .tab-button i {
+            font-size: 0.8rem;
+        }
+
+        .tab-content {
+            padding: 0.875rem 0.5rem;
+        }
+
+        .info-card {
+            padding: 0.75rem;
+        }
+
+        .info-card p:first-child {
+            font-size: 0.7rem !important;
+        }
+
+        .info-card p:last-child {
+            font-size: 1rem !important;
+        }
+
+        .tabs-container {
+            border-radius: 0.875rem;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Ottimizzazione form informazioni personali - schermi piccoli */
+        #content-personal > div > div:first-child {
+            padding: 0.875rem !important;
+            margin-bottom: 1.25rem !important;
+        }
+
+        #content-personal > div > div:first-child h3 {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.375rem !important;
+        }
+
+        #content-personal > div > div:first-child p {
+            font-size: 0.75rem !important;
+        }
+    }
+</style>
+
+<div class="profile-container">
+    <!-- Header -->
+    <div class="page-header fade-in-up">
+        <div class="header-content">
+            <h1><i class="fas fa-user-shield"></i> Profilo Amministratore</h1>
+            <p>Gestisci il tuo account e le impostazioni della piattaforma</p>
+        </div>
+        <button onclick="window.location.href='{{ url_for('super_admin.dashboard') }}'" class="back-button">
+            <i class="fas fa-arrow-left"></i>
+            <span>Dashboard</span>
+        </button>
+    </div>
+
+    <!-- Profile Header Card -->
+    <div class="profile-header-card fade-in-up" style="animation-delay: 0.1s;">
+        <div class="gradient-header">
+            <div class="profile-info-wrapper">
+                <!-- Avatar -->
+                <div class="avatar-wrapper">
+                    {% if current_user.avatar_url %}
+                        <img src="{{ current_user.avatar_url }}" alt="Avatar">
+                    {% else %}
+                        <div class="avatar-placeholder">
+                            {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+                        </div>
+                    {% endif %}
+                    <div class="avatar-overlay" onclick="document.getElementById('avatar-upload').click()">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="uploadAvatar(this)">
+                </div>
+
+                <!-- User Info -->
+                <div class="user-info">
+                    <div class="user-name-wrapper">
+                        <h2 class="user-name">{{ current_user.first_name }} {{ current_user.last_name }}</h2>
+                        <span class="role-badge">
+                            <i class="fas fa-crown"></i>
+                            Amministratore
+                        </span>
+                    </div>
+                    <p class="user-email">
+                        <i class="fas fa-envelope"></i>
+                        {{ current_user.email }}
+                    </p>
+                    <div class="user-meta">
+                        <div class="user-meta-item">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>Membro dal {{ current_user.created_at.strftime('%d/%m/%Y') }}</span>
+                        </div>
+                        <div class="user-meta-item">
+                            <i class="fas fa-clock"></i>
+                            <span>Ultimo accesso: {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') if current_user.last_login else 'Mai' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+            <div class="stat-card purple scale-in" style="animation-delay: 0.1s;">
+                <div class="stat-header">
+                    <i class="fas fa-building"></i>
+                    <span class="stat-number">{{ total_tenants }}</span>
+                </div>
+                <p class="stat-label">Tenant Totali</p>
+            </div>
+
+            <div class="stat-card green scale-in" style="animation-delay: 0.2s;">
+                <div class="stat-header">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="stat-number">{{ active_tenants }}</span>
+                </div>
+                <p class="stat-label">Tenant Attivi</p>
+            </div>
+
+            <div class="stat-card blue scale-in" style="animation-delay: 0.3s;">
+                <div class="stat-header">
+                    <i class="fas fa-users"></i>
+                    <span class="stat-number">{{ total_users }}</span>
+                </div>
+                <p class="stat-label">Utenti Totali</p>
+            </div>
+
+            <div class="stat-card orange scale-in" style="animation-delay: 0.4s;">
+                <div class="stat-header">
+                    <i class="fas fa-euro-sign"></i>
+                    <span class="stat-number">€{{ "%.0f"|format(total_revenue) }}</span>
+                </div>
+                <p class="stat-label">MRR Totale</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs Section -->
+    <div class="tabs-container slide-in-right" style="animation-delay: 0.2s;">
+        <!-- Tab Navigation -->
+        <div class="tab-nav-wrapper">
+            <div class="tab-nav">
+                <button type="button" onclick="switchTab('overview')" class="tab-button active" id="tab-overview">
+                    <i class="fas fa-chart-pie"></i>
+                    Panoramica
+                </button>
+                <button type="button" onclick="switchTab('personal')" class="tab-button" id="tab-personal">
+                    <i class="fas fa-user-edit"></i>
+                    Informazioni
+                </button>
+                <button type="button" onclick="switchTab('security')" class="tab-button" id="tab-security">
+                    <i class="fas fa-shield-alt"></i>
+                    Sicurezza
+                </button>
+                <button type="button" onclick="switchTab('preferences')" class="tab-button" id="tab-preferences">
+                    <i class="fas fa-sliders-h"></i>
+                    Preferenze
+                </button>
+                <button type="button" onclick="switchTab('activity')" class="tab-button" id="tab-activity">
+                    <i class="fas fa-history"></i>
+                    Attività
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div>
+            <!-- Overview Tab -->
+            <div id="content-overview" class="tab-content active">
+                <h3 style="font-size: 1.75rem; font-weight: 800; color: #1f2937; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-info-circle" style="color: #667eea;"></i>
+                    Dettagli Account
+                </h3>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    <!-- Account Info -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="info-card purple" style="display: flex; align-items: center; gap: 0; padding: 1rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.35rem;">🆔 ID Utente</p>
+                                <p style="font-size: 1.25rem; font-weight: 800; color: #1f2937;">#{{ current_user.id }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-card blue" style="display: flex; align-items: center; gap: 0; padding: 1rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.35rem;">👤 Nome Completo</p>
+                                <p style="font-size: 1.125rem; font-weight: 800; color: #1f2937;">{{ current_user.first_name }} {{ current_user.last_name }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-card green" style="display: flex; align-items: center; gap: 0; padding: 1rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.35rem;">✉️ Email</p>
+                                <p style="font-size: 1rem; font-weight: 800; color: #1f2937; word-break: break-all;">{{ current_user.email }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Info -->
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="info-card orange" style="display: flex; align-items: center; gap: 0; padding: 1rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.35rem;">📅 Account Creato</p>
+                                <p style="font-size: 1.125rem; font-weight: 800; color: #1f2937;">{{ current_user.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-card indigo" style="display: flex; align-items: center; gap: 0; padding: 1rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.35rem;">🕐 Ultimo Accesso</p>
+                                <p style="font-size: 1.125rem; font-weight: 800; color: #1f2937;">
+                                    {% if current_user.last_login %}{{ current_user.last_login.strftime('%d/%m/%Y %H:%M') }}{% else %}Mai{% endif %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="info-card pink" style="display: flex; align-items: center; gap: 0; padding: 1rem;">
+                            <div style="flex: 1; min-width: 0;">
+                                <p style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.35rem;">🛡️ Ruolo</p>
+                                <p style="font-size: 1.125rem; font-weight: 800; color: #1f2937;">Amministratore di Sistema</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Info Tab -->
+            <div id="content-personal" class="tab-content">
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%); border-radius: 1rem; padding: 1.25rem; margin-bottom: 2rem; border: 2px solid #93c5fd;">
+                        <div style="display: flex; align-items: start; gap: 0.75rem;">
+                            <div>
+                                <h3 style="font-size: 1.125rem; font-weight: 800; color: #1f2937; margin-bottom: 0.5rem;">ℹ️ Modifica Informazioni Personali</h3>
+                                <p style="color: #6b7280; font-weight: 500; font-size: 0.875rem;">Aggiorna i tuoi dati personali. Le modifiche verranno salvate immediatamente.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form id="personal-info-form" style="display: flex; flex-direction: column; gap: 1.75rem;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.75rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">
+                                    <i class="fas fa-user" style="color: #667eea; margin-right: 0.5rem;"></i>Nome
+                                </label>
+                                <input type="text" name="first_name" value="{{ current_user.first_name }}" required class="premium-input">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">
+                                    <i class="fas fa-user" style="color: #667eea; margin-right: 0.5rem;"></i>Cognome
+                                </label>
+                                <input type="text" name="last_name" value="{{ current_user.last_name }}" required class="premium-input">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">
+                                <i class="fas fa-envelope" style="color: #667eea; margin-right: 0.5rem;"></i>Email
+                            </label>
+                            <input type="email" name="email" value="{{ current_user.email }}" required class="premium-input">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">
+                                <i class="fas fa-phone" style="color: #667eea; margin-right: 0.5rem;"></i>Telefono
+                            </label>
+                            <input type="tel" name="phone" value="{{ current_user.phone or '' }}" placeholder="+39 123 456 7890" class="premium-input">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">
+                                <i class="fas fa-birthday-cake" style="color: #667eea; margin-right: 0.5rem;"></i>Data di Nascita
+                            </label>
+                            <input type="date" name="date_of_birth" value="{{ current_user.date_of_birth.strftime('%Y-%m-%d') if current_user.date_of_birth else '' }}" class="premium-input">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; padding-top: 1rem;">
+                            <button type="button" onclick="document.getElementById('personal-info-form').reset()" class="premium-button premium-button-secondary">
+                                <i class="fas fa-undo"></i>
+                                Ripristina
+                            </button>
+                            <button type="submit" class="premium-button premium-button-primary">
+                                <i class="fas fa-save"></i>
+                                Salva Modifiche
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Security Tab -->
+            <div id="content-security" class="tab-content">
+                <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem;">
+                    <div style="background: white; border-radius: 1.5rem; border: 2px solid #e5e7eb; overflow: hidden;">
+                        <div style="padding: 1.75rem; border-bottom: 2px solid #f3f4f6; background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);">
+                            <h3 style="font-size: 1.25rem; font-weight: 800; color: #1f2937; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-key" style="color: #667eea;"></i>
+                                Cambia Password
+                            </h3>
+                        </div>
+                        <div style="padding: 2rem;">
+                            <form id="password-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                <div>
+                                    <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">Password Attuale</label>
+                                    <input type="password" name="current_password" required class="premium-input">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">Nuova Password</label>
+                                    <input type="password" name="new_password" required minlength="8" class="premium-input">
+                                    <p style="font-size: 0.8rem; color: #6b7280; margin-top: 0.5rem;">Minimo 8 caratteri</p>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">Conferma Nuova Password</label>
+                                    <input type="password" name="confirm_password" required class="premium-input">
+                                </div>
+                                <button type="submit" class="premium-button premium-button-primary" style="width: 100%;">
+                                    <i class="fas fa-lock"></i>
+                                    Aggiorna Password
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div style="background: white; border-radius: 1.5rem; border: 2px solid #e5e7eb; overflow: hidden;">
+                        <div style="padding: 1.75rem; border-bottom: 2px solid #f3f4f6; background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);">
+                            <h3 style="font-size: 1.25rem; font-weight: 800; color: #1f2937; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-desktop" style="color: #10b981;"></i>
+                                Sessioni Attive
+                            </h3>
+                        </div>
+                        <div style="padding: 2rem;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.75rem; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 1.25rem; border: 2px solid #6ee7b7;">
+                                <div style="display: flex; align-items: center; gap: 1.25rem;">
+                                    <div class="info-card-icon green-icon">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <div>
+                                        <p style="font-weight: 800; color: #1f2937; font-size: 1.125rem; margin-bottom: 0.25rem;">Sessione Corrente</p>
+                                        <p style="font-size: 0.9rem; color: #6b7280;">Windows • Chrome</p>
+                                    </div>
+                                </div>
+                                <span style="padding: 0.75rem 1.25rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; font-size: 0.9rem; font-weight: 800; border-radius: 1rem; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">Attivo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preferences Tab -->
+            <div id="content-preferences" class="tab-content">
+                <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem;">
+                    <div style="background: white; border-radius: 1.5rem; border: 2px solid #e5e7eb; overflow: hidden;">
+                        <div style="padding: 1.75rem; border-bottom: 2px solid #f3f4f6; background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);">
+                            <h3 style="font-size: 1.25rem; font-weight: 800; color: #1f2937; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-bell" style="color: #f59e0b;"></i>
+                                Notifiche
+                            </h3>
+                        </div>
+                        <div style="padding: 2rem; display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.75rem; background: #f9fafb; border-radius: 1.25rem; border: 2px solid #e5e7eb;">
+                                <div style="flex: 1;">
+                                    <p style="font-weight: 800; color: #1f2937; margin-bottom: 0.5rem;">Nuovi Tenant Registrati</p>
+                                    <p style="font-size: 0.9rem; color: #6b7280;">Ricevi notifica quando un nuovo tenant si registra</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.75rem; background: #f9fafb; border-radius: 1.25rem; border: 2px solid #e5e7eb;">
+                                <div style="flex: 1;">
+                                    <p style="font-weight: 800; color: #1f2937; margin-bottom: 0.5rem;">Alert Sistema</p>
+                                    <p style="font-size: 0.9rem; color: #6b7280;">Notifiche su errori o problemi critici</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.75rem; background: #f9fafb; border-radius: 1.25rem; border: 2px solid #e5e7eb;">
+                                <div style="flex: 1;">
+                                    <p style="font-weight: 800; color: #1f2937; margin-bottom: 0.5rem;">Report Settimanali</p>
+                                    <p style="font-size: 0.9rem; color: #6b7280;">Ricevi un riepilogo settimanale via email</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: white; border-radius: 1.5rem; border: 2px solid #e5e7eb; overflow: hidden;">
+                        <div style="padding: 1.75rem; border-bottom: 2px solid #f3f4f6; background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);">
+                            <h3 style="font-size: 1.25rem; font-weight: 800; color: #1f2937; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-palette" style="color: #8b5cf6;"></i>
+                                Preferenze Display
+                            </h3>
+                        </div>
+                        <div style="padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">Lingua</label>
+                                <select class="premium-input">
+                                    <option value="it" selected>🇮🇹 Italiano</option>
+                                    <option value="en">🇬🇧 English</option>
+                                    <option value="es">🇪🇸 Español</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.9rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem;">Fuso Orario</label>
+                                <select class="premium-input">
+                                    <option value="Europe/Rome" selected>Europa/Roma (GMT+1)</option>
+                                    <option value="Europe/London">Europa/Londra (GMT+0)</option>
+                                    <option value="America/New_York">America/New York (GMT-5)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Tab -->
+            <div id="content-activity" class="tab-content">
+                <h3 style="font-size: 1.75rem; font-weight: 800; color: #1f2937; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-history" style="color: #667eea;"></i>
+                    Attività Recente
+                </h3>
+
+                {% if recent_tenants %}
+                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    {% for tenant in recent_tenants %}
+                    <div class="activity-item">
+                        <div class="activity-avatar">
+                            {{ tenant.name[0].upper() }}
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <p style="font-weight: 800; color: #1f2937; font-size: 1.125rem; margin-bottom: 0.25rem;">{{ tenant.name }}</p>
+                            <p style="font-size: 0.9rem; color: #6b7280; word-break: break-all;">{{ tenant.owner_email }}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.9rem; font-weight: 700; color: #6b7280;">{{ tenant.created_at.strftime('%d/%m/%Y') }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 5rem 2rem;">
+                    <i class="fas fa-inbox" style="font-size: 4rem; color: #d1d5db; margin-bottom: 1.5rem;"></i>
+                    <p style="color: #6b7280; font-size: 1.125rem; font-weight: 500;">Nessuna attività recente</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tab Switching
+window.switchTab = function(tabName) {
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+
+    const targetContent = document.getElementById('content-' + tabName);
+    const targetButton = document.getElementById('tab-' + tabName);
+
+    if (targetContent && targetButton) {
+        targetContent.classList.add('active');
+        targetButton.classList.add('active');
+    }
+}
+
+// Avatar Upload
+window.uploadAvatar = async function(input) {
+    if (input.files && input.files[0]) {
+        const formData = new FormData();
+        formData.append('avatar', input.files[0]);
+
+        try {
+            const response = await fetch('{{ url_for("super_admin.upload_avatar") }}', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification('Avatar aggiornato con successo!', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showNotification(data.message || 'Errore durante l\'upload', 'error');
+            }
+        } catch (error) {
+            showNotification('Errore di connessione', 'error');
+        }
+    }
+}
+
+// Notification Helper
+window.showNotification = function(message, type = 'info') {
+    const colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        info: '#667eea',
+        warning: '#f59e0b'
+    };
+
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        background: ${colors[type]};
+        color: white;
+        padding: 1.25rem 1.75rem;
+        border-radius: 1rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        font-weight: 700;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    `;
+
+    const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+    notification.innerHTML = `<i class="fas fa-${icon}"></i>${message}`;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.transition = 'all 0.5s ease';
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(-20px)';
+        setTimeout(() => notification.remove(), 500);
+    }, 3000);
+}
+
+// Forms
+document.addEventListener('DOMContentLoaded', function() {
+    // FIX: Forza rendering icone Font Awesome dopo caricamento
+    function ensureFontAwesomeIconsLoaded() {
+        const icons = document.querySelectorAll('.info-card-icon i');
+        icons.forEach(icon => {
+            // Forza re-render
+            icon.style.display = 'none';
+            icon.offsetHeight; // trigger reflow
+            icon.style.display = 'inline-block';
+
+            // Debug: verifica che l'icona abbia contenuto
+            const computed = window.getComputedStyle(icon, '::before');
+            if (!computed.content || computed.content === 'none') {
+                console.warn('Profile icon missing content:', icon.className);
+            }
+        });
+    }
+
+    // Esegui dopo 100ms per dare tempo a Font Awesome di caricarsi
+    setTimeout(ensureFontAwesomeIconsLoaded, 100);
+
+    // Esegui anche quando Font Awesome è completamente caricato
+    if (document.fonts) {
+        document.fonts.ready.then(ensureFontAwesomeIconsLoaded);
+    }
+
+    // Personal Info Form
+    const personalForm = document.getElementById('personal-info-form');
+    if (personalForm) {
+        personalForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch('{{ url_for("super_admin.update_profile") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Profilo aggiornato con successo!', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification(data.message || 'Errore durante l\'aggiornamento', 'error');
+                }
+            } catch (error) {
+                showNotification('Errore di connessione', 'error');
+            }
+        });
+    }
+
+    // Password Form
+    const passwordForm = document.getElementById('password-form');
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            if (formData.get('new_password') !== formData.get('confirm_password')) {
+                showNotification('Le password non corrispondono', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('{{ url_for("super_admin.change_password") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Password aggiornata con successo!', 'success');
+                    this.reset();
+                } else {
+                    showNotification(data.message || 'Errore durante l\'aggiornamento', 'error');
+                }
+            } catch (error) {
+                showNotification('Errore di connessione', 'error');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

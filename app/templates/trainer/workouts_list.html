@@ -1,0 +1,809 @@
+{% extends "base.html" %}
+
+{% block title %}Allenamenti - Atlas Performance{% endblock %}
+
+{% block content %}
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            background-position: -1000px 0;
+        }
+        100% {
+            background-position: 1000px 0;
+        }
+    }
+
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .slide-in-left {
+        animation: slideInLeft 0.5s ease-out forwards;
+    }
+
+    .scale-in {
+        animation: scaleIn 0.4s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Premium Header */
+    .workouts-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: 0 20px 25px -5px rgba(102, 126, 234, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .workouts-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        animation: shimmer 3s infinite;
+    }
+
+    .workouts-header-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .workouts-title {
+        flex: 1;
+    }
+
+    .workouts-title h1 {
+        font-size: 1.875rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .workouts-title p {
+        opacity: 0.95;
+        font-size: 0.95rem;
+    }
+
+    .workouts-badge {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 0.75rem 1.25rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-align: center;
+        min-width: 100px;
+    }
+
+    .workouts-badge-label {
+        font-size: 0.75rem;
+        opacity: 0.9;
+        margin-bottom: 0.25rem;
+    }
+
+    .workouts-badge-value {
+        font-size: 2rem;
+        font-weight: 800;
+    }
+
+    .create-workout-btn {
+        background: rgba(255, 255, 255, 0.95);
+        color: #667eea;
+        padding: 0.875rem 1.5rem;
+        border-radius: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        white-space: nowrap;
+    }
+
+    .create-workout-btn:hover {
+        background: white;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Filtri Premium */
+    .filters-container {
+        background: white;
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .filter-group label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .filter-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 0.75rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: #f9fafb;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    /* Workout Cards Premium */
+    .workouts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .workout-card {
+        background: white;
+        border-radius: 1.25rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .workout-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .workout-card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .workout-card-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 4s infinite linear;
+    }
+
+    .workout-card-title {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .workout-name {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    .workout-badges {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+    }
+
+    .workout-type-badge {
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .workout-status-badge {
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .workout-card-body {
+        padding: 1.5rem;
+    }
+
+    .workout-description {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin-bottom: 1.25rem;
+        line-height: 1.5;
+    }
+
+    .workout-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .workout-stat {
+        background: #f9fafb;
+        padding: 0.875rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e5e7eb;
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+    }
+
+    .workout-stat-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .workout-stat-value {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .workout-actions {
+        display: flex;
+        gap: 0.75rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .workout-action-btn {
+        flex: 1;
+        padding: 0.75rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        font-size: 0.875rem;
+        text-align: center;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .workout-action-btn.edit {
+        background: #f3f4f6;
+        color: #4b5563;
+        border: 1px solid #d1d5db;
+    }
+
+    .workout-action-btn.edit:hover {
+        background: #e5e7eb;
+        transform: translateY(-2px);
+    }
+
+    .workout-action-btn.view {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+
+    .workout-action-btn.view:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Empty State */
+    .empty-state {
+        background: white;
+        border-radius: 1.5rem;
+        padding: 4rem 2rem;
+        text-align: center;
+        border: 2px dashed #e5e7eb;
+    }
+
+    .empty-state-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+    }
+
+    .empty-state h3 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 0.75rem;
+    }
+
+    .empty-state p {
+        color: #6b7280;
+        margin-bottom: 2rem;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .empty-state-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 1rem;
+        font-weight: 700;
+        transition: all 0.3s ease;
+    }
+
+    .empty-state-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 25px rgba(102, 126, 234, 0.3);
+    }
+
+    /* No Results */
+    .no-results {
+        background: white;
+        border-radius: 1.25rem;
+        padding: 3rem 2rem;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+    }
+
+    .no-results-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        background: #f3f4f6;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: #9ca3af;
+    }
+
+    .no-results h3 {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+
+    .no-results p {
+        color: #6b7280;
+    }
+
+    /* Mobile Optimization */
+    @media (max-width: 768px) {
+        .workouts-header {
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+        }
+
+        .workouts-header-content {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+
+        .workouts-title h1 {
+            font-size: 1.5rem;
+        }
+
+        .workouts-badge {
+            padding: 0.625rem 1rem;
+        }
+
+        .workouts-badge-value {
+            font-size: 1.5rem;
+        }
+
+        .create-workout-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 0.875rem 1.25rem;
+        }
+
+        .filters-container {
+            padding: 1.25rem;
+            border-radius: 1rem;
+        }
+
+        .filters-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .workouts-grid {
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+        }
+
+        .workout-card-header {
+            padding: 1.25rem;
+        }
+
+        .workout-name {
+            font-size: 1.125rem;
+        }
+
+        .workout-card-body {
+            padding: 1.25rem;
+        }
+
+        .workout-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.625rem;
+        }
+
+        .workout-actions {
+            flex-direction: column;
+        }
+
+        .empty-state {
+            padding: 3rem 1.5rem;
+        }
+
+        .empty-state-icon {
+            width: 100px;
+            height: 100px;
+            font-size: 2.5rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .workouts-header {
+            padding: 1.25rem;
+        }
+
+        .workouts-title h1 {
+            font-size: 1.25rem;
+            gap: 0.5rem;
+        }
+
+        .workouts-title p {
+            font-size: 0.875rem;
+        }
+
+        .filters-container {
+            padding: 1rem;
+        }
+
+        .workout-card-header {
+            padding: 1rem;
+        }
+
+        .workout-card-body {
+            padding: 1rem;
+        }
+
+        .workout-stat {
+            padding: 0.75rem;
+        }
+    }
+</style>
+
+<div style="max-width: 1400px; margin: 0 auto; padding: 0 1rem;">
+    <!-- Premium Header -->
+    <div class="workouts-header fade-in-up">
+        <div class="workouts-header-content">
+            <div class="workouts-title">
+                <h1>💪 Allenamenti</h1>
+                <p>Gestisci i programmi di allenamento per i tuoi atleti</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div class="workouts-badge">
+                    <div class="workouts-badge-label">Totale</div>
+                    <div class="workouts-badge-value">{{ workouts|length }}</div>
+                </div>
+                <a href="{{ url_for('trainer.create_workout') }}" class="create-workout-btn">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Crea Allenamento</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri Premium -->
+    <div class="filters-container slide-in-left" style="opacity: 0; animation-delay: 0.1s;">
+        <div class="filters-grid">
+            <!-- Ricerca -->
+            <div class="filter-group">
+                <label>🔍 Cerca Allenamento</label>
+                <input type="text" id="searchInput" placeholder="Cerca per nome o atleta..." class="filter-input">
+            </div>
+
+            <!-- Tipo -->
+            <div class="filter-group">
+                <label>🏋️ Tipo</label>
+                <select id="typeFilter" class="filter-input">
+                    <option value="">Tutti i Tipi</option>
+                    <option value="strength">Forza</option>
+                    <option value="hypertrophy">Ipertrofia</option>
+                    <option value="cardio">Cardio</option>
+                    <option value="functional">Funzionale</option>
+                </select>
+            </div>
+
+            <!-- Giorno -->
+            <div class="filter-group">
+                <label>📅 Giorno</label>
+                <select id="dayFilter" class="filter-input">
+                    <option value="">Tutti i Giorni</option>
+                    <option value="0">Lunedì</option>
+                    <option value="1">Martedì</option>
+                    <option value="2">Mercoledì</option>
+                    <option value="3">Giovedì</option>
+                    <option value="4">Venerdì</option>
+                    <option value="5">Sabato</option>
+                    <option value="6">Domenica</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista Allenamenti -->
+    {% if workouts %}
+    <div class="workouts-grid" id="workoutsList">
+        {% for workout in workouts %}
+        <div class="workout-card scale-in"
+             style="animation-delay: {{ loop.index0 * 0.05 }}s;"
+             data-name="{{ workout.name|lower }}"
+             data-athlete="{{ workout.athlete.user.first_name|lower if workout.athlete else '' }} {{ workout.athlete.user.last_name|lower if workout.athlete else '' }}"
+             data-type="{{ workout.type or '' }}"
+             data-day="{{ workout.day_of_week if workout.day_of_week is not none else '' }}">
+
+            <!-- Card Header -->
+            <div class="workout-card-header">
+                <div class="workout-card-title">
+                    <div style="flex: 1;">
+                        <div class="workout-name">{{ workout.name }}</div>
+                        <div class="workout-badges">
+                            <span class="workout-type-badge">
+                                <i class="fas fa-dumbbell"></i>
+                                {% if workout.type == 'strength' %}Forza
+                                {% elif workout.type == 'cardio' %}Cardio
+                                {% elif workout.type == 'hypertrophy' %}Ipertrofia
+                                {% elif workout.type == 'functional' %}Funzionale
+                                {% else %}Generale{% endif %}
+                            </span>
+                            <span class="workout-status-badge">
+                                <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
+                                {{ 'Attivo' if workout.is_active else 'Archiviato' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div class="workout-card-body">
+                <p class="workout-description">
+                    {{ workout.description or 'Nessuna descrizione disponibile' }}
+                </p>
+
+                <!-- Stats Grid 2x2 -->
+                <div class="workout-stats-grid">
+                    <div class="workout-stat">
+                        <div class="workout-stat-label">👤 Atleta</div>
+                        <div class="workout-stat-value">
+                            {{ workout.athlete.user.first_name[:10] if workout.athlete else 'Non assegnato' }}{{ '...' if workout.athlete and (workout.athlete.user.first_name|length > 10) else '' }}
+                        </div>
+                    </div>
+
+                    <div class="workout-stat">
+                        <div class="workout-stat-label">📅 Giorno</div>
+                        <div class="workout-stat-value">
+                            {% if workout.day_of_week is not none %}
+                                {{ ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][workout.day_of_week] }}
+                            {% else %}
+                                Qualsiasi
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="workout-stat">
+                        <div class="workout-stat-label">💪 Esercizi</div>
+                        <div class="workout-stat-value">
+                            {{ workout.exercises.count() }}
+                        </div>
+                    </div>
+
+                    <div class="workout-stat">
+                        <div class="workout-stat-label">🕐 Creato</div>
+                        <div class="workout-stat-value">
+                            {{ workout.created_at.strftime('%d/%m/%y') }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="workout-actions">
+                    <a href="{{ url_for('trainer.edit_workout', workout_id=workout.id) }}" class="workout-action-btn edit">
+                        <i class="fas fa-edit"></i>
+                        <span>Modifica</span>
+                    </a>
+                    <button onclick="viewWorkoutDetails({{ workout.id }})" class="workout-action-btn view">
+                        <i class="fas fa-eye"></i>
+                        <span>Visualizza</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- No Results -->
+    <div id="noResults" class="no-results" style="display: none;">
+        <div class="no-results-icon">
+            <i class="fas fa-search"></i>
+        </div>
+        <h3>Nessun allenamento trovato</h3>
+        <p>Prova a modificare i filtri di ricerca</p>
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state fade-in-up">
+        <div class="empty-state-icon">
+            💪
+        </div>
+        <h3>Crea il tuo primo programma</h3>
+        <p>Non hai ancora allenamenti. Inizia a costruire programmi personalizzati per i tuoi atleti.</p>
+        <a href="{{ url_for('trainer.create_workout') }}" class="empty-state-btn">
+            <i class="fas fa-plus-circle"></i>
+            <span>Crea il Primo Allenamento</span>
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- JavaScript -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const typeFilter = document.getElementById('typeFilter');
+        const dayFilter = document.getElementById('dayFilter');
+        const workoutCards = document.querySelectorAll('.workout-card');
+        const noResults = document.getElementById('noResults');
+        const workoutsList = document.getElementById('workoutsList');
+
+        // Funzione di filtro combinata
+        function filterWorkouts() {
+            const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedType = typeFilter ? typeFilter.value : '';
+            const selectedDay = dayFilter ? dayFilter.value : '';
+            let visibleCount = 0;
+
+            workoutCards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                const athlete = card.getAttribute('data-athlete');
+                const type = card.getAttribute('data-type');
+                const day = card.getAttribute('data-day');
+
+                const matchesSearch = !searchTerm || name.includes(searchTerm) || athlete.includes(searchTerm);
+                const matchesType = !selectedType || type === selectedType;
+                const matchesDay = !selectedDay || day === selectedDay;
+
+                if (matchesSearch && matchesType && matchesDay) {
+                    card.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Mostra/nascondi messaggio "nessun risultato"
+            if (noResults && workoutsList) {
+                if (visibleCount === 0) {
+                    workoutsList.style.display = 'none';
+                    noResults.style.display = 'block';
+                } else {
+                    workoutsList.style.display = 'grid';
+                    noResults.style.display = 'none';
+                }
+            }
+        }
+
+        // Event listeners per filtri
+        if (searchInput) {
+            searchInput.addEventListener('input', filterWorkouts);
+        }
+
+        if (typeFilter) {
+            typeFilter.addEventListener('change', filterWorkouts);
+        }
+
+        if (dayFilter) {
+            dayFilter.addEventListener('change', filterWorkouts);
+        }
+    });
+
+    function viewWorkoutDetails(workoutId) {
+        window.location.href = `/trainer/workout/${workoutId}/edit`;
+    }
+</script>
+{% endblock %}

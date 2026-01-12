@@ -1,0 +1,770 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Atleta - Atlas Performance{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Animations */
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideInLeft {
+        from { opacity: 0; transform: translateX(-30px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+
+    /* Premium Card */
+    .premium-card {
+        background: white;
+        border-radius: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+
+    .premium-card:hover {
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        transform: translateY(-4px);
+    }
+
+    /* Gradient Header */
+    .gradient-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .gradient-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 3s infinite;
+    }
+
+    /* Stats Card */
+    .stat-card {
+        padding: 24px;
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.15) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover::before {
+        opacity: 1;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-6px) scale(1.02);
+    }
+
+    /* Chart Container */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    /* Calendar Grid */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-center;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        border: 2px solid transparent;
+    }
+
+    .calendar-day:hover {
+        transform: scale(1.1);
+        z-index: 10;
+    }
+
+    .calendar-day.today {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+    }
+
+    .calendar-day.has-workout {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .calendar-day.rest {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .calendar-day.completed {
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        color: white;
+    }
+
+    /* Workout Card */
+    .workout-card {
+        background: white;
+        border-radius: 20px;
+        padding: 24px;
+        border: 2px solid #e5e7eb;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .workout-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.4s ease;
+    }
+
+    .workout-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .workout-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Exercise Badge */
+    .exercise-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 10px;
+        color: #3b82f6;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    /* PR Badge */
+    .pr-badge {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    /* Progress Ring */
+    .progress-ring {
+        transform: rotate(-90deg);
+    }
+
+    .progress-ring-circle {
+        transition: stroke-dashoffset 0.5s ease;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .premium-card {
+            border-radius: 16px;
+        }
+
+        .stat-card {
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        .chart-container {
+            height: 200px;
+        }
+
+        .calendar-day {
+            font-size: 11px;
+            border-radius: 8px;
+        }
+
+        .workout-card {
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        /* Disable animations on mobile */
+        * {
+            animation-duration: 0s !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Header with Greeting -->
+    <div class="premium-card gradient-header fade-in-up">
+        <div class="relative z-10 px-8 py-12">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-4xl lg:text-5xl font-bold text-white mb-3">
+                        Ciao {{ current_user.first_name }}! 💪
+                    </h1>
+                    <p class="text-xl text-white/90">Ecco il tuo riepilogo prestazioni</p>
+                </div>
+                {% if unread_messages > 0 %}
+                <a href="{{ url_for('athlete.messages') }}" class="relative">
+                    <div class="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/30 hover:scale-110 transition">
+                        <i class="fas fa-envelope text-white text-2xl"></i>
+                        <span class="absolute -top-1 -right-1 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">{{ unread_messages }}</span>
+                    </div>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Widgets -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Current Weight -->
+        <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600 text-white scale-in" style="animation-delay: 0.1s;">
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-3">
+                    <i class="fas fa-weight text-4xl opacity-80"></i>
+                    <svg class="progress-ring" width="60" height="60">
+                        <circle class="progress-ring-circle" stroke="rgba(255,255,255,0.3)" stroke-width="4" fill="transparent" r="26" cx="30" cy="30"/>
+                        <circle class="progress-ring-circle" stroke="white" stroke-width="4" fill="transparent" r="26" cx="30" cy="30"
+                                stroke-dasharray="163.36"
+                                stroke-dashoffset="{{ 163.36 * (1 - ((athlete.current_weight - athlete.target_weight)|abs / 10)) if athlete.target_weight else 0 }}"/>
+                    </svg>
+                </div>
+                <p class="text-lg font-semibold opacity-95 mb-2">Peso Attuale</p>
+                <div class="flex items-baseline gap-2">
+                    <span class="text-4xl font-bold">{{ athlete.current_weight|round(1) if athlete.current_weight else '-' }}</span>
+                    <span class="text-xl opacity-80">kg</span>
+                </div>
+                {% if athlete.target_weight %}
+                <div class="mt-3 flex items-center gap-2 text-sm">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Obiettivo: {{ athlete.target_weight }}kg</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Personal Records -->
+        <div class="stat-card bg-gradient-to-br from-yellow-500 to-orange-600 text-white scale-in" style="animation-delay: 0.2s;">
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-3">
+                    <i class="fas fa-trophy text-4xl opacity-80"></i>
+                    <div class="pr-badge">
+                        <i class="fas fa-star"></i>
+                        <span>NEW</span>
+                    </div>
+                </div>
+                <p class="text-lg font-semibold opacity-95 mb-2">Record Personali</p>
+                <div class="flex items-baseline gap-2">
+                    <span class="text-4xl font-bold">{{ personal_records|length if personal_records else 0 }}</span>
+                    <span class="text-xl opacity-80">PR</span>
+                </div>
+                <div class="mt-3 text-sm">
+                    <i class="fas fa-fire mr-2"></i>
+                    <span>Continua così!</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Progress -->
+        <div class="stat-card bg-gradient-to-br from-green-500 to-green-600 text-white scale-in" style="animation-delay: 0.3s;">
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-3">
+                    <i class="fas fa-chart-line text-4xl opacity-80"></i>
+                    <span class="text-5xl font-bold">{{ recent_logs|length }}</span>
+                </div>
+                <p class="text-lg font-semibold opacity-95 mb-2">Allenamenti Settimana</p>
+                <div class="mt-4 h-2 bg-white/20 rounded-full overflow-hidden">
+                    <div class="h-full bg-white/60 rounded-full transition-all duration-500"
+                         style="width: {{ (recent_logs|length / 7 * 100)|round }}%"></div>
+                </div>
+                <div class="mt-2 text-sm opacity-90">
+                    {{ (recent_logs|length / 7 * 100)|round }}% completato
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Check-in -->
+        <div class="stat-card bg-gradient-to-br from-purple-500 to-purple-600 text-white scale-in" style="animation-delay: 0.4s;">
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-3">
+                    <i class="fas fa-calendar-check text-4xl opacity-80"></i>
+                    {% if next_check_in %}
+                    <div class="text-5xl font-bold">{{ next_check_in.strftime('%d') }}</div>
+                    {% else %}
+                    <i class="fas fa-exclamation-circle text-3xl opacity-60"></i>
+                    {% endif %}
+                </div>
+                <p class="text-lg font-semibold opacity-95 mb-2">Prossimo Check-in</p>
+                {% if next_check_in %}
+                <div class="text-sm opacity-90">{{ next_check_in.strftime('%B %Y') }}</div>
+                {% else %}
+                <a href="{{ url_for('athlete.check_in') }}"
+                   class="mt-4 inline-block px-6 py-2 bg-white/20 backdrop-blur-md rounded-xl text-base font-bold hover:bg-white/30 transition">
+                    Fallo Ora →
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Weight Progress Chart -->
+        <div class="premium-card slide-in-left" style="animation-delay: 0.2s;">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-weight text-white"></i>
+                        </div>
+                        Andamento Peso
+                    </h2>
+                    <select class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="updateWeightChart(this.value)">
+                        <option value="30">Ultimi 30 giorni</option>
+                        <option value="90">Ultimi 3 mesi</option>
+                        <option value="180">Ultimi 6 mesi</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="weightChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workout Volume Chart -->
+        <div class="premium-card slide-in-left" style="animation-delay: 0.3s;">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-dumbbell text-white"></i>
+                        </div>
+                        Volume Allenamento
+                    </h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar View for Workouts -->
+    <div class="premium-card fade-in-up" style="animation-delay: 0.4s;">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-calendar text-white"></i>
+                    </div>
+                    Calendario Allenamenti
+                </h2>
+                <div class="flex items-center gap-3">
+                    <button onclick="previousMonth()" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="text-lg font-semibold px-4" id="currentMonth">Gennaio 2026</span>
+                    <button onclick="nextMonth()" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Calendar Legend -->
+            <div class="flex flex-wrap items-center gap-6 mb-6 p-4 bg-gray-50 rounded-xl">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-gradient-to-br from-green-500 to-green-600"></div>
+                    <span class="text-sm font-medium text-gray-700">Allenamento Programmato</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-gradient-to-br from-blue-500 to-purple-600"></div>
+                    <span class="text-sm font-medium text-gray-700">Completato</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-gray-200"></div>
+                    <span class="text-sm font-medium text-gray-700">Riposo</span>
+                </div>
+            </div>
+
+            <!-- Day Names -->
+            <div class="calendar-grid mb-2">
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Lun</div>
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Mar</div>
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Mer</div>
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Gio</div>
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Ven</div>
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Sab</div>
+                <div class="text-center text-sm font-bold text-gray-600 py-2">Dom</div>
+            </div>
+
+            <!-- Calendar Days -->
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- Days will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Workouts -->
+    <div class="fade-in-up" style="animation-delay: 0.5s;">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-fire text-white text-xl"></i>
+                </div>
+                Allenamenti di Oggi
+            </h2>
+            <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-full font-bold">
+                {{ todays_workouts|length }} workout{{ 's' if todays_workouts|length != 1 }}
+            </span>
+        </div>
+
+        {% if todays_workouts %}
+        <div class="grid grid-cols-1 gap-6">
+            {% for workout in todays_workouts %}
+            <div class="workout-card">
+                <div class="flex items-start justify-between gap-6">
+                    <!-- Workout Info -->
+                    <div class="flex-1">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-dumbbell text-white text-2xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-900 mb-1">{{ workout.name }}</h3>
+                                <p class="text-gray-600">{{ workout.description or 'Allenamento completo' }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Exercises Preview -->
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                            {% for exercise in workout.exercises.limit(6) %}
+                            <div class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                                <i class="fas fa-check-circle text-green-500"></i>
+                                <span class="text-sm font-medium text-gray-700">{{ exercise.exercise.name }}</span>
+                            </div>
+                            {% endfor %}
+                            {% if workout.exercises.count() > 6 %}
+                            <div class="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                                <i class="fas fa-plus-circle text-blue-500"></i>
+                                <span class="text-sm font-bold text-blue-700">+{{ workout.exercises.count() - 6 }} altri</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Workout Stats -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="exercise-badge">
+                                <i class="fas fa-list"></i>
+                                <span>{{ workout.exercises.count() }} esercizi</span>
+                            </div>
+                            <div class="exercise-badge" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">
+                                <i class="fas fa-clock"></i>
+                                <span>~{{ (workout.exercises.count() * 5) }} min</span>
+                            </div>
+                            <div class="exercise-badge" style="background: rgba(249, 115, 22, 0.1); color: #f97316;">
+                                <i class="fas fa-fire"></i>
+                                <span>{{ workout.type|title }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <a href="{{ url_for('athlete.workout_detail', workout_id=workout.id) }}"
+                       class="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl font-bold text-lg hover:shadow-xl transition-all flex items-center gap-3 group">
+                        <i class="fas fa-play-circle text-2xl"></i>
+                        <span>Inizia</span>
+                        <i class="fas fa-arrow-right transform group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-16 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-3xl border-3 border-dashed border-orange-300">
+            <i class="fas fa-calendar-times text-orange-500 text-6xl mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Nessun Allenamento Oggi</h3>
+            <p class="text-gray-700 mb-6">Prenditi un meritato riposo!</p>
+            <a href="{{ url_for('athlete.progress') }}" class="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg transition">
+                <i class="fas fa-chart-line mr-2"></i>
+                Vedi Progressi
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize Charts
+document.addEventListener('DOMContentLoaded', function() {
+    initWeightChart();
+    initVolumeChart();
+    initCalendar();
+});
+
+// Weight Progress Chart
+function initWeightChart() {
+    const ctx = document.getElementById('weightChart');
+    if (!ctx) return;
+
+    // Sample data - Replace with actual data from backend
+    const weightData = {
+        labels: ['1 Gen', '5 Gen', '10 Gen', '15 Gen', '20 Gen', '25 Gen', '30 Gen'],
+        datasets: [{
+            label: 'Peso (kg)',
+            data: [{{ athlete.current_weight or 75 }}, {{ (athlete.current_weight or 75) - 0.5 }}, {{ (athlete.current_weight or 75) - 0.8 }},
+                   {{ (athlete.current_weight or 75) - 1.2 }}, {{ (athlete.current_weight or 75) - 1.5 }},
+                   {{ (athlete.current_weight or 75) - 1.8 }}, {{ athlete.current_weight or 75 }}],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 6,
+            pointBackgroundColor: '#3b82f6',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointHoverRadius: 8
+        }{% if athlete.target_weight %}, {
+            label: 'Obiettivo',
+            data: Array(7).fill({{ athlete.target_weight }}),
+            borderColor: '#f59e0b',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            pointRadius: 0
+        }{% endif %}]
+    };
+
+    new Chart(ctx, {
+        type: 'line',
+        data: weightData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 12, weight: 'bold' }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    borderColor: '#3b82f6',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: { font: { size: 11 }, callback: value => value + ' kg' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                }
+            }
+        }
+    });
+}
+
+// Volume Chart
+function initVolumeChart() {
+    const ctx = document.getElementById('volumeChart');
+    if (!ctx) return;
+
+    const volumeData = {
+        labels: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
+        datasets: [{
+            label: 'Volume (kg)',
+            data: [2500, 2800, 0, 3200, 2900, 3500, 0],
+            backgroundColor: [
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(229, 231, 235, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(229, 231, 235, 0.8)'
+            ],
+            borderRadius: 10,
+            borderSkipped: false
+        }]
+    };
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: volumeData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: context => `Volume: ${context.parsed.y} kg`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: { font: { size: 11 }, callback: value => value + ' kg' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11, weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+// Calendar Functions
+let currentDate = new Date();
+
+function initCalendar() {
+    updateCalendar();
+}
+
+function updateCalendar() {
+    const monthYear = currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    document.getElementById('currentMonth').textContent = monthYear.charAt(0).toUpperCase() + monthYear.slice(1);
+
+    const grid = document.getElementById('calendarGrid');
+    const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+
+    grid.innerHTML = '';
+
+    // Empty cells for days before month starts
+    for (let i = 0; i < startingDayOfWeek; i++) {
+        const emptyCell = document.createElement('div');
+        grid.appendChild(emptyCell);
+    }
+
+    // Days of month
+    const today = new Date();
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        const dayOfWeek = cellDate.getDay();
+
+        dayCell.className = 'calendar-day';
+        dayCell.textContent = day;
+
+        // Check if today
+        if (cellDate.toDateString() === today.toDateString()) {
+            dayCell.classList.add('today');
+        }
+
+        // Simulate workout days (Mon, Wed, Fri have workouts)
+        if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
+            if (cellDate < today) {
+                dayCell.classList.add('completed');
+                dayCell.innerHTML = `${day}<br><i class="fas fa-check text-xs"></i>`;
+            } else {
+                dayCell.classList.add('has-workout');
+                dayCell.innerHTML = `${day}<br><i class="fas fa-dumbbell text-xs"></i>`;
+            }
+        } else {
+            dayCell.classList.add('rest');
+        }
+
+        dayCell.addEventListener('click', () => showDayDetails(cellDate));
+        grid.appendChild(dayCell);
+    }
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    updateCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    updateCalendar();
+}
+
+function showDayDetails(date) {
+    alert('Dettagli per il giorno: ' + date.toLocaleDateString('it-IT'));
+}
+
+function updateWeightChart(days) {
+    console.log('Update weight chart for last', days, 'days');
+    // Implement AJAX call to fetch data for selected period
+}
+</script>
+{% endblock %}

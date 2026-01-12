@@ -1,0 +1,56 @@
+/* ============================================================================
+   SUPER ADMIN FIX - Risoluzione problemi rendering
+   Data: 9 Gennaio 2026
+   Problema: Layout e overflow issues - VERSIONE CORRETTA
+============================================================================= */
+
+/* Fix SOLO per overflow e positioning - NON toccare height/dimensions */
+
+/* Fix per z-index issues */
+.premium-sidebar {
+    z-index: 1000 !important;
+}
+
+main {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* Il margine sidebar è ora gestito correttamente dal base.html con .content-wrapper (280px) */
+
+/* Fix per contenuto che scompare */
+.hidden {
+    display: none !important;
+}
+
+/* Fix per visibility */
+.invisible {
+    visibility: hidden !important;
+}
+
+/* Assicura che il contenuto sia visibile */
+main > div {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Fix per table responsive */
+table {
+    width: 100% !important;
+    table-layout: auto !important;
+}
+
+thead {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+}
+
+/* Fix per table wrapper - SOLO overflow */
+.overflow-x-auto {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+}
+
+/* NON MODIFICARE stat-card, chart-container o altri elementi visivi! */
+/* Questi devono usare gli stili inline del template */

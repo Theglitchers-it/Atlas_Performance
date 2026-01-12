@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Utenti - Super Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-card {
+        transition: all 0.3s ease;
+    }
+    .user-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">👥 Gestione Utenti</h1>
+            <p class="text-gray-600 text-lg">Visualizza tutti gli utenti della piattaforma</p>
+        </div>
+        <a href="{{ url_for('super_admin.dashboard') }}"
+           class="flex items-center space-x-2 px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-semibold transition shadow-sm border border-gray-200">
+            <i class="fas fa-arrow-left"></i>
+            <span>Dashboard</span>
+        </a>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-user-tie text-3xl"></i>
+                </div>
+            </div>
+            <p class="text-5xl font-bold mb-2">{{ trainers|length if trainers else 0 }}</p>
+            <p class="text-indigo-100 font-medium">Trainer Totali</p>
+            <p class="text-sm text-indigo-100 mt-3">Personal trainer sulla piattaforma</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-running text-3xl"></i>
+                </div>
+            </div>
+            <p class="text-5xl font-bold mb-2">{{ athletes|length if athletes else 0 }}</p>
+            <p class="text-green-100 font-medium">Atleti Totali</p>
+            <p class="text-sm text-green-100 mt-3">Atleti registrati sulla piattaforma</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-users text-3xl"></i>
+                </div>
+            </div>
+            <p class="text-5xl font-bold mb-2">{{ (trainers|length + athletes|length) if trainers and athletes else 0 }}</p>
+            <p class="text-blue-100 font-medium">Utenti Totali</p>
+            <p class="text-sm text-blue-100 mt-3">Tutti gli utenti della piattaforma</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center flex-wrap gap-4">
+            <span class="font-semibold text-gray-700 text-lg">🔍 Filtri:</span>
+            <a href="{{ url_for('super_admin.users') }}"
+               class="px-6 py-3 rounded-xl font-semibold transition {% if not role_filter %}bg-gradient-to-r from-blue-600 to-purple-600 text-white{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %}">
+                Tutti
+            </a>
+            <a href="{{ url_for('super_admin.users', role='trainer') }}"
+               class="px-6 py-3 rounded-xl font-semibold transition {% if role_filter == 'trainer' %}bg-gradient-to-r from-blue-600 to-purple-600 text-white{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %}">
+                <i class="fas fa-user-tie mr-2"></i>
+                Trainer
+            </a>
+            <a href="{{ url_for('super_admin.users', role='athlete') }}"
+               class="px-6 py-3 rounded-xl font-semibold transition {% if role_filter == 'athlete' %}bg-gradient-to-r from-blue-600 to-purple-600 text-white{% else %}bg-gray-100 hover:bg-gray-200 text-gray-700{% endif %}">
+                <i class="fas fa-running mr-2"></i>
+                Atleti
+            </a>
+        </div>
+    </div>
+
+    <!-- Trainers Section -->
+    {% if not role_filter or role_filter == 'trainer' %}
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">👨‍💼 Trainer</h2>
+                <p class="text-gray-500 text-sm mt-1">Personal trainer registrati</p>
+            </div>
+        </div>
+
+        {% if trainers %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for trainer in trainers %}
+            <div class="user-card bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border-2 border-indigo-100">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mr-4">
+                        {{ trainer.first_name[0].upper() if trainer.first_name else trainer.email[0].upper() }}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-gray-900">
+                            {{ trainer.first_name }} {{ trainer.last_name if trainer.last_name else '' }}
+                        </h3>
+                        <p class="text-sm text-gray-600">{{ trainer.email }}</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-sm text-gray-600">
+                    <div class="flex items-center">
+                        <i class="fas fa-building w-5 text-indigo-500"></i>
+                        <span class="ml-2">{{ trainer.tenant.name if trainer.tenant else 'N/A' }}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-calendar-alt w-5 text-indigo-500"></i>
+                        <span class="ml-2">Registrato il {{ trainer.created_at.strftime('%d/%m/%Y') if trainer.created_at else 'N/A' }}</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-indigo-200">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                        <i class="fas fa-user-tie mr-2"></i>TRAINER
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-tie text-gray-400 text-3xl"></i>
+            </div>
+            <p class="text-gray-600 text-lg font-medium">Nessun trainer trovato</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Athletes Section -->
+    {% if not role_filter or role_filter == 'athlete' %}
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">🏃 Atleti</h2>
+                <p class="text-gray-500 text-sm mt-1">Atleti registrati sulla piattaforma</p>
+            </div>
+        </div>
+
+        {% if athletes %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for athlete in athletes %}
+            <div class="user-card bg-gradient-to-br from-green-50 to-teal-50 rounded-2xl p-6 border-2 border-green-100">
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mr-4">
+                        {{ athlete.first_name[0].upper() if athlete.first_name else athlete.email[0].upper() }}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-gray-900">
+                            {{ athlete.first_name }} {{ athlete.last_name if athlete.last_name else '' }}
+                        </h3>
+                        <p class="text-sm text-gray-600">{{ athlete.email }}</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-sm text-gray-600">
+                    <div class="flex items-center">
+                        <i class="fas fa-building w-5 text-green-500"></i>
+                        <span class="ml-2">{{ athlete.tenant.name if athlete.tenant else 'N/A' }}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-calendar-alt w-5 text-green-500"></i>
+                        <span class="ml-2">Registrato il {{ athlete.created_at.strftime('%d/%m/%Y') if athlete.created_at else 'N/A' }}</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-green-200">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                        <i class="fas fa-running mr-2"></i>ATLETA
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-running text-gray-400 text-3xl"></i>
+            </div>
+            <p class="text-gray-600 text-lg font-medium">Nessun atleta trovato</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

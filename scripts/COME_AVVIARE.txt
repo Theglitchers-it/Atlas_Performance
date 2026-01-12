@@ -1,0 +1,78 @@
+╔═══════════════════════════════════════════════════════════════╗
+║          ATLAS PERFORMANCE - GUIDA AVVIO RAPIDO               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+🚀 AVVIO PRIMA VOLTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Fai doppio click su:  start.bat
+
+Cosa fa:
+✅ Crea l'ambiente virtuale Python
+✅ Installa tutte le dipendenze necessarie
+✅ Crea il file .env di configurazione
+✅ Avvia il server su http://localhost:5000
+
+
+⚡ AVVIO VELOCE (dopo la prima volta)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Fai doppio click su:  quick-start.bat
+
+Cosa fa:
+✅ Avvia direttamente il server (più veloce!)
+✅ Non reinstalla le dipendenze
+
+
+🔑 CREDENZIALI DI ACCESSO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+URL: http://localhost:5000
+
+Super Admin:
+  Email: admin@atlasperformance.com
+  Password: admin123
+
+Trainer Demo:
+  Email: trainer@demo.com
+  Password: demo123
+
+Atleta Demo:
+  Email: athlete@demo.com
+  Password: demo123
+
+
+⚙️ CONFIGURAZIONE AVANZATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Per configurare Stripe, AWS S3, Email, ecc:
+1. Apri il file .env con un editor di testo
+2. Modifica i valori necessari
+3. Salva e riavvia il server
+
+
+🛑 FERMARE IL SERVER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Premi Ctrl+C nella finestra del terminale
+
+
+❓ PROBLEMI COMUNI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"Python non trovato":
+  → Installa Python da https://www.python.org/
+
+"ModuleNotFoundError":
+  → Esegui start.bat (non quick-start.bat)
+
+"Port 5000 already in use":
+  → Chiudi altri server in esecuzione sulla porta 5000
+  → Oppure modifica la porta in run.py
+
+
+📚 DOCUMENTAZIONE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Leggi i file:
+- README.md - Panoramica completa del progetto
+- FEATURES.md - Lista delle funzionalità
+- SETUP_GUIDE.md - Guida setup completa
+- DEPLOYMENT_CHECKLIST.md - Checklist per il deployment
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Buon lavoro! 💪

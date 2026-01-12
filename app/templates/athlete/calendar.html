@@ -1,0 +1,1131 @@
+{% extends "base.html" %}
+
+{% block title %}Calendario Allenamenti - Atlas Performance{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========================================
+       PREMIUM MOBILE-FIRST CALENDARIO ATLETA
+       ======================================== */
+
+    /* Body & Container */
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+        min-height: 100vh;
+    }
+
+    /* Hero Header con Gradient Viola Premium */
+    .hero-header-calendar {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    }
+
+    .hero-header-calendar::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+        animation: shimmer 8s infinite;
+    }
+
+    @keyframes shimmer {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-30px, -30px); }
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 10;
+    }
+
+    .hero-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: white;
+        margin-bottom: 4px;
+        line-height: 1.2;
+    }
+
+    .hero-subtitle {
+        font-size: 12px;
+        color: rgba(255,255,255,0.95);
+        font-weight: 500;
+    }
+
+    .hero-back-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 8px 14px;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        z-index: 20;
+    }
+
+    .hero-back-btn:active {
+        transform: scale(0.95);
+    }
+
+    /* Quick Stats Mensili */
+    .monthly-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .monthly-stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.6s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    .monthly-stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .monthly-stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .monthly-stat-card:nth-child(3) { animation-delay: 0.3s; }
+
+    .monthly-stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .monthly-stat-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 8px auto;
+        background: linear-gradient(135deg, var(--stat-color-1), var(--stat-color-2));
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+    }
+
+    .monthly-stat-card:hover .monthly-stat-icon {
+        transform: scale(1.1) rotate(-5deg);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+
+    .monthly-stat-icon i {
+        color: white;
+        font-size: 14px;
+    }
+
+    .monthly-stat-value {
+        font-size: 20px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 4px;
+        line-height: 1;
+    }
+
+    .monthly-stat-label {
+        font-size: 9px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        line-height: 1.2;
+    }
+
+    /* Calendar Container */
+    .calendar-container {
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 16px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.6s ease-out 0.5s forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    .calendar-container:hover {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    /* Calendar Header */
+    .calendar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .month-year {
+        font-size: 14px;
+        font-weight: 800;
+        color: #1e293b;
+    }
+
+    .nav-buttons {
+        display: flex;
+        gap: 6px;
+    }
+
+    .nav-button {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .nav-button::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(59, 130, 246, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .nav-button:active::before {
+        width: 100px;
+        height: 100px;
+    }
+
+    .nav-button:active {
+        transform: scale(0.95);
+        background: #3b82f6;
+        color: white;
+    }
+
+    .nav-button:hover {
+        background: #3b82f6;
+        color: white;
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    /* Calendar Grid */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+    }
+
+    .day-header {
+        text-align: center;
+        font-weight: 700;
+        font-size: 9px;
+        color: #64748b;
+        padding: 6px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 2px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        border: 1px solid transparent;
+        position: relative;
+        background: #f9fafb;
+        animation: scaleIn 0.4s ease-out forwards;
+        opacity: 0;
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .calendar-day:active {
+        transform: scale(0.95);
+    }
+
+    .calendar-day:hover {
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: rgba(59, 130, 246, 0.3);
+        z-index: 10;
+    }
+
+    .calendar-day.today {
+        border-color: #3b82f6;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .calendar-day.has-workout {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .calendar-day.has-checkin {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+    }
+
+    .calendar-day.has-both {
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #10b981 100%);
+        color: white;
+    }
+
+    .calendar-day.completed {
+        opacity: 0.7;
+    }
+
+    .calendar-day.other-month {
+        opacity: 0.3;
+    }
+
+    .day-number {
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .day-indicator-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: white;
+        margin-top: 2px;
+    }
+
+    /* Legend */
+    .calendar-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px;
+        background: white;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.6s ease-out 0.4s forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    .legend-item {
+        transition: transform 0.3s ease;
+    }
+
+    .legend-item:hover {
+        transform: translateY(-2px);
+    }
+
+
+    .legend-box {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        flex-shrink: 0;
+    }
+
+    .legend-text {
+        font-size: 9px;
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    /* Quick Actions */
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .quick-action-btn {
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        text-decoration: none;
+        border: 2px solid #e2e8f0;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: fadeInUp 0.6s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    .quick-action-btn:nth-child(1) { animation-delay: 0.6s; }
+    .quick-action-btn:nth-child(2) { animation-delay: 0.7s; }
+    .quick-action-btn:nth-child(3) { animation-delay: 0.8s; }
+
+    .quick-action-btn:active {
+        transform: scale(0.97);
+    }
+
+    .quick-action-btn:hover {
+        transform: translateY(-4px);
+        border-color: #3b82f6;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.25);
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
+    }
+
+    .action-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--action-color-1), var(--action-color-2));
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+
+    .quick-action-btn:hover .action-icon-box {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+
+    .action-icon-box i {
+        color: white;
+        font-size: 16px;
+    }
+
+    .action-text {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    /* Event Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        padding: 16px;
+        max-width: 400px;
+        width: 100%;
+        max-height: 80vh;
+        overflow-y: auto;
+        animation: modalScaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    @keyframes modalScaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9) translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .modal-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #1e293b;
+    }
+
+    .close-button {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .close-button:active {
+        background: #ef4444;
+        color: white;
+        transform: scale(0.95);
+    }
+
+    /* Event Item */
+    .event-item {
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border-left: 4px solid;
+        background: #f9fafb;
+        transition: all 0.3s ease;
+        animation: slideInLeft 0.4s ease-out forwards;
+        opacity: 0;
+    }
+
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .event-item:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    .event-item.workout {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-color: #10b981;
+    }
+
+    .event-item.checkin {
+        background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+        border-color: #8b5cf6;
+    }
+
+    .event-title {
+        font-weight: 700;
+        font-size: 13px;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+
+    .event-desc {
+        font-size: 11px;
+        color: #64748b;
+    }
+
+    /* Desktop Optimizations */
+    @media (min-width: 768px) {
+        .hero-header-calendar {
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-size: 36px;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+        }
+
+        .hero-back-btn {
+            top: 24px;
+            right: 24px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+
+        .monthly-stats-grid {
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .monthly-stat-card {
+            border-radius: 16px;
+            padding: 24px 16px;
+        }
+
+        .monthly-stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            margin-bottom: 12px;
+        }
+
+        .monthly-stat-icon i {
+            font-size: 20px;
+        }
+
+        .monthly-stat-value {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .monthly-stat-label {
+            font-size: 11px;
+        }
+
+        .calendar-container {
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .calendar-header {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+        }
+
+        .month-year {
+            font-size: 24px;
+        }
+
+        .nav-buttons {
+            gap: 10px;
+        }
+
+        .nav-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            font-size: 18px;
+        }
+
+        .calendar-grid {
+            gap: 8px;
+        }
+
+        .day-header {
+            font-size: 12px;
+            padding: 10px 0;
+        }
+
+        .calendar-day {
+            border-radius: 12px;
+            padding: 8px 4px;
+        }
+
+        .day-number {
+            font-size: 16px;
+        }
+
+        .day-indicator-dot {
+            width: 6px;
+            height: 6px;
+            margin-top: 4px;
+        }
+
+        .calendar-legend {
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 32px;
+            gap: 20px;
+        }
+
+        .legend-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+        }
+
+        .legend-text {
+            font-size: 14px;
+        }
+
+        .quick-actions-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .quick-action-btn {
+            border-radius: 16px;
+            padding: 20px;
+            gap: 12px;
+        }
+
+        .action-icon-box {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+        }
+
+        .action-icon-box i {
+            font-size: 24px;
+        }
+
+        .action-text {
+            font-size: 16px;
+        }
+
+        .modal-content {
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+        }
+
+        .close-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+        }
+
+        .event-item {
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            border-left-width: 6px;
+        }
+
+        .event-title {
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+
+        .event-desc {
+            font-size: 14px;
+        }
+    }
+
+    /* Ultra Wide Desktop */
+    @media (min-width: 1280px) {
+        .calendar-day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            z-index: 10;
+        }
+
+        .quick-action-btn:hover {
+            transform: translateY(-4px);
+            border-color: #3b82f6;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-3 md:px-6 pt-16 pb-20 md:pt-8 md:pb-8">
+
+    <!-- Hero Header -->
+    <div class="hero-header-calendar">
+        <a href="{{ url_for('athlete.dashboard') }}" class="hero-back-btn">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+        <div class="hero-content">
+            <h1 class="hero-title">Calendario Allenamenti 📅</h1>
+            <p class="hero-subtitle">Pianifica e traccia i tuoi workout</p>
+        </div>
+    </div>
+
+    <!-- Monthly Stats -->
+    <div class="monthly-stats-grid">
+        <div class="monthly-stat-card" style="--stat-color-1: #10b981; --stat-color-2: #059669;">
+            <div class="monthly-stat-icon">
+                <i class="fas fa-dumbbell"></i>
+            </div>
+            <div class="monthly-stat-value" id="monthlyWorkouts">0</div>
+            <div class="monthly-stat-label">Workout<br>Mese</div>
+        </div>
+
+        <div class="monthly-stat-card" style="--stat-color-1: #3b82f6; --stat-color-2: #2563eb;">
+            <div class="monthly-stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="monthly-stat-value" id="completedWorkouts">0</div>
+            <div class="monthly-stat-label">Completati<br>Mese</div>
+        </div>
+
+        <div class="monthly-stat-card" style="--stat-color-1: #f59e0b; --stat-color-2: #d97706;">
+            <div class="monthly-stat-icon">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="monthly-stat-value" id="streakDays">0</div>
+            <div class="monthly-stat-label">Giorni<br>Streak</div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions-grid">
+        <a href="{{ url_for('athlete.check_in') }}" class="quick-action-btn" style="--action-color-1: #8b5cf6; --action-color-2: #7c3aed;">
+            <div class="action-icon-box">
+                <i class="fas fa-clipboard-check"></i>
+            </div>
+            <div class="action-text">Check-in</div>
+        </a>
+
+        <a href="{{ url_for('athlete.dashboard') }}" class="quick-action-btn" style="--action-color-1: #10b981; --action-color-2: #059669;">
+            <div class="action-icon-box">
+                <i class="fas fa-dumbbell"></i>
+            </div>
+            <div class="action-text">Workout Oggi</div>
+        </a>
+
+        <button onclick="showToday()" class="quick-action-btn" style="--action-color-1: #3b82f6; --action-color-2: #2563eb; cursor: pointer;">
+            <div class="action-icon-box">
+                <i class="fas fa-calendar-day"></i>
+            </div>
+            <div class="action-text">Vai a Oggi</div>
+        </button>
+    </div>
+
+    <!-- Legend -->
+    <div class="calendar-legend">
+        <div class="legend-item">
+            <div class="legend-box" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #3b82f6;"></div>
+            <span class="legend-text">Oggi</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-box" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"></div>
+            <span class="legend-text">Workout</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-box" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);"></div>
+            <span class="legend-text">Check-in</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-box" style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #10b981 100%);"></div>
+            <span class="legend-text">Entrambi</span>
+        </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="calendar-container">
+        <!-- Calendar Header -->
+        <div class="calendar-header">
+            <div class="nav-buttons">
+                <button class="nav-button" onclick="previousMonth()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+
+            <div class="month-year" id="currentMonthYear">
+                Gennaio 2026
+            </div>
+
+            <div class="nav-buttons">
+                <button class="nav-button" onclick="nextMonth()">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Day Headers -->
+        <div class="calendar-grid">
+            <div class="day-header">Lun</div>
+            <div class="day-header">Mar</div>
+            <div class="day-header">Mer</div>
+            <div class="day-header">Gio</div>
+            <div class="day-header">Ven</div>
+            <div class="day-header">Sab</div>
+            <div class="day-header">Dom</div>
+        </div>
+
+        <!-- Calendar Days -->
+        <div class="calendar-grid" id="calendarDays">
+            <!-- Days will be populated by JavaScript -->
+        </div>
+    </div>
+
+</div>
+
+<!-- Event Modal -->
+<div class="modal" id="eventModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title" id="modalTitle">Eventi del Giorno</div>
+            <button class="close-button" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div id="modalContent">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentDate = new Date();
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+// Initialize calendar on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateCalendar();
+});
+
+// Update calendar display
+function updateCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    // Update header
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    document.getElementById('currentMonthYear').textContent = `${monthNames[month]} ${year}`;
+
+    // Fetch calendar data from API
+    fetch(`/athlete/api/calendar-data?year=${year}&month=${month + 1}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                renderCalendar(data.days, year, month);
+                updateMonthlyStats(data.monthly_stats || {});
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching calendar data:', err);
+            renderCalendar([], year, month);
+        });
+}
+
+// Update monthly stats
+function updateMonthlyStats(stats) {
+    document.getElementById('monthlyWorkouts').textContent = stats.total_workouts || 0;
+    document.getElementById('completedWorkouts').textContent = stats.completed_workouts || 0;
+    document.getElementById('streakDays').textContent = stats.streak_days || 0;
+}
+
+// Render calendar days
+function renderCalendar(daysData, year, month) {
+    const container = document.getElementById('calendarDays');
+    container.innerHTML = '';
+
+    // Calculate first day of month and total days
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const firstDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Monday = 0
+    const daysInMonth = lastDay.getDate();
+
+    // Previous month days
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+        const dayNum = prevMonthLastDay - i;
+        const dayDiv = createDayElement(dayNum, false, null, true);
+        container.appendChild(dayDiv);
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        date.setHours(0, 0, 0, 0);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayData = daysData.find(d => d.date === dateStr);
+
+        const isToday = date.getTime() === today.getTime();
+
+        const dayDiv = createDayElement(day, isToday, dayData, false);
+        container.appendChild(dayDiv);
+    }
+
+    // Next month days
+    const totalCells = firstDayOfWeek + daysInMonth;
+    const remainingCells = totalCells <= 35 ? (35 - totalCells) : (42 - totalCells);
+    for (let i = 1; i <= remainingCells; i++) {
+        const dayDiv = createDayElement(i, false, null, true);
+        container.appendChild(dayDiv);
+    }
+}
+
+// Create day element
+function createDayElement(dayNum, isToday, dayData, isOtherMonth) {
+    const dayDiv = document.createElement('div');
+    dayDiv.className = 'calendar-day';
+
+    if (isToday) dayDiv.classList.add('today');
+    if (isOtherMonth) dayDiv.classList.add('other-month');
+
+    if (dayData) {
+        const hasWorkout = dayData.has_workout;
+        const hasCheckin = dayData.has_checkin || false;
+        const isCompleted = dayData.completed || false;
+
+        if (hasWorkout && hasCheckin) {
+            dayDiv.classList.add('has-both');
+        } else if (hasWorkout) {
+            dayDiv.classList.add('has-workout');
+        } else if (hasCheckin) {
+            dayDiv.classList.add('has-checkin');
+        }
+
+        if (isCompleted) {
+            dayDiv.classList.add('completed');
+        }
+    }
+
+    // Day number
+    const dayNumber = document.createElement('div');
+    dayNumber.className = 'day-number';
+    dayNumber.textContent = dayNum;
+    dayDiv.appendChild(dayNumber);
+
+    // Indicator dot
+    if (dayData && (dayData.has_workout || dayData.has_checkin)) {
+        const dot = document.createElement('div');
+        dot.className = 'day-indicator-dot';
+        dayDiv.appendChild(dot);
+    }
+
+    // Click handler
+    if (!isOtherMonth) {
+        dayDiv.onclick = () => showDayEvents(dayNum, dayData);
+    }
+
+    return dayDiv;
+}
+
+// Show day events in modal
+function showDayEvents(day, dayData) {
+    const modal = document.getElementById('eventModal');
+    const title = document.getElementById('modalTitle');
+    const content = document.getElementById('modalContent');
+
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+    title.textContent = `${day} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+    let html = '';
+
+    if (dayData) {
+        if (dayData.has_workout) {
+            html += `
+                <div class="event-item workout">
+                    <div class="event-title">
+                        <i class="fas fa-dumbbell"></i> Allenamento Programmato
+                    </div>
+                    <div class="event-desc">${dayData.completed ? 'Completato ✓' : 'Da completare'}</div>
+                </div>
+            `;
+        }
+
+        if (dayData.has_checkin) {
+            html += `
+                <div class="event-item checkin">
+                    <div class="event-title">
+                        <i class="fas fa-clipboard-check"></i> Check-in Effettuato
+                    </div>
+                    <div class="event-desc">Misurazioni registrate</div>
+                </div>
+            `;
+        }
+    }
+
+    if (!html) {
+        html = '<p style="text-align: center; color: #64748b; padding: 24px 0; font-size: 13px;">Nessun evento per questo giorno</p>';
+    }
+
+    content.innerHTML = html;
+    modal.classList.add('active');
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('eventModal').classList.remove('active');
+}
+
+// Close modal on backdrop click
+document.getElementById('eventModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Navigation
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    updateCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    updateCalendar();
+}
+
+// Show today
+function showToday() {
+    currentDate = new Date();
+    updateCalendar();
+}
+</script>
+{% endblock %}

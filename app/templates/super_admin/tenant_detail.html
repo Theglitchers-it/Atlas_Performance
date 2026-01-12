@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Dettagli Tenant: {{ tenant.name }} - Super Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .action-btn {
+        transition: all 0.3s ease;
+    }
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header with Tenant Info -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+        <div class="flex items-center justify-between mb-4">
+            <a href="{{ url_for('super_admin.tenants') }}"
+               class="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl font-semibold transition">
+                <i class="fas fa-arrow-left"></i>
+                <span>Tutti i Tenant</span>
+            </a>
+            <div class="flex items-center space-x-3">
+                {% if tenant.is_active %}
+                <span class="px-4 py-2 bg-green-500 bg-opacity-90 rounded-xl font-semibold text-sm">
+                    <i class="fas fa-check-circle mr-2"></i>Attivo
+                </span>
+                {% else %}
+                <span class="px-4 py-2 bg-red-500 bg-opacity-90 rounded-xl font-semibold text-sm">
+                    <i class="fas fa-times-circle mr-2"></i>Disattivato
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-6">
+            <div class="w-24 h-24 bg-white bg-opacity-20 rounded-3xl flex items-center justify-center text-5xl font-bold">
+                {{ tenant.name[0].upper() }}
+            </div>
+            <div class="flex-1">
+                <h1 class="text-4xl font-bold mb-2">{{ tenant.name }}</h1>
+                <p class="text-blue-100 text-lg mb-3">{{ tenant.owner_email }}</p>
+                <div class="flex items-center space-x-4 text-sm">
+                    <span class="px-3 py-1 bg-white bg-opacity-20 rounded-full font-semibold uppercase">
+                        {{ tenant.subscription_tier }}
+                    </span>
+                    <span class="px-3 py-1 bg-white bg-opacity-20 rounded-full">
+                        <i class="fas fa-server mr-2"></i>{{ tenant.slug }}
+                    </span>
+                    <span class="px-3 py-1 bg-white bg-opacity-20 rounded-full">
+                        <i class="fas fa-calendar-alt mr-2"></i>{{ tenant.created_at.strftime('%d/%m/%Y') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-users text-white text-xl"></i>
+                </div>
+            </div>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ tenant.users|length }}</p>
+            <p class="text-gray-600 font-medium">Utenti Totali</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-running text-white text-xl"></i>
+                </div>
+            </div>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ athletes_count }}</p>
+            <p class="text-gray-600 font-medium">Atleti</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-dumbbell text-white text-xl"></i>
+                </div>
+            </div>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ workouts_count }}</p>
+            <p class="text-gray-600 font-medium">Workout Creati</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-euro-sign text-white text-xl"></i>
+                </div>
+            </div>
+            <p class="text-4xl font-bold text-gray-900 mb-1">
+                €{{ "%.2f"|format(tenant.subscription_tier_price / 100 if tenant.subscription_tier_price else 0) }}
+            </p>
+            <p class="text-gray-600 font-medium">MRR</p>
+        </div>
+    </div>
+
+    <!-- Subscription Info -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">💳 Informazioni Abbonamento</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Stato Abbonamento</p>
+                    <div class="flex items-center">
+                        {% if tenant.subscription_status == 'active' %}
+                            <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-2"></i>Attivo
+                            </span>
+                        {% elif tenant.subscription_status == 'trial' %}
+                            <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-blue-100 text-blue-800">
+                                <i class="fas fa-clock mr-2"></i>Periodo di Prova
+                            </span>
+                        {% elif tenant.subscription_status == 'canceled' %}
+                            <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-red-100 text-red-800">
+                                <i class="fas fa-times-circle mr-2"></i>Cancellato
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 text-gray-800">
+                                {{ tenant.subscription_status }}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Piano Tariffario</p>
+                    <p class="text-lg font-bold text-gray-900 uppercase">{{ tenant.subscription_tier }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Data Creazione</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ tenant.created_at.strftime('%d/%m/%Y alle %H:%M') }}</p>
+                </div>
+            </div>
+            <div class="space-y-4">
+                {% if tenant.trial_end_date %}
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Fine Periodo di Prova</p>
+                    <p class="text-lg font-semibold text-gray-900">{{ tenant.trial_end_date.strftime('%d/%m/%Y') }}</p>
+                </div>
+                {% endif %}
+                {% if tenant.stripe_customer_id %}
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Stripe Customer ID</p>
+                    <code class="text-sm bg-gray-100 px-3 py-2 rounded-lg font-mono">{{ tenant.stripe_customer_id }}</code>
+                </div>
+                {% endif %}
+                {% if tenant.stripe_subscription_id %}
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Stripe Subscription ID</p>
+                    <code class="text-sm bg-gray-100 px-3 py-2 rounded-lg font-mono">{{ tenant.stripe_subscription_id }}</code>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Users List -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">👥 Utenti del Tenant</h2>
+        {% if tenant.users %}
+        <div class="overflow-x-auto rounded-xl border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Nome</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Email</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Ruolo</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Creato il</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for user in tenant.users %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold mr-3">
+                                    {{ user.first_name[0].upper() if user.first_name else user.email[0].upper() }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900">
+                                        {{ user.first_name }} {{ user.last_name if user.last_name else '' }}
+                                    </p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ user.email }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                                {% if user.role == 'trainer' %}bg-purple-100 text-purple-800
+                                {% elif user.role == 'athlete' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ user.role|upper }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '-' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-users text-gray-400 text-2xl"></i>
+            </div>
+            <p class="text-gray-600">Nessun utente registrato per questo tenant</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% if tenant.is_active %}
+        <form method="POST" action="{{ url_for('super_admin.deactivate_tenant', tenant_id=tenant.id) }}" onsubmit="return confirm('Sei sicuro di voler disattivare questo tenant?');">
+            <button type="submit"
+                    class="action-btn w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
+                <i class="fas fa-ban"></i>
+                <span>Disattiva Tenant</span>
+            </button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('super_admin.reactivate_tenant', tenant_id=tenant.id) }}">
+            <button type="submit"
+                    class="action-btn w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
+                <i class="fas fa-check-circle"></i>
+                <span>Riattiva Tenant</span>
+            </button>
+        </form>
+        {% endif %}
+
+        <a href="{{ url_for('super_admin.analytics') }}"
+           class="action-btn flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
+            <i class="fas fa-chart-bar"></i>
+            <span>Vedi Analytics</span>
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,943 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Trainer - Atlas Performance{% endblock %}
+
+{% block content %}
+<style>
+    /* ============================================================================
+       TRAINER DASHBOARD - Premium Design System Mobile-First
+       ============================================================================ */
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .slide-in-right {
+        animation: slideInRight 0.5s ease-out forwards;
+    }
+
+    .scale-in {
+        animation: scaleIn 0.5s ease-out forwards;
+    }
+
+    /* Container */
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Header Section */
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    }
+
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+        animation: shimmer 3s infinite linear;
+    }
+
+    .header-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+    }
+
+    .welcome-text h1 {
+        font-size: 2.25rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .welcome-text p {
+        font-size: 1rem;
+        opacity: 0.95;
+    }
+
+    .datetime-display {
+        text-align: right;
+    }
+
+    .current-time {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .current-date {
+        font-size: 0.875rem;
+        opacity: 0.9;
+        margin-top: 0.25rem;
+    }
+
+    /* Stats Grid - COMPACT & PREMIUM */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        border: 2px solid #f3f4f6;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        border-color: #e5e7eb;
+    }
+
+    .stat-card:hover::before {
+        opacity: 1;
+    }
+
+    .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .stat-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-icon.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+
+    .stat-icon.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+    }
+
+    .stat-icon.purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .stat-icon.yellow {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #1f2937;
+        line-height: 1;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: #9ca3af;
+        margin-top: 0.75rem;
+    }
+
+    .progress-bar-container {
+        width: 100%;
+        height: 0.5rem;
+        background: #f3f4f6;
+        border-radius: 1rem;
+        overflow: hidden;
+        margin-top: 0.75rem;
+    }
+
+    .progress-bar {
+        height: 100%;
+        border-radius: 1rem;
+        transition: width 1s ease-out;
+    }
+
+    /* Quick Actions - PREMIUM CARDS */
+    .quick-actions {
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .section-title i {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .action-card {
+        background: white;
+        border-radius: 1.25rem;
+        padding: 1.75rem;
+        border: 2px solid #f3f4f6;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .action-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s;
+    }
+
+    .action-card:hover::before {
+        left: 100%;
+    }
+
+    .action-card:hover {
+        transform: translateY(-6px) scale(1.02);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .action-card.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-color: transparent;
+    }
+
+    .action-card.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        border-color: transparent;
+    }
+
+    .action-card.purple {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+
+    .action-card.orange {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+        border-color: transparent;
+    }
+
+    .action-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .action-icon {
+        font-size: 2.5rem;
+        opacity: 0.9;
+    }
+
+    .action-badge {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(10px);
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .action-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-bottom: 0.25rem;
+    }
+
+    .action-description {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+
+    /* Check-ins Section - PREMIUM LIST */
+    .checkins-section {
+        background: white;
+        border-radius: 1.5rem;
+        padding: 2rem;
+        border: 2px solid #f3f4f6;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    .checkin-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem;
+        background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+        border-radius: 1rem;
+        margin-bottom: 1rem;
+        border: 2px solid #e5e7eb;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .checkin-item:hover {
+        transform: translateX(8px);
+        border-color: #667eea;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+    }
+
+    .checkin-avatar {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+        font-weight: 800;
+        flex-shrink: 0;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .checkin-info {
+        flex: 1;
+        margin-left: 1.25rem;
+    }
+
+    .checkin-name {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+    }
+
+    .checkin-date {
+        font-size: 0.875rem;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .checkin-weight {
+        text-align: right;
+    }
+
+    .weight-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f2937;
+    }
+
+    .view-link {
+        font-size: 0.75rem;
+        color: #667eea;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .empty-icon {
+        width: 5rem;
+        height: 5rem;
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border-radius: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+    }
+
+    .empty-icon i {
+        font-size: 2.5rem;
+        color: #9ca3af;
+    }
+
+    .empty-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f2937;
+        margin-bottom: 0.75rem;
+    }
+
+    .empty-description {
+        font-size: 1rem;
+        color: #6b7280;
+        margin-bottom: 2rem;
+    }
+
+    .empty-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 700;
+        border-radius: 1rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .empty-action:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+    }
+
+    /* Responsive - MOBILE FIRST */
+    @media (max-width: 768px) {
+        .dashboard-container {
+            padding: 1rem 0.75rem;
+        }
+
+        .dashboard-header {
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+        }
+
+        .header-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .welcome-text h1 {
+            font-size: 1.75rem;
+        }
+
+        .welcome-text p {
+            font-size: 0.9rem;
+        }
+
+        .datetime-display {
+            width: 100%;
+            text-align: left;
+        }
+
+        .current-time {
+            font-size: 2rem;
+        }
+
+        .current-date {
+            font-size: 0.8rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .stat-card {
+            padding: 1.25rem;
+        }
+
+        .stat-icon {
+            width: 2.75rem;
+            height: 2.75rem;
+            font-size: 1.25rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+        }
+
+        .actions-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .action-card {
+            padding: 1.5rem;
+        }
+
+        .action-icon {
+            font-size: 2rem;
+        }
+
+        .action-title {
+            font-size: 1.125rem;
+        }
+
+        .checkins-section {
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+        }
+
+        .checkin-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .checkin-item:hover {
+            transform: translateY(-4px) translateX(0);
+        }
+
+        .checkin-info {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        .checkin-weight {
+            width: 100%;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .empty-state {
+            padding: 3rem 1.5rem;
+        }
+
+        .empty-icon {
+            width: 4rem;
+            height: 4rem;
+        }
+
+        .empty-icon i {
+            font-size: 2rem;
+        }
+
+        .empty-title {
+            font-size: 1.25rem;
+        }
+
+        .empty-description {
+            font-size: 0.9rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .dashboard-container {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .dashboard-header {
+            padding: 1.25rem;
+        }
+
+        .welcome-text h1 {
+            font-size: 1.5rem;
+        }
+
+        .current-time {
+            font-size: 1.75rem;
+        }
+
+        .stat-card {
+            padding: 1rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+        }
+
+        .action-card {
+            padding: 1.25rem;
+        }
+
+        .checkins-section {
+            padding: 1.25rem;
+        }
+
+        .checkin-avatar {
+            width: 3rem;
+            height: 3rem;
+            font-size: 1rem;
+        }
+
+        .weight-value {
+            font-size: 1.25rem;
+        }
+    }
+</style>
+
+<div class="dashboard-container">
+    <!-- Premium Header -->
+    <div class="dashboard-header fade-in-up">
+        <div class="header-content">
+            <div class="welcome-text">
+                <h1>👋 Bentornato, {{ current_user.first_name }}!</h1>
+                <p>Ecco cosa sta succedendo con i tuoi atleti oggi</p>
+            </div>
+            <div class="datetime-display">
+                <div class="current-time" id="current-time">--:--</div>
+                <div class="current-date" id="current-date">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Grid - PREMIUM -->
+    <div class="stats-grid">
+        <div class="stat-card scale-in" style="animation-delay: 0.1s;">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">👥 Totale Atleti</div>
+                    <div class="stat-value" data-count="{{ athletes|length }}">0</div>
+                </div>
+                <div class="stat-icon blue">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+            <div class="stat-meta">
+                <i class="fas fa-chart-line"></i>
+                <span>{{ tenant.max_athletes - athletes|length }} posti disponibili</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: 0%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);" data-width="{{ (athletes|length / tenant.max_athletes * 100)|int }}"></div>
+            </div>
+        </div>
+
+        <div class="stat-card scale-in" style="animation-delay: 0.2s;">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">💪 Allenamenti Attivi</div>
+                    <div class="stat-value" data-count="{{ active_workouts }}">0</div>
+                </div>
+                <div class="stat-icon green">
+                    <i class="fas fa-dumbbell"></i>
+                </div>
+            </div>
+            <div class="stat-meta">
+                <i class="fas fa-check-circle"></i>
+                <span>Programmi personalizzati</span>
+            </div>
+        </div>
+
+        <div class="stat-card scale-in" style="animation-delay: 0.3s;">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">📅 Check-in Settimana</div>
+                    <div class="stat-value" data-count="{{ recent_check_ins|length }}">0</div>
+                </div>
+                <div class="stat-icon purple">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+            </div>
+            <div class="stat-meta">
+                <i class="fas fa-clock"></i>
+                <span>Ultimi 7 giorni</span>
+            </div>
+        </div>
+
+        <div class="stat-card scale-in" style="animation-delay: 0.4s;">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">💬 Messaggi Non Letti</div>
+                    <div class="stat-value" data-count="{{ unread_messages }}">0</div>
+                </div>
+                <div class="stat-icon yellow">
+                    <i class="fas fa-comments"></i>
+                    {% if unread_messages > 0 %}
+                    <span style="position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; background: #ef4444; border-radius: 50%; animation: pulse 2s infinite;"></span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="stat-meta">
+                {% if unread_messages > 0 %}
+                <i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i>
+                <span style="color: #f59e0b;">Richiede attenzione</span>
+                {% else %}
+                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                <span style="color: #10b981;">Tutto letto</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions - PREMIUM -->
+    <div class="quick-actions fade-in-up" style="animation-delay: 0.5s;">
+        <h2 class="section-title">
+            <i class="fas fa-bolt"></i>
+            Azioni Rapide
+        </h2>
+        <div class="actions-grid">
+            <a href="{{ url_for('trainer.add_athlete') }}" class="action-card blue">
+                <div class="action-header">
+                    <i class="fas fa-user-plus action-icon"></i>
+                    <span class="action-badge">Nuovo</span>
+                </div>
+                <div>
+                    <div class="action-title">Aggiungi Atleta</div>
+                    <div class="action-description">Registra un nuovo cliente</div>
+                </div>
+            </a>
+
+            <a href="{{ url_for('trainer.create_workout') }}" class="action-card green">
+                <div class="action-header">
+                    <i class="fas fa-plus-circle action-icon"></i>
+                    <span class="action-badge">Crea</span>
+                </div>
+                <div>
+                    <div class="action-title">Crea Allenamento</div>
+                    <div class="action-description">Costruisci un programma</div>
+                </div>
+            </a>
+
+            <a href="{{ url_for('trainer.messages') }}" class="action-card purple">
+                <div class="action-header">
+                    <i class="fas fa-inbox action-icon"></i>
+                    {% if unread_messages > 0 %}
+                    <span class="action-badge" style="background: #ef4444; animation: pulse 2s infinite;">{{ unread_messages }}</span>
+                    {% else %}
+                    <span class="action-badge">Chat</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="action-title">Messaggi</div>
+                    <div class="action-description">Comunica con gli atleti</div>
+                </div>
+            </a>
+
+            <a href="{{ url_for('trainer.athletes_list') }}" class="action-card orange">
+                <div class="action-header">
+                    <i class="fas fa-list action-icon"></i>
+                    <span class="action-badge">{{ athletes|length }}</span>
+                </div>
+                <div>
+                    <div class="action-title">Lista Atleti</div>
+                    <div class="action-description">Visualizza tutti i clienti</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Check-ins - PREMIUM -->
+    {% if recent_check_ins %}
+    <div class="checkins-section slide-in-right" style="animation-delay: 0.6s;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 class="section-title" style="margin-bottom: 0;">
+                <i class="fas fa-history"></i>
+                Check-in Recenti
+            </h2>
+            <span style="font-size: 0.875rem; color: #6b7280; font-weight: 600;">Ultimi 7 giorni</span>
+        </div>
+        <div>
+            {% for check_in in recent_check_ins %}
+            <div class="checkin-item" onclick="window.location.href='{{ url_for('trainer.athlete_profile', athlete_id=check_in.athlete.id) }}'">
+                <div class="checkin-avatar">
+                    {{ check_in.athlete.user.first_name[0] }}{{ check_in.athlete.user.last_name[0] }}
+                </div>
+                <div class="checkin-info">
+                    <div class="checkin-name">{{ check_in.athlete.user.first_name }} {{ check_in.athlete.user.last_name }}</div>
+                    <div class="checkin-date">
+                        <i class="fas fa-calendar-alt"></i>
+                        {{ check_in.check_in_date.strftime('%d/%m/%Y') }}
+                    </div>
+                </div>
+                <div class="checkin-weight">
+                    <div class="weight-value">{{ check_in.weight }} kg</div>
+                    <div class="view-link">
+                        Visualizza <i class="fas fa-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="checkins-section slide-in-right" style="animation-delay: 0.6s;">
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <h3 class="empty-title">📊 Nessun Check-in Recente</h3>
+            <p class="empty-description">I tuoi atleti non hanno ancora registrato check-in questa settimana.</p>
+            <a href="{{ url_for('trainer.athletes_list') }}" class="empty-action">
+                <i class="fas fa-users"></i>
+                Vai agli Atleti
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Update date and time
+    function updateDateTime() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const dateStr = now.toLocaleDateString('it-IT', options);
+        const timeStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+        document.getElementById('current-date').textContent = dateStr;
+        document.getElementById('current-time').textContent = timeStr;
+    }
+
+    // Animate counter
+    function animateCounter(element) {
+        const target = parseInt(element.getAttribute('data-count'));
+        const duration = 1500;
+        const increment = target / (duration / 16);
+        let current = 0;
+
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                element.textContent = target;
+                clearInterval(timer);
+            } else {
+                element.textContent = Math.floor(current);
+            }
+        }, 16);
+    }
+
+    // Animate progress bars
+    function animateProgressBars() {
+        document.querySelectorAll('.progress-bar').forEach(bar => {
+            const targetWidth = bar.getAttribute('data-width');
+            setTimeout(() => {
+                bar.style.width = targetWidth + '%';
+            }, 100);
+        });
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        setTimeout(() => {
+            document.querySelectorAll('[data-count]').forEach(animateCounter);
+            animateProgressBars();
+        }, 500);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}{{ athlete.user.full_name }} - Athlete Profile{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-optimized.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-mobile.css') }}">
+<style>
+    /* Mobile-first optimization for athlete profile */
+    @media (max-width: 1024px) {
+        .max-w-7xl {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+
+        /* Stack grid to single column on tablet/mobile */
+        .grid.lg\\:grid-cols-3 {
+            grid-template-columns: 1fr !important;
+            gap: 20px !important;
+        }
+
+        .lg\\:col-span-1,
+        .lg\\:col-span-2 {
+            grid-column: span 1 !important;
+        }
+
+        /* Reduce vertical spacing on mobile */
+        .space-y-6 {
+            gap: 16px !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .max-w-7xl {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+
+        /* Reduce gap between sections */
+        .grid.lg\\:grid-cols-3 {
+            gap: 16px !important;
+        }
+
+        /* Header card mobile - CENTERED AND COMPACT */
+        .bg-gradient-to-r.from-blue-600 {
+            padding: 20px 16px !important;
+            margin-bottom: 20px !important;
+            text-align: center !important;
+        }
+
+        .bg-gradient-to-r .flex.items-center.justify-between {
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 16px;
+            text-align: center !important;
+        }
+
+        .bg-gradient-to-r .flex.items-center.space-x-6 {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 12px !important;
+            text-align: center !important;
+            width: 100% !important;
+        }
+
+        .bg-gradient-to-r .flex.items-center.space-x-6 > * + * {
+            margin-left: 0 !important;
+        }
+
+        .bg-gradient-to-r .text-right {
+            text-align: center !important;
+            width: 100%;
+        }
+
+        .bg-gradient-to-r .text-right button {
+            width: 100%;
+        }
+
+        /* Avatar centered */
+        .bg-gradient-to-r .w-24 {
+            width: 4rem !important;
+            height: 4rem !important;
+            font-size: 1.5rem !important;
+            margin: 0 auto !important;
+        }
+
+        /* Title centered and smaller */
+        .bg-gradient-to-r h1 {
+            font-size: 1.5rem !important;
+            text-align: center !important;
+            line-height: 1.3 !important;
+        }
+
+        .bg-gradient-to-r p.text-lg {
+            font-size: 0.938rem !important;
+            text-align: center !important;
+        }
+
+        /* Badges centered */
+        .bg-gradient-to-r .flex.items-center.space-x-4 {
+            flex-wrap: wrap;
+            gap: 8px !important;
+            justify-content: center !important;
+            width: 100% !important;
+        }
+
+        .bg-gradient-to-r .flex.items-center.space-x-4 > * + * {
+            margin-left: 0 !important;
+        }
+
+        /* Stats cards mobile - COMPACT */
+        .bg-white.rounded-xl.p-6 {
+            padding: 16px !important;
+            margin-bottom: 16px !important;
+        }
+
+        .bg-white h2.text-2xl {
+            font-size: 1.25rem !important;
+            margin-bottom: 12px !important;
+        }
+
+        .bg-white h2.text-xl {
+            font-size: 1.125rem !important;
+            margin-bottom: 12px !important;
+        }
+
+        /* Physical stats - COMPACT */
+        .space-y-4 {
+            gap: 12px !important;
+        }
+
+        .space-y-4 > div {
+            margin-top: 0 !important;
+        }
+
+        .space-y-4 > div p.text-sm {
+            font-size: 0.75rem !important;
+            margin-bottom: 4px !important;
+        }
+
+        .space-y-4 > div p.text-2xl {
+            font-size: 1.25rem !important;
+        }
+
+        /* Workout cards - COMPACT */
+        .space-y-4 > div.p-4 {
+            padding: 12px !important;
+        }
+
+        .space-y-4 > div h3 {
+            font-size: 0.938rem !important;
+        }
+
+        .space-y-4 > div .text-sm {
+            font-size: 0.813rem !important;
+        }
+
+        /* Chart container - FIXED HEIGHT NO EMPTY SPACE */
+        #weightChart {
+            height: 220px !important;
+            max-height: 220px !important;
+            display: block !important;
+        }
+
+        canvas {
+            max-width: 100% !important;
+            height: 220px !important;
+            display: block !important;
+        }
+
+        /* Chart parent container */
+        .bg-white.rounded-xl.shadow-sm:has(#weightChart) {
+            padding: 16px !important;
+            min-height: auto !important;
+        }
+
+        .bg-white.rounded-xl.shadow-sm:has(#weightChart) h2 {
+            margin-bottom: 12px !important;
+        }
+
+        /* Empty state in chart - COMPACT */
+        .bg-white.rounded-xl.shadow-sm:has(.fa-chart-line) .text-center {
+            padding: 24px 16px !important;
+        }
+
+        /* Check-in items - COMPACT */
+        .space-y-3 {
+            gap: 10px !important;
+        }
+
+        .space-y-3 > div {
+            margin-top: 0 !important;
+        }
+
+        .space-y-3 > div.p-4 {
+            padding: 12px !important;
+        }
+
+        .space-y-3 > div p {
+            font-size: 0.875rem !important;
+        }
+
+        .space-y-3 > div .text-sm {
+            font-size: 0.75rem !important;
+        }
+
+        /* Empty states - COMPACT */
+        .text-center.py-8 {
+            padding-top: 24px !important;
+            padding-bottom: 24px !important;
+        }
+
+        .text-center.py-12 {
+            padding-top: 32px !important;
+            padding-bottom: 32px !important;
+        }
+
+        .text-4xl {
+            font-size: 1.75rem !important;
+        }
+
+        .text-center p {
+            font-size: 0.938rem !important;
+        }
+
+        /* Back button */
+        a.inline-flex.items-center {
+            font-size: 0.875rem !important;
+            margin-bottom: 16px !important;
+        }
+
+        /* Buttons in cards */
+        .bg-white a.px-4,
+        .bg-white button {
+            padding: 10px 14px !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Contact info */
+        .space-y-3 .flex.items-center {
+            font-size: 0.813rem !important;
+        }
+
+        .space-y-3 .flex.items-center i {
+            font-size: 0.875rem !important;
+        }
+
+        /* Consistency/Stats boxes - CENTERED */
+        .bg-orange-500,
+        .bg-orange-600,
+        [class*="bg-orange"] {
+            text-align: center !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 16px !important;
+        }
+
+        .bg-orange-500 *,
+        .bg-orange-600 *,
+        [class*="bg-orange"] * {
+            text-align: center !important;
+        }
+
+        /* Tab navigation mobile */
+        .flex.space-x-4.border-b,
+        .flex.space-x-2.border-b,
+        nav.flex {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
+            gap: 8px !important;
+            padding-bottom: 8px !important;
+        }
+
+        .flex.space-x-4.border-b::-webkit-scrollbar,
+        .flex.space-x-2.border-b::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        .flex.space-x-4.border-b > *,
+        .flex.space-x-2.border-b > * {
+            white-space: nowrap !important;
+            font-size: 0.875rem !important;
+            padding: 8px 12px !important;
+        }
+
+        /* Dropdowns and selects */
+        select {
+            width: 100% !important;
+            padding: 10px 12px !important;
+            font-size: 0.938rem !important;
+            min-height: 44px !important;
+        }
+
+        /* Card titles with dropdowns */
+        .bg-white .flex.items-center.justify-between.mb-4,
+        .bg-white .flex.items-center.justify-between.mb-6 {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+        }
+
+        .bg-white .flex.items-center.justify-between.mb-4 select,
+        .bg-white .flex.items-center.justify-between.mb-6 select {
+            width: 100% !important;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .max-w-7xl {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .grid.lg\\:grid-cols-3 {
+            gap: 12px !important;
+        }
+
+        /* Header even more compact */
+        .bg-gradient-to-r.from-blue-600 {
+            padding: 16px 12px !important;
+            margin-bottom: 16px !important;
+        }
+
+        .bg-gradient-to-r h1 {
+            font-size: 1.25rem !important;
+        }
+
+        .bg-gradient-to-r .w-24 {
+            width: 3.5rem !important;
+            height: 3.5rem !important;
+            font-size: 1.25rem !important;
+        }
+
+        .bg-gradient-to-r p.text-lg {
+            font-size: 0.875rem !important;
+        }
+
+        /* Cards more compact */
+        .bg-white.rounded-xl.p-6 {
+            padding: 12px !important;
+            margin-bottom: 12px !important;
+        }
+
+        .bg-white h2.text-2xl {
+            font-size: 1.125rem !important;
+            margin-bottom: 10px !important;
+        }
+
+        .bg-white h2.text-xl {
+            font-size: 1rem !important;
+            margin-bottom: 10px !important;
+        }
+
+        /* Stats smaller */
+        .space-y-4 > div p.text-2xl {
+            font-size: 1.125rem !important;
+        }
+
+        .space-y-4 > div p.text-sm {
+            font-size: 0.688rem !important;
+        }
+
+        /* Chart smaller on small mobile */
+        #weightChart {
+            height: 200px !important;
+            max-height: 200px !important;
+        }
+
+        canvas {
+            height: 200px !important;
+        }
+
+        /* Workout and check-in cards */
+        .space-y-4 > div.p-4,
+        .space-y-3 > div.p-4 {
+            padding: 10px !important;
+        }
+
+        /* Empty states */
+        .text-center.py-12 {
+            padding-top: 24px !important;
+            padding-bottom: 24px !important;
+        }
+
+        .text-4xl {
+            font-size: 1.5rem !important;
+        }
+
+        /* Orange boxes even more compact */
+        .bg-orange-500,
+        .bg-orange-600,
+        [class*="bg-orange"] {
+            padding: 12px !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Tabs smaller */
+        .flex.space-x-4.border-b > *,
+        .flex.space-x-2.border-b > * {
+            font-size: 0.75rem !important;
+            padding: 6px 10px !important;
+        }
+
+        /* Selects smaller */
+        select {
+            padding: 8px 10px !important;
+            font-size: 0.875rem !important;
+        }
+    }
+
+    /* Touch optimization */
+    @media (max-width: 768px) {
+        button,
+        a.px-4,
+        a.px-6 {
+            min-height: 44px;
+        }
+
+        /* Disable hover effects on mobile */
+        .hover\\:bg-gray-50:hover {
+            background-color: transparent;
+        }
+
+        .hover\\:bg-gray-50:active {
+            background-color: #f9fafb;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Back Button -->
+    <a href="{{ url_for('trainer.athletes_list') }}" class="text-blue-600 hover:text-blue-700 font-medium mb-6 inline-flex items-center">
+        <i class="fas fa-arrow-left mr-2"></i> Back to Athletes
+    </a>
+
+    <!-- Header Card -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-8 text-white mb-8 mt-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-6">
+                <div class="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-4xl font-bold backdrop-blur-sm">
+                    {{ athlete.user.first_name[0] }}{{ athlete.user.last_name[0] }}
+                </div>
+                <div>
+                    <h1 class="text-4xl font-bold">{{ athlete.user.full_name }}</h1>
+                    <p class="text-blue-100 text-lg mt-2">{{ athlete.goal|replace('_', ' ')|title if athlete.goal else 'No goal set' }}</p>
+                    <div class="flex items-center space-x-4 mt-3">
+                        <span class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm font-medium">
+                            {{ athlete.experience_level|replace('_', ' ')|title if athlete.experience_level else 'N/A' }}
+                        </span>
+                        <span class="px-3 py-1 {% if athlete.is_active %}bg-green-500{% else %}bg-red-500{% endif %} rounded-full text-sm font-semibold">
+                            {{ 'Active' if athlete.is_active else 'Inactive' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="text-right">
+                <button class="px-6 py-3 bg-white text-blue-700 rounded-lg font-semibold hover:bg-blue-50 transition">
+                    <i class="fas fa-edit mr-2"></i>Edit Profile
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Stats Sidebar -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- Physical Stats -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Physical Stats</h2>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-gray-500">Current Weight</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ athlete.current_weight or 'N/A' }} <span class="text-sm font-normal text-gray-500">kg</span></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Target Weight</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ athlete.target_weight or 'N/A' }} <span class="text-sm font-normal text-gray-500">kg</span></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Height</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ athlete.height or 'N/A' }} <span class="text-sm font-normal text-gray-500">cm</span></p>
+                    </div>
+                    {% if athlete.current_weight and athlete.height %}
+                    <div>
+                        <p class="text-sm text-gray-500">BMI</p>
+                        <p class="text-2xl font-bold text-gray-900">{{ ((athlete.current_weight / ((athlete.height / 100) ** 2))|round(1)) }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Contact Info -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Contact</h2>
+                <div class="space-y-3">
+                    <div class="flex items-center text-gray-700">
+                        <i class="fas fa-envelope w-6 text-gray-400"></i>
+                        <span class="text-sm">{{ athlete.user.email }}</span>
+                    </div>
+                    {% if athlete.user.phone %}
+                    <div class="flex items-center text-gray-700">
+                        <i class="fas fa-phone w-6 text-gray-400"></i>
+                        <span class="text-sm">{{ athlete.user.phone }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Active Workouts -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Active Workouts</h2>
+                    <a href="{{ url_for('trainer.create_workout') }}?athlete_id={{ athlete.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                        <i class="fas fa-plus mr-2"></i>Assign Workout
+                    </a>
+                </div>
+
+                {% if workouts %}
+                <div class="space-y-4">
+                    {% for workout in workouts %}
+                    <div class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-gray-900">{{ workout.name }}</h3>
+                                <p class="text-sm text-gray-600 mt-1">{{ workout.exercises.count() }} exercises</p>
+                            </div>
+                            <a href="{{ url_for('trainer.edit_workout', workout_id=workout.id) }}" class="text-blue-600 hover:text-blue-700 font-medium">
+                                View <i class="fas fa-arrow-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-dumbbell text-4xl mb-3"></i>
+                    <p>No workouts assigned yet</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Progress Chart -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Weight Progress</h2>
+                {% if check_ins %}
+                <canvas id="weightChart" height="80"></canvas>
+                {% else %}
+                <div class="text-center py-12 text-gray-500">
+                    <i class="fas fa-chart-line text-4xl mb-3"></i>
+                    <p>No check-in data available yet</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Recent Check-ins -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Recent Check-ins</h2>
+                {% if check_ins %}
+                <div class="space-y-3">
+                    {% for check_in in check_ins[:5] %}
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-semibold text-gray-900">{{ check_in.check_in_date.strftime('%B %d, %Y') }}</p>
+                            <p class="text-sm text-gray-600">{{ check_in.weight }} kg</p>
+                        </div>
+                        {% if check_in.notes %}
+                        <button class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                            <i class="fas fa-sticky-note mr-1"></i>Notes
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-calendar-check text-4xl mb-3"></i>
+                    <p>No check-ins recorded yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if check_ins %}
+<script>
+// Weight Progress Chart
+const ctx = document.getElementById('weightChart').getContext('2d');
+const weightChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [
+            {% for check_in in check_ins|reverse %}
+            '{{ check_in.check_in_date.strftime("%b %d") }}'{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Weight (kg)',
+            data: [
+                {% for check_in in check_ins|reverse %}
+                {{ check_in.weight }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ],
+            borderColor: 'rgb(37, 99, 235)',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                titleFont: {
+                    size: 14
+                },
+                bodyFont: {
+                    size: 13
+                },
+                cornerRadius: 8
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    font: {
+                        size: window.innerWidth < 768 ? 11 : 12
+                    }
+                },
+                grid: {
+                    display: true,
+                    drawBorder: false
+                }
+            },
+            x: {
+                ticks: {
+                    font: {
+                        size: window.innerWidth < 768 ? 10 : 12
+                    },
+                    maxRotation: window.innerWidth < 768 ? 45 : 0,
+                    minRotation: window.innerWidth < 768 ? 45 : 0
+                },
+                grid: {
+                    display: false
+                }
+            }
+        },
+        interaction: {
+            mode: 'index',
+            intersect: false
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

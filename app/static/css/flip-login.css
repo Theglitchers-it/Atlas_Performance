@@ -1,0 +1,451 @@
+@import url("https://fonts.googleapis.com/css?family=Montserrat:400,700");
+
+/* BASE STYLES - Mobile First */
+* {
+  box-sizing: border-box;
+}
+
+.flip-auth-container {
+  font-family: Montserrat, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-weight: 400;
+  margin: 0;
+  padding: 0;
+}
+
+.flip-auth-wrapper {
+  min-height: 100vh;
+  background: #e9ebee;
+  color: #1d2129;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.flip-auth-wrapper h1 {
+  font-weight: 700;
+  font-size: 2.5em;
+  text-align: center;
+  margin: 0 0 1rem 0;
+}
+
+.flip-auth-wrapper form input {
+  background: #eee;
+  border: none;
+  padding: 12px 15px;
+  margin: 8px 0;
+  width: 100%;
+  font-size: 1.4em;
+  font-family: inherit;
+  border-radius: 4px;
+}
+
+.flip-auth-wrapper span {
+  color: #333;
+  font-size: 1.4em;
+  display: inline-block;
+  margin: 15px auto;
+  font-weight: 100;
+}
+
+.flip-auth-wrapper span.remember {
+  float: left;
+  cursor: pointer;
+}
+.flip-auth-wrapper span.remember::before {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid #999;
+  vertical-align: top;
+  margin-right: 4px;
+}
+
+.flip-auth-wrapper span.forget {
+  float: right;
+  cursor: pointer;
+}
+
+.flip-auth-wrapper span.clearfix {
+  clear: both;
+  display: table;
+}
+
+.flip-auth-wrapper span.loginwith {
+  display: flex;
+  width: 100%;
+  margin-top: 2em;
+  justify-content: center;
+  align-items: center;
+}
+.flip-auth-wrapper span.loginwith::before {
+  content: "";
+  display: inline-block;
+  width: 42%;
+  height: 1px;
+  background: #aaa;
+  margin-right: 5%;
+}
+.flip-auth-wrapper span.loginwith::after {
+  content: "";
+  display: inline-block;
+  width: 42%;
+  height: 1px;
+  background: #aaa;
+  margin-left: 5%;
+}
+
+.flip-auth-wrapper span.copy {
+  display: block;
+  position: absolute;
+  bottom: 1rem;
+  font-size: 1em;
+}
+
+.flip-auth-wrapper button {
+  display: block;
+  margin: 1em auto;
+  border-radius: 40px;
+  border: 1px solid #ff4b2b;
+  background: #ff4b2b;
+  color: #fff;
+  font-size: 1.2em;
+  font-weight: bold;
+  padding: 0.8em 2em;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: transform 80ms ease-in;
+  cursor: pointer;
+  font-family: inherit;
+}
+.flip-auth-wrapper button svg {
+  vertical-align: middle;
+}
+
+.flip-auth-wrapper button:hover {
+  opacity: 0.9;
+}
+
+.flip-auth-wrapper button:active {
+  transform: scale(0.95);
+}
+
+.flip-auth-wrapper button:focus {
+  outline: none;
+}
+
+/* CONTAINER - Mobile First */
+#flip-container {
+  width: 100%;
+  max-width: 450px;
+  min-height: 550px;
+  position: relative;
+  border-radius: 20px;
+  box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.1), 0 10px 10px -10px rgba(0, 0, 0, 0.02);
+  background: #FAFAFA;
+  overflow: hidden;
+}
+
+.flip-content {
+  width: 100%;
+  padding: 2em;
+  text-align: center;
+}
+.flip-content p {
+  font-size: 1.4em;
+}
+
+/* MOBILE LAYOUT - Default */
+.flip-login,
+.flip-register {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #FAFAFA;
+  border-radius: 20px;
+  transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+}
+
+/* Default: Login visible */
+.flip-login {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  z-index: 2;
+  position: relative;
+}
+
+.flip-register {
+  opacity: 0;
+  transform: scale(0.9);
+  visibility: hidden;
+  z-index: 1;
+}
+
+.flip-login button[type="submit"],
+.flip-register button[type="submit"] {
+  border-radius: 0px;
+  width: 100%;
+}
+
+/* Hide decorative panels in mobile */
+.flip-page {
+  display: none;
+}
+
+/* Mobile toggle buttons */
+.mobile-toggle {
+  display: block;
+  text-align: center;
+  margin: 1.5em 0 1em 0;
+}
+
+.mobile-toggle button {
+  background: transparent;
+  border: 2px solid #ff4b2b;
+  color: #ff4b2b;
+  padding: 0.8em 2em;
+  border-radius: 40px;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 300px;
+}
+
+.mobile-toggle button:hover {
+  background: #ff4b2b;
+  color: #fff;
+}
+
+/* Active state: Show Register */
+#flip-container.flip-active .flip-register {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  z-index: 2;
+}
+
+#flip-container.flip-active .flip-login {
+  opacity: 0;
+  transform: scale(0.9);
+  visibility: hidden;
+  z-index: 1;
+}
+
+/* Close state: Show Login */
+#flip-container.flip-close .flip-login {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  z-index: 2;
+}
+
+#flip-container.flip-close .flip-register {
+  opacity: 0;
+  transform: scale(0.9);
+  visibility: hidden;
+  z-index: 1;
+}
+
+/* Social icons */
+.flip-social-icons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1em;
+  margin: 1em 0;
+}
+
+.flip-social-icons a {
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.flip-social-icons a:hover {
+  transform: scale(1.1);
+}
+
+.flip-social-icons svg {
+  stroke: #999;
+}
+
+/* Error messages */
+.flip-auth-wrapper .error-message {
+  color: #ff4b2b;
+  font-size: 1.2em;
+  margin-top: 0.5em;
+  text-align: center;
+}
+
+/* DESKTOP LAYOUT */
+@media screen and (min-width: 769px) {
+  .flip-auth-wrapper {
+    perspective: 1500px;
+  }
+
+  .flip-auth-wrapper h1 {
+    font-size: 3.5em;
+  }
+
+  #flip-container {
+    max-width: 800px;
+    height: 500px;
+    min-height: 500px;
+    transform-style: preserve-3d;
+    background: transparent;
+  }
+
+  #flip-container > div {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    top: 0;
+  }
+
+  .flip-content {
+    padding: 2em 4em;
+  }
+
+  .flip-login {
+    left: 0;
+    background: #FAFAFA;
+    border-radius: 20px 0 0 20px;
+    position: absolute;
+    z-index: 1;
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+
+  .flip-register {
+    right: 0;
+    background: #FAFAFA;
+    border-radius: 0 20px 20px 0;
+    position: absolute;
+    z-index: 1;
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+
+  /* Desktop: Hide mobile toggle buttons */
+  .mobile-toggle {
+    display: none;
+  }
+
+  /* Desktop: Show flip panels */
+  .flip-page {
+    display: flex;
+    position: absolute;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    color: #fff;
+    border-radius: 0 20px 20px 0;
+    transform-origin: left center;
+    transition: transform 0.6s ease-in-out;
+  }
+
+  .flip-page button {
+    border-color: #fff;
+    background: transparent;
+  }
+
+  .flip-page p {
+    margin: 2em auto;
+  }
+
+  .flip-front {
+    background: linear-gradient(-45deg, #FFCF00 0%, #FC4F4F 100%) no-repeat 0 0/200%;
+    z-index: 3;
+    transform: translateZ(2px) rotateY(0deg);
+  }
+
+  .flip-back {
+    background: linear-gradient(135deg, #FC4F4F 0%, #FFCF00 100%) no-repeat 0 0/200%;
+    z-index: 2;
+  }
+
+  .flip-back .flip-content {
+    transform: rotateY(180deg);
+  }
+
+  /* Desktop flip animations */
+  #flip-container.flip-active .flip-front {
+    transform: translateZ(1px) rotateY(-180deg);
+  }
+
+  #flip-container.flip-active .flip-back {
+    transform: translateZ(2px) rotateY(-180deg);
+  }
+
+  #flip-container.flip-close .flip-front {
+    transform: translateZ(2px) rotateY(0deg);
+  }
+
+  #flip-container.flip-close .flip-back {
+    transform: translateZ(1px) rotateY(0deg);
+  }
+
+  #flip-container.flip-active .flip-register .flip-content {
+    animation: show 0.7s ease-in-out normal forwards;
+  }
+
+  #flip-container.flip-close .flip-register .flip-content {
+    animation: hide 0.7s ease-in-out normal forwards;
+  }
+
+  #flip-container.flip-active .flip-login .flip-content {
+    animation: hide 0.7s ease-in-out normal forwards;
+  }
+
+  #flip-container.flip-close .flip-login .flip-content {
+    animation: show 0.7s ease-in-out normal forwards;
+  }
+
+  @keyframes show {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 0.99;
+      transform: scale(0.99);
+    }
+  }
+
+  @keyframes hide {
+    from {
+      opacity: 0.99;
+      transform: scale(0.99);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+  }
+}
+
+/* Tablet adjustments */
+@media screen and (min-width: 769px) and (max-width: 900px) {
+  #flip-container {
+    max-width: 700px;
+  }
+
+  .flip-content {
+    padding: 2em 2.5em;
+  }
+}

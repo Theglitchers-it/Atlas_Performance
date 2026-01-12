@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Billing & Subscription - Atlas Performance{% endblock %}
+
+{% block content %}
+<script>
+    // Redirect to new billing page
+    window.location.href = "{{ url_for('billing.subscription_overview') }}";
+</script>
+
+<div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <a href="{{ url_for('trainer.settings') }}" class="text-blue-600 hover:text-blue-700 font-medium mb-4 inline-flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Settings
+        </a>
+        <h1 class="text-3xl font-bold text-gray-900 mt-4">Redirecting to Billing...</h1>
+        <p class="text-gray-600 mt-1">
+            If you're not redirected, <a href="{{ url_for('billing.subscription_overview') }}" class="text-blue-600 hover:text-blue-700 font-medium">click here</a>
+        </p>
+    </div>
+
+    <!-- Current Plan -->
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-8 text-white mb-8 shadow-xl">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-3xl font-bold mb-2">{{ tenant.subscription_tier|replace('_', ' ')|title if tenant.subscription_tier else 'Free' }} Plan</h2>
+                <p class="text-blue-100 text-lg">Active since {{ tenant.created_at.strftime('%B %Y') }}</p>
+                <div class="flex items-center space-x-6 mt-4">
+                    <div>
+                        <p class="text-blue-100 text-sm">Athletes Limit</p>
+                        <p class="text-2xl font-bold">{{ tenant.max_athletes }}</p>
+                    </div>
+                    <div>
+                        <p class="text-blue-100 text-sm">Monthly Price</p>
+                        <p class="text-2xl font-bold">$49</p>
+                    </div>
+                </div>
+            </div>
+            {% if portal_url %}
+            <a href="{{ portal_url }}" class="px-6 py-3 bg-white text-blue-700 rounded-lg font-semibold hover:bg-blue-50 transition shadow-lg">
+                <i class="fas fa-external-link-alt mr-2"></i>Manage Subscription
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pricing Plans -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Upgrade Your Plan</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Starter Plan -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition">
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-900">Starter</h3>
+                    <div class="mt-4 mb-6">
+                        <span class="text-4xl font-bold text-gray-900">$29</span>
+                        <span class="text-gray-600">/month</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">Perfect for new trainers</p>
+                </div>
+                <ul class="space-y-3 mb-6">
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Up to 10 athletes
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Unlimited workouts
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Progress tracking
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Exercise library
+                    </li>
+                    <li class="flex items-center text-gray-400">
+                        <i class="fas fa-times mr-3"></i>
+                        Custom branding
+                    </li>
+                </ul>
+                <button class="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-semibold transition">
+                    Current Plan
+                </button>
+            </div>
+
+            <!-- Pro Plan -->
+            <div class="bg-white rounded-xl shadow-xl border-2 border-blue-500 p-6 relative transform scale-105">
+                <div class="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-lg rounded-tr-lg text-sm font-semibold">
+                    POPULAR
+                </div>
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-900">Pro</h3>
+                    <div class="mt-4 mb-6">
+                        <span class="text-4xl font-bold text-gray-900">$79</span>
+                        <span class="text-gray-600">/month</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">For growing businesses</p>
+                </div>
+                <ul class="space-y-3 mb-6">
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Up to 50 athletes
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Unlimited workouts
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Advanced analytics
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Custom branding
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Priority support
+                    </li>
+                </ul>
+                <button class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition shadow-lg hover:shadow-xl">
+                    Upgrade to Pro
+                </button>
+            </div>
+
+            <!-- Enterprise Plan -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition">
+                <div class="text-center">
+                    <h3 class="text-xl font-bold text-gray-900">Enterprise</h3>
+                    <div class="mt-4 mb-6">
+                        <span class="text-4xl font-bold text-gray-900">$199</span>
+                        <span class="text-gray-600">/month</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">For large teams</p>
+                </div>
+                <ul class="space-y-3 mb-6">
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Unlimited athletes
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Everything in Pro
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Multi-trainer access
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        API access
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-3"></i>
+                        Dedicated support
+                    </li>
+                </ul>
+                <button class="w-full px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-semibold transition">
+                    Contact Sales
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Billing History -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Billing History</h2>
+        <div class="text-center py-12 text-gray-500">
+            <i class="fas fa-receipt text-4xl mb-3"></i>
+            <p class="text-lg">No billing history available</p>
+            <p class="text-sm mt-2">Invoices will appear here once your subscription is active</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

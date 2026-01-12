@@ -1,0 +1,518 @@
+/**
+ * Mobile-First Optimizations for Atlas Performance
+ * Ottimizzazioni per dispositivi mobili e touch
+ */
+
+/* ============================================
+   MOBILE-FIRST BASE RESET
+   ============================================ */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+}
+
+/* ============================================
+   RESPONSIVE CONTAINERS
+   ============================================ */
+.container,
+.max-w-7xl {
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+@media (min-width: 768px) {
+    .container,
+    .max-w-7xl {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+
+/* ============================================
+   MOBILE HEADERS
+   ============================================ */
+.mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: white;
+    padding: 12px 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.mobile-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+
+.mobile-header p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+}
+
+@media (min-width: 768px) {
+    .mobile-header h1 {
+        font-size: 32px;
+    }
+
+    .mobile-header p {
+        font-size: 16px;
+    }
+}
+
+/* ============================================
+   STAT CARDS - MOBILE OPTIMIZED
+   ============================================ */
+.stat-card {
+    min-height: 140px;
+    padding: 20px !important;
+    touch-action: manipulation;
+}
+
+/* Remove hover effects on touch devices */
+@media (hover: none) {
+    .stat-card:hover {
+        transform: none !important;
+    }
+}
+
+/* Add active state for touch */
+.stat-card:active {
+    transform: scale(0.98);
+    opacity: 0.95;
+}
+
+/* Optimize for small screens */
+@media (max-width: 640px) {
+    .stat-card .text-5xl {
+        font-size: 2.5rem !important;
+    }
+
+    .stat-card .w-14 {
+        width: 3rem !important;
+        height: 3rem !important;
+    }
+
+    .stat-card .text-3xl {
+        font-size: 1.5rem !important;
+    }
+}
+
+/* ============================================
+   RESPONSIVE GRIDS
+   ============================================ */
+.grid {
+    gap: 12px;
+}
+
+@media (min-width: 768px) {
+    .grid {
+        gap: 24px;
+    }
+}
+
+/* Force 1 column on mobile for primary stats */
+@media (max-width: 640px) {
+    .grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+        grid-template-columns: repeat(1, 1fr);
+    }
+}
+
+/* 2 columns on tablets */
+@media (min-width: 641px) and (max-width: 1023px) {
+    .grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ============================================
+   RESPONSIVE TABLES
+   ============================================ */
+@media (max-width: 768px) {
+    /* Hide table on mobile, show cards instead */
+    .responsive-table {
+        display: none;
+    }
+
+    /* Mobile Card View */
+    .mobile-list-view {
+        display: block;
+    }
+
+    .mobile-card {
+        background: white;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e5e7eb;
+    }
+
+    .mobile-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .mobile-card-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        flex-shrink: 0;
+    }
+
+    .mobile-card-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mobile-card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-card-subtitle {
+        font-size: 13px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .mobile-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-list-view {
+        display: none;
+    }
+
+    .responsive-table {
+        display: table;
+    }
+}
+
+/* ============================================
+   TOUCH-FRIENDLY BUTTONS
+   ============================================ */
+.btn,
+button,
+a.btn,
+.premium-button {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.btn:active,
+button:active,
+a.btn:active {
+    transform: scale(0.98);
+}
+
+@media (hover: hover) {
+    .btn:hover,
+    button:hover,
+    a.btn:hover {
+        transform: translateY(-2px);
+    }
+}
+
+/* ============================================
+   RESPONSIVE TYPOGRAPHY
+   ============================================ */
+@media (max-width: 640px) {
+    h1,
+    .text-4xl {
+        font-size: 1.75rem !important;
+    }
+
+    h2,
+    .text-3xl {
+        font-size: 1.5rem !important;
+    }
+
+    h3,
+    .text-2xl {
+        font-size: 1.25rem !important;
+    }
+
+    .text-xl {
+        font-size: 1.125rem !important;
+    }
+
+    .text-lg {
+        font-size: 1rem !important;
+    }
+}
+
+/* Bottom navigation removed - not needed */
+
+/* ============================================
+   MOBILE SPACING ADJUSTMENTS
+   ============================================ */
+@media (max-width: 640px) {
+    .space-y-8 > * + * {
+        margin-top: 1.5rem !important;
+    }
+
+    .gap-6 {
+        gap: 0.75rem !important;
+    }
+
+    .p-8 {
+        padding: 1.25rem !important;
+    }
+
+    .p-6 {
+        padding: 1rem !important;
+    }
+
+    .px-6 {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    .py-4 {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+    }
+}
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 12px;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ============================================
+   PULL TO REFRESH INDICATOR
+   ============================================ */
+.refresh-indicator {
+    position: fixed;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 12px 24px;
+    border-radius: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: top 0.3s ease;
+    z-index: 100;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+.refresh-indicator.show {
+    top: 16px;
+}
+
+/* ============================================
+   SCROLLBAR STYLING (Mobile Friendly)
+   ============================================ */
+@media (max-width: 768px) {
+    /* Hide scrollbars on mobile for cleaner look */
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Horizontal scroll containers */
+    .scroll-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+}
+
+/* ============================================
+   ANIMATIONS - Mobile Optimized
+   ============================================ */
+@media (prefers-reduced-motion: no-preference) {
+    .fade-in-up {
+        animation: fadeInUp 0.4s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .scale-in {
+        animation: scaleIn 0.3s ease-out forwards;
+    }
+
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+}
+
+/* Reduce animations on low-power mode */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ============================================
+   SAFE AREA INSETS (for iPhone notch, etc.)
+   ============================================ */
+@supports (padding: max(0px)) {
+    .safe-area-inset-top {
+        padding-top: max(12px, env(safe-area-inset-top));
+    }
+
+    .safe-area-inset-bottom {
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    .safe-area-inset-left {
+        padding-left: max(16px, env(safe-area-inset-left));
+    }
+
+    .safe-area-inset-right {
+        padding-right: max(16px, env(safe-area-inset-right));
+    }
+
+    .bottom-nav {
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+}
+
+/* ============================================
+   ORIENTATION HANDLING
+   ============================================ */
+@media (orientation: landscape) and (max-height: 500px) {
+    /* Reduce padding in landscape on short screens */
+    .mobile-header {
+        padding: 8px 16px;
+    }
+
+    .stat-card {
+        min-height: auto;
+        padding: 16px !important;
+    }
+}
+
+/* ============================================
+   HIGH DPI DISPLAYS
+   ============================================ */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    /* Optimize for retina displays */
+    .stat-card,
+    .action-card,
+    .mobile-card {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* ============================================
+   DARK MODE SUPPORT (Future)
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+    /* Dark mode styles can be added here */
+    /* Currently disabled, but prepared for future */
+}
+
+/* ============================================
+   ACCESSIBILITY IMPROVEMENTS
+   ============================================ */
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Increase touch targets on mobile */
+@media (max-width: 768px) {
+    a,
+    button,
+    input,
+    select,
+    textarea {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* ============================================
+   PRINT OPTIMIZATION
+   ============================================ */
+@media print {
+    .mobile-header,
+    .refresh-indicator {
+        display: none !important;
+    }
+
+    .stat-card {
+        break-inside: avoid;
+    }
+}

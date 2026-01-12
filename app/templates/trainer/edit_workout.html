@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Workout - {{ workout.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <a href="{{ url_for('trainer.workouts_list') }}" class="text-blue-600 hover:text-blue-700 font-medium mb-4 inline-flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Workouts
+        </a>
+        <div class="flex items-center justify-between mt-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">{{ workout.name }}</h1>
+                <p class="text-gray-600 mt-1">{{ workout.description or 'No description' }}</p>
+            </div>
+            <span class="px-4 py-2 rounded-lg font-semibold {% if workout.type == 'strength' %}bg-red-100 text-red-800{% elif workout.type == 'cardio' %}bg-green-100 text-green-800{% elif workout.type == 'hypertrophy' %}bg-purple-100 text-purple-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ workout.type|replace('_', ' ')|title if workout.type else 'General' }}
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Exercise List -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Exercises</h2>
+                    <button onclick="toggleAddExercise()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                        <i class="fas fa-plus mr-2"></i>Add Exercise
+                    </button>
+                </div>
+
+                <!-- Current Exercises -->
+                {% if workout.exercises.count() > 0 %}
+                <div class="space-y-3">
+                    {% for workout_exercise in workout.exercises.all() %}
+                    <div class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-900">{{ workout_exercise.exercise.name }}</h3>
+                                <div class="flex items-center space-x-6 mt-2 text-sm text-gray-600">
+                                    <span><i class="fas fa-redo mr-1"></i>{{ workout_exercise.sets }} sets</span>
+                                    <span><i class="fas fa-list-ol mr-1"></i>{{ workout_exercise.reps_min }}-{{ workout_exercise.reps_max }} reps</span>
+                                    <span><i class="fas fa-clock mr-1"></i>{{ workout_exercise.rest_seconds }}s rest</span>
+                                    {% if workout_exercise.rpe_target %}
+                                    <span><i class="fas fa-tachometer-alt mr-1"></i>RPE {{ workout_exercise.rpe_target }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if workout_exercise.block_name %}
+                                <span class="inline-block mt-2 px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                                    {{ workout_exercise.block_name }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            <button class="text-red-600 hover:text-red-700 ml-4">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12 text-gray-500">
+                    <i class="fas fa-dumbbell text-5xl mb-4"></i>
+                    <p class="text-lg">No exercises added yet</p>
+                    <p class="text-sm mt-2">Click "Add Exercise" to build your workout</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Add Exercise Panel -->
+        <div class="lg:col-span-1">
+            <div id="addExercisePanel" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hidden">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Add Exercise</h3>
+
+                <form method="POST" action="{{ url_for('trainer.edit_workout', workout_id=workout.id) }}">
+                    <input type="hidden" name="action" value="add_exercise">
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Exercise</label>
+                            <select name="exercise_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                <option value="">Select exercise...</option>
+                                {% for exercise in exercises %}
+                                <option value="{{ exercise.id }}">{{ exercise.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Sets</label>
+                                <input type="number" name="sets" value="3" min="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Rest (s)</label>
+                                <input type="number" name="rest_seconds" value="60" min="0" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Min Reps</label>
+                                <input type="number" name="reps_min" value="8" min="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Max Reps</label>
+                                <input type="number" name="reps_max" value="12" min="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">RPE Target</label>
+                            <input type="number" name="rpe_target" step="0.5" min="1" max="10" placeholder="Optional" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Block Name</label>
+                            <input type="text" name="block_name" placeholder="e.g., Warm-up, Main Set" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        </div>
+
+                        <button type="submit" class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition">
+                            <i class="fas fa-plus mr-2"></i>Add to Workout
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Workout Info -->
+            <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 mt-6">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">Workout Info</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Athlete:</span>
+                        <span class="font-semibold text-gray-900">{{ workout.athlete.user.full_name if workout.athlete else 'Unassigned' }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Day:</span>
+                        <span class="font-semibold text-gray-900">{{ ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][workout.day_of_week] if workout.day_of_week is not none else 'Any day' }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Total Exercises:</span>
+                        <span class="font-semibold text-gray-900">{{ workout.exercises.count() }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAddExercise() {
+    const panel = document.getElementById('addExercisePanel');
+    panel.classList.toggle('hidden');
+}
+</script>
+{% endblock %}
