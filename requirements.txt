@@ -8,8 +8,7 @@ Flask-Migrate==4.0.5
 
 # Database
 SQLAlchemy==2.0.23
-pymysql==1.1.0
-cryptography==41.0.7
+psycopg2-binary==2.9.9
 alembic==1.13.1
 
 # Security & Auth

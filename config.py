@@ -11,8 +11,11 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
     # Database
+    # Default: MySQL with XAMPP (root user, no password, port 3306)
+    # Fallback: SQLite for quick testing
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'atlas_performance.db')
+        'mysql+pymysql://root:@localhost:3306/atlas_performance'
+    # Alternative fallback to SQLite: 'sqlite:///' + os.path.join(basedir, 'atlas_performance.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
 
