@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Atlas Performance - Main Entry Point
 Run this file to start the Flask development server
