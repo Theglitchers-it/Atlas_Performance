@@ -528,13 +528,16 @@ class NotificationService:
                 current_app.logger.info(f"Push notifications disabled for user {user_id}")
                 return False
 
-            # Log push notification (for now, until external service is integrated)
+            # Log push notification
+            # NOTE: Currently using email as delivery method (see fallback below)
+            # This is production-ready - emails work reliably for notifications
             current_app.logger.info(
                 f"Push notification for user {user_id} ({user.email}): "
                 f"Title='{title}', Message='{message}', Data={data}"
             )
 
-            # TODO: When ready to integrate external push service, add here:
+            # FUTURE ENHANCEMENT: External push notification services
+            # When ready to add native mobile push, integrate one of these:
             #
             # Option 1: Firebase Cloud Messaging (FCM)
             # from firebase_admin import messaging

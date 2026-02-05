@@ -88,6 +88,9 @@ def create_app(config_name=None):
     # Create upload directories
     create_upload_directories(app)
 
+    # Register CLI commands
+    register_cli_commands(app)
+
     return app
 
 
@@ -240,3 +243,97 @@ def create_upload_directories(app):
 
     for directory in upload_dirs:
         os.makedirs(directory, exist_ok=True)
+
+
+def register_cli_commands(app):
+    """Register custom Flask CLI commands"""
+    from app.models.shared import User
+    from werkzeug.security import generate_password_hash
+
+    @app.cli.command('create-default-users')
+    def create_default_users():
+        """Create default super admin and trainer users"""
+        # Check if users already exist
+        admin_exists = User.query.filter_by(email='admin@atlas.com').first()
+        trainer_exists = User.query.filter_by(email='trainer@atlas.com').first()
+
+        if not admin_exists:
+            admin = User(
+                email='admin@atlas.com',
+                password_hash=generate_password_hash('Admin123!'),
+                first_name='Super',
+                last_name='Admin',
+                role='super_admin',
+                is_active=True,
+                tenant_id=None
+            )
+            db.session.add(admin)
+            print("✅ Super Admin created: admin@atlas.com / Admin123!")
+        else:
+            print("⚠️  Super Admin already exists")
+
+        if not trainer_exists:
+            trainer = User(
+                email='trainer@atlas.com',
+                password_hash=generate_password_hash('Trainer123!'),
+                first_name='Demo',
+                last_name='Trainer',
+                role='trainer',
+                is_active=True,
+                tenant_id=None
+            )
+            db.session.add(trainer)
+            print("✅ Trainer created: trainer@atlas.com / Trainer123!")
+        else:
+            print("⚠️  Trainer already exists")
+
+        db.session.commit()
+        print("\n🎉 Default users setup complete!")
+
+    @app.cli.command('init-db')
+    def init_db():
+        """Initialize database with tables and default users"""
+        print("Creating database tables...")
+        db.create_all()
+        print("✅ Database tables created!")
+
+        print("\nCreating default users...")
+        # Check if users already exist
+        admin_exists = User.query.filter_by(email='admin@atlas.com').first()
+        trainer_exists = User.query.filter_by(email='trainer@atlas.com').first()
+
+        if not admin_exists:
+            admin = User(
+                email='admin@atlas.com',
+                password_hash=generate_password_hash('Admin123!'),
+                first_name='Super',
+                last_name='Admin',
+                role='super_admin',
+                is_active=True,
+                tenant_id=None
+            )
+            db.session.add(admin)
+            print("✅ Super Admin created: admin@atlas.com / Admin123!")
+        else:
+            print("⚠️  Super Admin already exists")
+
+        if not trainer_exists:
+            trainer = User(
+                email='trainer@atlas.com',
+                password_hash=generate_password_hash('Trainer123!'),
+                first_name='Demo',
+                last_name='Trainer',
+                role='trainer',
+                is_active=True,
+                tenant_id=None
+            )
+            db.session.add(trainer)
+            print("✅ Trainer created: trainer@atlas.com / Trainer123!")
+        else:
+            print("⚠️  Trainer already exists")
+
+        db.session.commit()
+        print("\n🎉 Database initialization complete!")
+        print("\n📝 Login credentials:")
+        print("   Super Admin: admin@atlas.com / Admin123!")
+        print("   Trainer:     trainer@atlas.com / Trainer123!")

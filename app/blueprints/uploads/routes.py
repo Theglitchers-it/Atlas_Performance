@@ -271,7 +271,13 @@ def upload_exercise_video(exercise_id):
         # Upload video
         result = UploadService.upload_exercise_video(file, exercise_id)
 
-        # TODO: Update Exercise record with video URL
+        # Update Exercise record with video URL
+        exercise = Exercise.query.get(exercise_id)
+        if exercise:
+            exercise.video_url = result['url']
+            db.session.commit()
+        else:
+            current_app.logger.warning(f"Exercise {exercise_id} not found for video URL update")
 
         return jsonify({
             'success': True,
