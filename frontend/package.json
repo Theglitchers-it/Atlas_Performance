@@ -28,7 +28,7 @@
     "@capacitor/keyboard": "^5.0.9",
     "@capacitor/network": "^5.0.8",
     "@capacitor/preferences": "^5.0.8",
-    "@capacitor/push-notifications": "^5.0.10",
+    "@capacitor/push-notifications": "^8.0.1",
     "@capacitor/splash-screen": "^5.0.8",
     "@capacitor/status-bar": "^5.0.8",
     "@fullcalendar/core": "^6.1.10",
