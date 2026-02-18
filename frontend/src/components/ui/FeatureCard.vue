@@ -16,7 +16,9 @@
     </div>
 
     <!-- Title -->
-    <h3 class="text-lg font-semibold text-white mb-2 group-hover:text-habit-orange transition-colors duration-300">
+    <h3
+      class="text-lg font-semibold text-habit-text mb-2 group-hover:text-habit-orange transition-colors duration-300"
+    >
       {{ title }}
     </h3>
 
@@ -26,10 +28,23 @@
     </p>
 
     <!-- Optional Link/Action -->
-    <div v-if="actionText" class="mt-4 flex items-center gap-2 text-habit-orange text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+    <div
+      v-if="actionText"
+      class="mt-4 flex items-center gap-2 text-habit-orange text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+    >
       <span>{{ actionText }}</span>
-      <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      <svg
+        class="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 5l7 7-7 7"
+        />
       </svg>
     </div>
 
@@ -40,57 +55,42 @@
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue'
+<script setup lang="ts">
+import { computed } from "vue";
+import type { Component } from "vue";
 
-const props = defineProps({
-  icon: {
-    type: [Object, Function],
-    default: null
-  },
-  iconEmoji: {
-    type: String,
-    default: ''
-  },
-  iconColor: {
-    type: String,
-    default: 'orange',
-    validator: (value) => ['orange', 'green', 'blue', 'purple', 'red'].includes(value)
-  },
-  title: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    required: true
-  },
-  actionText: {
-    type: String,
-    default: ''
-  },
-  badge: {
-    type: String,
-    default: ''
-  },
-  animate: {
-    type: Boolean,
-    default: true
-  },
-  delay: {
-    type: Number,
-    default: 0
-  }
-})
+type IconColor = "orange" | "green" | "blue" | "purple" | "red";
+
+interface Props {
+  icon?: Component | null;
+  iconEmoji?: string;
+  iconColor?: IconColor;
+  title: string;
+  description: string;
+  actionText?: string;
+  badge?: string;
+  animate?: boolean;
+  delay?: number;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  icon: null,
+  iconEmoji: "",
+  iconColor: "orange",
+  actionText: "",
+  badge: "",
+  animate: true,
+  delay: 0,
+});
 
 const iconColorClass = computed(() => {
-  const colors = {
-    orange: 'feature-icon-orange',
-    green: 'feature-icon-green',
-    blue: 'feature-icon-blue',
-    purple: 'feature-icon-purple',
-    red: 'feature-icon-red'
-  }
-  return colors[props.iconColor] || colors.orange
-})
+  const colors: Record<IconColor, string> = {
+    orange: "feature-icon-orange",
+    green: "feature-icon-green",
+    blue: "feature-icon-blue",
+    purple: "feature-icon-purple",
+    red: "feature-icon-red",
+  };
+  return colors[props.iconColor] || colors.orange;
+});
 </script>

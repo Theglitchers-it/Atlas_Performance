@@ -103,3 +103,64 @@ INSERT INTO exercises (tenant_id, name, description, category, equipment, diffic
 (NULL, 'Jumping Jack', 'Salti a stella', 'cardio', '["bodyweight"]', 'beginner', FALSE, FALSE),
 (NULL, 'Box Jump', 'Salto su box', 'plyometric', '["box"]', 'intermediate', TRUE, FALSE),
 (NULL, 'Battle Ropes', 'Corde ondulate', 'cardio', '["battle_ropes"]', 'intermediate', FALSE, FALSE);
+
+-- =====================================================
+-- NUOVI ESERCIZI — Batch 2 (dopo migration 012)
+-- Categorie: compound, isolation, plyometric, flexibility, balance, cardio
+-- =====================================================
+
+-- COMPOUND (8 nuovi)
+INSERT INTO exercises (tenant_id, name, description, category, equipment, difficulty, is_compound, is_custom) VALUES
+(NULL, 'Clean and Press', 'Girata al petto e slancio sopra la testa', 'compound', '["barbell"]', 'advanced', TRUE, FALSE),
+(NULL, 'Thruster', 'Front squat + push press in un unico movimento', 'compound', '["barbell"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Sumo Deadlift', 'Stacco a presa larga con enfasi su adduttori e glutei', 'compound', '["barbell"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Pendlay Row', 'Rematore esplosivo dal pavimento', 'compound', '["barbell"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Push Press', 'Military press con spinta delle gambe', 'compound', '["barbell"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Landmine Press', 'Press unilaterale con bilanciere a terra', 'compound', '["barbell", "landmine"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Zercher Squat', 'Squat con bilanciere nella piega dei gomiti', 'compound', '["barbell"]', 'advanced', TRUE, FALSE),
+(NULL, 'Snatch Grip Deadlift', 'Stacco con presa da strappo per dorsali e trapezio', 'compound', '["barbell"]', 'advanced', TRUE, FALSE);
+
+-- ISOLATION (5 nuovi)
+INSERT INTO exercises (tenant_id, name, description, category, equipment, difficulty, is_compound, is_custom) VALUES
+(NULL, 'Pec Fly Machine', 'Aperture pettorali alla macchina', 'isolation', '["machine"]', 'beginner', FALSE, FALSE),
+(NULL, 'Reverse Fly', 'Aperture inverse per deltoidi posteriori', 'isolation', '["dumbbells"]', 'beginner', FALSE, FALSE),
+(NULL, 'Preacher Curl con Manubrio', 'Curl su panca Scott unilaterale', 'isolation', '["dumbbell", "preacher_bench"]', 'beginner', FALSE, FALSE),
+(NULL, 'Sissy Squat', 'Squat di isolamento per quadricipiti', 'isolation', '["bodyweight"]', 'advanced', FALSE, FALSE),
+(NULL, 'Overhead Triceps Extension ai Cavi', 'Estensione tricipiti sopra la testa ai cavi', 'isolation', '["cable_machine"]', 'beginner', FALSE, FALSE);
+
+-- PLYOMETRIC (6 nuovi)
+INSERT INTO exercises (tenant_id, name, description, category, equipment, difficulty, is_compound, is_custom) VALUES
+(NULL, 'Jump Squat', 'Squat esplosivo con salto', 'plyometric', '["bodyweight"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Tuck Jump', 'Salto con ginocchia al petto', 'plyometric', '["bodyweight"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Depth Jump', 'Salto da rialzo con rimbalzo', 'plyometric', '["box"]', 'advanced', TRUE, FALSE),
+(NULL, 'Skater Jump', 'Salto laterale alternato', 'plyometric', '["bodyweight"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Plyo Push Up', 'Piegamenti esplosivi con stacco mani', 'plyometric', '["bodyweight"]', 'advanced', TRUE, FALSE),
+(NULL, 'Lateral Box Jump', 'Salto laterale su box', 'plyometric', '["box"]', 'intermediate', TRUE, FALSE);
+
+-- FLEXIBILITY (8 nuovi)
+INSERT INTO exercises (tenant_id, name, description, category, equipment, difficulty, is_compound, is_custom) VALUES
+(NULL, 'Stretching Quadricipiti', 'Allungamento quadricipiti in piedi o sdraiato', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Stretching Femorali', 'Allungamento femorali da seduto o in piedi', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Stretching Pettorali', 'Allungamento petto contro parete o porta', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Stretching Dorsali', 'Allungamento dorsali con braccio sopra la testa', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Stretching Polpacci', 'Allungamento polpacci contro parete', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Pigeon Pose', 'Posizione del piccione per flessori anca e glutei', 'flexibility', '["bodyweight"]', 'intermediate', FALSE, FALSE),
+(NULL, 'Cat-Cow Stretch', 'Mobilizzazione della colonna vertebrale', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Child''s Pose', 'Posizione del bambino per rilassamento e allungamento schiena', 'flexibility', '["bodyweight"]', 'beginner', FALSE, FALSE);
+
+-- BALANCE (5 nuovi)
+INSERT INTO exercises (tenant_id, name, description, category, equipment, difficulty, is_compound, is_custom) VALUES
+(NULL, 'Single Leg Deadlift', 'Stacco su una gamba per equilibrio e femorali', 'balance', '["dumbbell"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Bosu Ball Squat', 'Squat su Bosu Ball per propriocezione', 'balance', '["bosu_ball"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Pistol Squat', 'Squat su una gamba senza supporto', 'balance', '["bodyweight"]', 'advanced', TRUE, FALSE),
+(NULL, 'Single Leg Balance', 'Equilibrio su una gamba con varianti', 'balance', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Turkish Get Up', 'Alzata turca completa con kettlebell', 'balance', '["kettlebell"]', 'advanced', TRUE, FALSE);
+
+-- CARDIO EXTRA (6 nuovi)
+INSERT INTO exercises (tenant_id, name, description, category, equipment, difficulty, is_compound, is_custom) VALUES
+(NULL, 'Sled Push', 'Spinta della slitta per forza e condizionamento', 'cardio', '["sled"]', 'intermediate', TRUE, FALSE),
+(NULL, 'Assault Bike', 'Bici ad aria per intervalli ad alta intensita', 'cardio', '["assault_bike"]', 'intermediate', FALSE, FALSE),
+(NULL, 'Stair Climber', 'Simulatore di scale per resistenza', 'cardio', '["stair_climber"]', 'beginner', FALSE, FALSE),
+(NULL, 'Ski Erg', 'Ergometro sci per upper body cardio', 'cardio', '["ski_erg"]', 'intermediate', TRUE, FALSE),
+(NULL, 'High Knees', 'Corsa sul posto con ginocchia alte', 'cardio', '["bodyweight"]', 'beginner', FALSE, FALSE),
+(NULL, 'Sprint Intervallato', 'Sprint brevi alternati a recupero attivo', 'cardio', '["treadmill"]', 'advanced', FALSE, FALSE);

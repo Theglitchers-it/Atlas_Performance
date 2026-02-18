@@ -4,8 +4,30 @@
  */
 
 const clientService = require('../services/client.service');
+const { query } = require('../config/database');
 
 class ClientController {
+    /**
+     * GET /api/clients/me - Profilo del client corrente
+     */
+    async getMyProfile(req, res, next) {
+        try {
+            const clients = await query(
+                'SELECT id FROM clients WHERE user_id = ? AND tenant_id = ? LIMIT 1',
+                [req.user.id, req.user.tenantId]
+            );
+
+            if (clients.length === 0) {
+                return res.status(404).json({ success: false, message: 'Profilo cliente non trovato' });
+            }
+
+            const client = await clientService.getById(clients[0].id, req.user.tenantId);
+            res.json({ success: true, data: { client } });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     /**
      * GET /api/clients
      */

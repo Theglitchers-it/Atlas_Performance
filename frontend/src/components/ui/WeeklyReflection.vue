@@ -6,13 +6,15 @@
   >
     <!-- Header -->
     <div class="mb-6">
-      <h3 class="text-lg font-semibold text-white mb-1">{{ title }}</h3>
+      <h3 class="text-lg font-semibold text-habit-text mb-1">{{ title }}</h3>
       <p class="text-habit-text-muted text-sm">{{ subtitle }}</p>
     </div>
 
     <!-- Progress Circles -->
     <div class="bg-habit-bg-light rounded-xl p-6 mb-6">
-      <h4 class="text-habit-text-muted text-sm text-center mb-6">Your week at a glance</h4>
+      <h4 class="text-habit-text-muted text-sm text-center mb-6">
+        Your week at a glance
+      </h4>
 
       <div class="flex justify-center gap-8">
         <div
@@ -48,7 +50,9 @@
             </svg>
             <!-- Percentage text -->
             <div class="absolute inset-0 flex items-center justify-center">
-              <span class="text-white font-bold text-sm">{{ item.progress }}%</span>
+              <span class="text-habit-text font-bold text-sm"
+                >{{ item.progress }}%</span
+              >
             </div>
           </div>
           <span class="text-habit-text-muted text-xs">{{ item.label }}</span>
@@ -63,19 +67,25 @@
         :key="index"
         class="text-center p-4 bg-habit-bg-light rounded-xl"
       >
-        <div class="text-2xl font-bold text-white">{{ stat.value }}</div>
+        <div class="text-2xl font-bold text-habit-text">{{ stat.value }}</div>
         <div class="text-habit-text-subtle text-xs mt-1">{{ stat.label }}</div>
       </div>
     </div>
 
     <!-- Insights (optional) -->
-    <div v-if="insights && insights.length" class="mt-6 pt-6 border-t border-habit-border space-y-3">
+    <div
+      v-if="insights && insights.length"
+      class="mt-6 pt-6 border-t border-habit-border space-y-3"
+    >
       <div
         v-for="(insight, index) in insights"
         :key="index"
         class="flex items-start gap-3"
       >
-        <div class="w-6 h-6 rounded-full flex items-center justify-center text-sm" :class="getInsightIconClass(insight.type)">
+        <div
+          class="w-6 h-6 rounded-full flex items-center justify-center text-sm"
+          :class="getInsightIconClass(insight.type)"
+        >
           {{ getInsightIcon(insight.type) }}
         </div>
         <p class="text-habit-text-muted text-sm flex-1">{{ insight.text }}</p>
@@ -84,76 +94,84 @@
   </div>
 </template>
 
-<script setup>
-const props = defineProps({
-  title: {
-    type: String,
-    default: 'Weekly reflection'
-  },
-  subtitle: {
-    type: String,
-    default: 'A clear summary of your week that highlights what improved and what needs adjusting.'
-  },
-  progressItems: {
-    type: Array,
-    default: () => [
-      { label: 'Workout', progress: 86, color: 'blue' },
-      { label: 'Meditation', progress: 100, color: 'green' },
-      { label: 'Reading', progress: 71, color: 'purple' }
-    ]
-  },
-  stats: {
-    type: Array,
-    default: () => [
-      { label: 'Streaks completed', value: 12 },
-      { label: 'Focused sessions', value: '07' },
-      { label: '3 streaks improved', value: '' },
-      { label: 'Total time: 4h 20m', value: '' }
-    ]
-  },
-  insights: {
-    type: Array,
-    default: () => []
-    // [{ type: 'success', text: 'Great progress on meditation!' }]
-  },
-  animate: {
-    type: Boolean,
-    default: true
-  },
-  delay: {
-    type: Number,
-    default: 0
-  }
-})
+<script setup lang="ts">
+type ProgressColor = "orange" | "green" | "blue" | "purple" | "red";
+type InsightType = "success" | "warning" | "info" | "tip";
 
-const getProgressColor = (color) => {
-  const colors = {
-    orange: 'text-habit-orange',
-    green: 'text-habit-success',
-    blue: 'text-habit-blue',
-    purple: 'text-habit-purple',
-    red: 'text-habit-red'
-  }
-  return colors[color] || colors.orange
+interface ProgressItem {
+  label: string;
+  progress: number;
+  color: ProgressColor;
 }
 
-const getInsightIcon = (type) => {
-  const icons = {
-    success: '✓',
-    warning: '!',
-    info: 'i',
-    tip: '💡'
-  }
-  return icons[type] || icons.info
+interface WeeklyStat {
+  label: string;
+  value: string | number;
 }
 
-const getInsightIconClass = (type) => {
-  const classes = {
-    success: 'bg-habit-success/20 text-habit-success',
-    warning: 'bg-warning/20 text-warning',
-    info: 'bg-habit-blue/20 text-habit-blue',
-    tip: 'bg-habit-orange/20'
-  }
-  return classes[type] || classes.info
+interface Insight {
+  type: InsightType;
+  text: string;
 }
+
+interface Props {
+  title?: string;
+  subtitle?: string;
+  progressItems?: ProgressItem[];
+  stats?: WeeklyStat[];
+  insights?: Insight[];
+  animate?: boolean;
+  delay?: number;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  title: "Weekly reflection",
+  subtitle:
+    "A clear summary of your week that highlights what improved and what needs adjusting.",
+  progressItems: () => [
+    { label: "Workout", progress: 86, color: "blue" as ProgressColor },
+    { label: "Meditation", progress: 100, color: "green" as ProgressColor },
+    { label: "Reading", progress: 71, color: "purple" as ProgressColor },
+  ],
+  stats: () => [
+    { label: "Streaks completed", value: 12 },
+    { label: "Focused sessions", value: "07" },
+    { label: "3 streaks improved", value: "" },
+    { label: "Total time: 4h 20m", value: "" },
+  ],
+  insights: () => [],
+  animate: true,
+  delay: 0,
+});
+
+const getProgressColor = (color: string): string => {
+  const colors: Record<string, string> = {
+    orange: "text-habit-orange",
+    green: "text-habit-success",
+    blue: "text-habit-blue",
+    purple: "text-habit-purple",
+    red: "text-habit-red",
+  };
+  return colors[color] || colors.orange;
+};
+
+const getInsightIcon = (type: string): string => {
+  const icons: Record<string, string> = {
+    success: "\u2713",
+    warning: "!",
+    info: "i",
+    tip: "\uD83D\uDCA1",
+  };
+  return icons[type] || icons.info;
+};
+
+const getInsightIconClass = (type: string): string => {
+  const classes: Record<string, string> = {
+    success: "bg-habit-success/20 text-habit-success",
+    warning: "bg-warning/20 text-warning",
+    info: "bg-habit-blue/20 text-habit-blue",
+    tip: "bg-habit-orange/20",
+  };
+  return classes[type] || classes.info;
+};
 </script>

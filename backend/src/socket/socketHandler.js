@@ -4,9 +4,12 @@
  */
 
 const jwt = require('jsonwebtoken');
+const cookie = require('cookie');
 const { query } = require('../config/database');
+const { createServiceLogger } = require('../config/logger');
+const logger = createServiceLogger('SOCKET');
 
-// Mappa utenti connessi: { odId: { odId, odId } }
+// Mappa utenti connessi: userId -> { socketId, tenantId }
 const connectedUsers = new Map();
 
 /**
@@ -15,9 +18,21 @@ const connectedUsers = new Map();
  */
 const initSocket = (io) => {
     // Middleware autenticazione socket
+    // Supporta cookie httpOnly (browser) e auth.token (mobile/API)
     io.use(async (socket, next) => {
         try {
-            const token = socket.handshake.auth.token;
+            // 1. Prova dal cookie httpOnly nel handshake
+            let token = null;
+            const cookieHeader = socket.handshake.headers?.cookie;
+            if (cookieHeader) {
+                const cookies = cookie.parse(cookieHeader);
+                token = cookies.access_token;
+            }
+
+            // 2. Fallback: auth.token (mobile/API)
+            if (!token) {
+                token = socket.handshake.auth?.token;
+            }
 
             if (!token) {
                 return next(new Error('Token mancante'));
@@ -43,18 +58,18 @@ const initSocket = (io) => {
 
             next();
         } catch (error) {
-            console.error('Errore auth socket:', error.message);
+            logger.error('Errore auth socket', { error: error.message });
             next(new Error('Autenticazione fallita'));
         }
     });
 
     io.on('connection', (socket) => {
-        console.log(`Socket connesso: ${socket.user.email} (${socket.id})`);
+        logger.info(`Socket connesso: ${socket.user.email} (${socket.id})`);
 
         // Registra utente connesso
         connectedUsers.set(socket.user.id, {
-            odId: socket.id,
-            odId: socket.user.tenantId
+            socketId: socket.id,
+            tenantId: socket.user.tenantId
         });
 
         // Join alla room del tenant
@@ -73,7 +88,7 @@ const initSocket = (io) => {
         // Join a una conversazione specifica
         socket.on('join_conversation', (conversationId) => {
             socket.join(`conversation_${conversationId}`);
-            console.log(`${socket.user.email} joined conversation ${conversationId}`);
+            logger.info(`${socket.user.email} joined conversation ${conversationId}`);
         });
 
         // Lascia una conversazione
@@ -117,7 +132,7 @@ const initSocket = (io) => {
                 );
 
             } catch (error) {
-                console.error('Errore invio messaggio:', error);
+                logger.error('Errore invio messaggio', { error: error.message });
                 socket.emit('error', { message: 'Errore invio messaggio' });
             }
         });
@@ -125,14 +140,14 @@ const initSocket = (io) => {
         // Typing indicator
         socket.on('typing_start', (conversationId) => {
             socket.to(`conversation_${conversationId}`).emit('user_typing', {
-                odId: socket.user.id,
+                userId: socket.user.id,
                 conversationId
             });
         });
 
         socket.on('typing_stop', (conversationId) => {
             socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
-                odId: socket.user.id,
+                userId: socket.user.id,
                 conversationId
             });
         });
@@ -148,7 +163,7 @@ const initSocket = (io) => {
             );
 
             socket.to(`conversation_${conversationId}`).emit('messages_read', {
-                odId: socket.user.id,
+                userId: socket.user.id,
                 conversationId,
                 upToMessageId: messageId
             });
@@ -164,7 +179,7 @@ const initSocket = (io) => {
         // === DISCONNECTION ===
 
         socket.on('disconnect', () => {
-            console.log(`Socket disconnesso: ${socket.user.email}`);
+            logger.info(`Socket disconnesso: ${socket.user.email}`);
 
             connectedUsers.delete(socket.user.id);
 
@@ -175,7 +190,7 @@ const initSocket = (io) => {
         });
     });
 
-    console.log('Socket.io inizializzato');
+    logger.info('Socket.io inizializzato');
 };
 
 /**

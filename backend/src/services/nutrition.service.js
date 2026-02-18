@@ -2,7 +2,7 @@
  * Nutrition Service
  */
 
-const db = require('../config/database');
+const { query, getPool } = require('../config/database');
 
 class NutritionService {
     // ==================== MEAL PLANS ====================
@@ -10,7 +10,7 @@ class NutritionService {
     async getMealPlans(tenantId, options = {}) {
         const { clientId, status, limit = 20, offset = 0 } = options;
 
-        let query = `
+        let sql = `
             SELECT mp.*,
                    c.first_name AS client_first_name,
                    c.last_name AS client_last_name,
@@ -24,24 +24,24 @@ class NutritionService {
         const params = [tenantId];
 
         if (clientId) {
-            query += ' AND mp.client_id = ?';
+            sql += ' AND mp.client_id = ?';
             params.push(clientId);
         }
 
         if (status) {
-            query += ' AND mp.status = ?';
+            sql += ' AND mp.status = ?';
             params.push(status);
         }
 
-        query += ' ORDER BY mp.created_at DESC LIMIT ? OFFSET ?';
+        sql += ' ORDER BY mp.created_at DESC LIMIT ? OFFSET ?';
         params.push(limit, offset);
 
-        const [plans] = await db.execute(query, params);
+        const plans = await query(sql, params);
         return plans;
     }
 
     async getMealPlanById(planId, tenantId) {
-        const [plans] = await db.execute(
+        const plans = await query(
             `SELECT mp.*,
                     c.first_name AS client_first_name,
                     c.last_name AS client_last_name
@@ -56,19 +56,19 @@ class NutritionService {
         const plan = plans[0];
 
         // Get days with meals and items
-        const [days] = await db.execute(
+        const days = await query(
             `SELECT * FROM meal_plan_days WHERE meal_plan_id = ? ORDER BY day_number`,
             [planId]
         );
 
         for (const day of days) {
-            const [meals] = await db.execute(
+            const meals = await query(
                 `SELECT * FROM meals WHERE plan_day_id = ? ORDER BY order_index`,
                 [day.id]
             );
 
             for (const meal of meals) {
-                const [items] = await db.execute(
+                const items = await query(
                     `SELECT * FROM meal_items WHERE meal_id = ? ORDER BY id`,
                     [meal.id]
                 );
@@ -89,7 +89,7 @@ class NutritionService {
             notes, days = []
         } = data;
 
-        const connection = await db.getConnection();
+        const connection = await getPool().getConnection();
         try {
             await connection.beginTransaction();
 
@@ -163,7 +163,7 @@ class NutritionService {
             status, notes
         } = data;
 
-        await db.execute(
+        await query(
             `UPDATE meal_plans
              SET name = COALESCE(?, name),
                  start_date = COALESCE(?, start_date),
@@ -183,7 +183,7 @@ class NutritionService {
     }
 
     async deleteMealPlan(planId, tenantId) {
-        const [result] = await db.execute(
+        const result = await query(
             'DELETE FROM meal_plans WHERE id = ? AND tenant_id = ?',
             [planId, tenantId]
         );
@@ -194,7 +194,7 @@ class NutritionService {
 
     async addPlanDay(planId, tenantId, data) {
         // Verify plan ownership
-        const [plans] = await db.execute(
+        const plans = await query(
             'SELECT id FROM meal_plans WHERE id = ? AND tenant_id = ?',
             [planId, tenantId]
         );
@@ -205,7 +205,7 @@ class NutritionService {
 
         const { dayNumber, dayName, notes } = data;
 
-        const [result] = await db.execute(
+        const result = await query(
             `INSERT INTO meal_plan_days (meal_plan_id, day_number, day_name, notes)
              VALUES (?, ?, ?, ?)`,
             [planId, dayNumber, dayName || null, notes || null]
@@ -217,7 +217,7 @@ class NutritionService {
     async updatePlanDay(dayId, tenantId, data) {
         const { dayNumber, dayName, notes } = data;
 
-        await db.execute(
+        await query(
             `UPDATE meal_plan_days mpd
              JOIN meal_plans mp ON mpd.meal_plan_id = mp.id
              SET mpd.day_number = COALESCE(?, mpd.day_number),
@@ -231,7 +231,7 @@ class NutritionService {
     }
 
     async deletePlanDay(dayId, tenantId) {
-        const [result] = await db.execute(
+        const result = await query(
             `DELETE mpd FROM meal_plan_days mpd
              JOIN meal_plans mp ON mpd.meal_plan_id = mp.id
              WHERE mpd.id = ? AND mp.tenant_id = ?`,
@@ -244,7 +244,7 @@ class NutritionService {
 
     async addMeal(dayId, tenantId, data) {
         // Verify ownership through join
-        const [days] = await db.execute(
+        const days = await query(
             `SELECT mpd.id FROM meal_plan_days mpd
              JOIN meal_plans mp ON mpd.meal_plan_id = mp.id
              WHERE mpd.id = ? AND mp.tenant_id = ?`,
@@ -257,7 +257,7 @@ class NutritionService {
 
         const { mealType, name, orderIndex, notes } = data;
 
-        const [result] = await db.execute(
+        const result = await query(
             `INSERT INTO meals (plan_day_id, meal_type, name, order_index, notes)
              VALUES (?, ?, ?, ?, ?)`,
             [dayId, mealType, name || null, orderIndex || 0, notes || null]
@@ -269,7 +269,7 @@ class NutritionService {
     async updateMeal(mealId, tenantId, data) {
         const { mealType, name, orderIndex, notes } = data;
 
-        await db.execute(
+        await query(
             `UPDATE meals m
              JOIN meal_plan_days mpd ON m.plan_day_id = mpd.id
              JOIN meal_plans mp ON mpd.meal_plan_id = mp.id
@@ -285,7 +285,7 @@ class NutritionService {
     }
 
     async deleteMeal(mealId, tenantId) {
-        const [result] = await db.execute(
+        const result = await query(
             `DELETE m FROM meals m
              JOIN meal_plan_days mpd ON m.plan_day_id = mpd.id
              JOIN meal_plans mp ON mpd.meal_plan_id = mp.id
@@ -299,7 +299,7 @@ class NutritionService {
 
     async addMealItem(mealId, tenantId, data) {
         // Verify ownership
-        const [meals] = await db.execute(
+        const meals = await query(
             `SELECT m.id FROM meals m
              JOIN meal_plan_days mpd ON m.plan_day_id = mpd.id
              JOIN meal_plans mp ON mpd.meal_plan_id = mp.id
@@ -313,7 +313,7 @@ class NutritionService {
 
         const { foodName, quantity, unit, calories, proteinG, carbsG, fatG, fiberG, notes } = data;
 
-        const [result] = await db.execute(
+        const result = await query(
             `INSERT INTO meal_items
              (meal_id, food_name, quantity, unit, calories, protein_g, carbs_g, fat_g, fiber_g, notes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -327,7 +327,7 @@ class NutritionService {
     async updateMealItem(itemId, tenantId, data) {
         const { foodName, quantity, unit, calories, proteinG, carbsG, fatG, fiberG, notes } = data;
 
-        await db.execute(
+        await query(
             `UPDATE meal_items mi
              JOIN meals m ON mi.meal_id = m.id
              JOIN meal_plan_days mpd ON m.plan_day_id = mpd.id
@@ -349,7 +349,7 @@ class NutritionService {
     }
 
     async deleteMealItem(itemId, tenantId) {
-        const [result] = await db.execute(
+        const result = await query(
             `DELETE mi FROM meal_items mi
              JOIN meals m ON mi.meal_id = m.id
              JOIN meal_plan_days mpd ON m.plan_day_id = mpd.id
@@ -364,7 +364,7 @@ class NutritionService {
 
     async getClientNutritionSummary(clientId, tenantId) {
         // Get active meal plan
-        const [activePlans] = await db.execute(
+        const activePlans = await query(
             `SELECT * FROM meal_plans
              WHERE client_id = ? AND tenant_id = ? AND status = 'active'
              ORDER BY created_at DESC LIMIT 1`,
@@ -372,7 +372,7 @@ class NutritionService {
         );
 
         // Get all meal plans count
-        const [planCount] = await db.execute(
+        const planCount = await query(
             `SELECT COUNT(*) as total FROM meal_plans
              WHERE client_id = ? AND tenant_id = ?`,
             [clientId, tenantId]
@@ -391,7 +391,7 @@ class NutritionService {
     }
 
     async calculateDayNutrition(dayId, tenantId) {
-        const [items] = await db.execute(
+        const items = await query(
             `SELECT mi.calories, mi.protein_g, mi.carbs_g, mi.fat_g, mi.fiber_g
              FROM meal_items mi
              JOIN meals m ON mi.meal_id = m.id

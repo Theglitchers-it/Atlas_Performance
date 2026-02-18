@@ -4,6 +4,8 @@
  */
 
 const OpenAI = require('openai');
+const { createServiceLogger } = require('./logger');
+const logger = createServiceLogger('OPENAI');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -90,7 +92,7 @@ const generateResponse = async (type, userMessage, context = {}) => {
 
         return response.choices[0].message.content;
     } catch (error) {
-        console.error('Errore OpenAI:', error.message);
+        logger.error('Errore OpenAI', { error: error.message });
         throw new Error('Errore nella generazione della risposta AI');
     }
 };
@@ -123,7 +125,7 @@ const analyzeImage = async (imageUrl, prompt) => {
 
         return response.choices[0].message.content;
     } catch (error) {
-        console.error('Errore analisi immagine:', error.message);
+        logger.error('Errore analisi immagine', { error: error.message });
         throw new Error('Errore nell\'analisi dell\'immagine');
     }
 };

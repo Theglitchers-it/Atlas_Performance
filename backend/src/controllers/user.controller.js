@@ -4,6 +4,7 @@
  */
 
 const userService = require('../services/user.service');
+const { getFileUrl } = require('../middlewares/upload');
 
 class UserController {
     /**
@@ -124,6 +125,64 @@ class UserController {
                 success: true,
                 data: { user }
             });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/users/me/avatar
+     * Upload file avatar per l'utente corrente
+     */
+    async uploadMyAvatar(req, res, next) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: 'Nessun file caricato' });
+            }
+
+            const avatarUrl = getFileUrl(req.file.path);
+
+            const user = await userService.updateAvatar(
+                req.user.id,
+                req.user.tenantId,
+                avatarUrl
+            );
+
+            res.json({
+                success: true,
+                message: 'Avatar aggiornato',
+                data: { user, avatarUrl }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/users/me/business
+     */
+    async getBusinessInfo(req, res, next) {
+        try {
+            if (req.user.role !== 'tenant_owner' && req.user.role !== 'super_admin') {
+                return res.status(403).json({ success: false, message: 'Accesso negato' });
+            }
+            const info = await userService.getBusinessInfo(req.user.tenantId);
+            res.json({ success: true, data: info });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/users/me/business
+     */
+    async updateBusinessInfo(req, res, next) {
+        try {
+            if (req.user.role !== 'tenant_owner' && req.user.role !== 'super_admin') {
+                return res.status(403).json({ success: false, message: 'Accesso negato' });
+            }
+            const info = await userService.updateBusinessInfo(req.user.tenantId, req.body);
+            res.json({ success: true, message: 'Info business aggiornate', data: info });
         } catch (error) {
             next(error);
         }

@@ -1,26 +1,44 @@
 {
-  "name": "atlas-performance",
+  "name": "atlas-platform",
   "version": "1.0.0",
-  "description": "Atlas Performance - Professional Fitness Management Platform",
-  "type": "module",
+  "description": "Atlas - Piattaforma per Personal Trainer",
+  "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "watch": "vite build --watch"
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run preview",
+    "build": "cd frontend && npm run build",
+    "db:setup": "cd database && echo 'Esegui schema.sql e seed files in phpMyAdmin'",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@tailwindcss/aspect-ratio": "^0.4.2",
-    "@tailwindcss/forms": "^0.5.7",
-    "@tailwindcss/typography": "^0.5.10",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.33",
-    "tailwindcss": "^3.4.1",
-    "terser": "^5.44.1",
-    "vite": "^5.0.11"
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1"
   },
-  "dependencies": {
-    "alpinejs": "^3.13.3",
-    "chart.js": "^4.4.1"
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "personal-trainer",
+    "saas",
+    "fitness"
+  ],
+  "author": "The Glitchers",
+  "license": "MIT",
+  "lint-staged": {
+    "frontend/src/**/*.{ts,vue}": [
+      "prettier --write"
+    ],
+    "backend/src/**/*.js": [
+      "prettier --write"
+    ]
   }
 }

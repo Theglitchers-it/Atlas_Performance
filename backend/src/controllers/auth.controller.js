@@ -4,6 +4,7 @@
  */
 
 const authService = require('../services/auth.service');
+const { setAuthCookies, clearAuthCookies } = require('../utils/cookies');
 
 class AuthController {
     /**
@@ -23,10 +24,13 @@ class AuthController {
                 businessName
             });
 
+            // Set httpOnly cookies
+            setAuthCookies(res, result.accessToken, result.refreshToken);
+
             res.status(201).json({
                 success: true,
                 message: 'Registrazione completata con successo',
-                data: result
+                data: { user: result.user }
             });
         } catch (error) {
             next(error);
@@ -43,10 +47,13 @@ class AuthController {
 
             const result = await authService.login(email, password);
 
+            // Set httpOnly cookies
+            setAuthCookies(res, result.accessToken, result.refreshToken);
+
             res.json({
                 success: true,
                 message: 'Login effettuato con successo',
-                data: result
+                data: { user: result.user }
             });
         } catch (error) {
             next(error);
@@ -55,17 +62,28 @@ class AuthController {
 
     /**
      * POST /api/auth/refresh-token
-     * Rinnova access token
+     * Rinnova access token — legge refresh token dal cookie
      */
     async refreshToken(req, res, next) {
         try {
-            const { refreshToken } = req.body;
+            // Leggi refresh token dal cookie, fallback al body per client API
+            const token = req.cookies?.refresh_token || req.body?.refreshToken;
 
-            const result = await authService.refreshToken(refreshToken);
+            if (!token) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Refresh token mancante'
+                });
+            }
+
+            const result = await authService.refreshToken(token);
+
+            // Set nuovo access token cookie
+            setAuthCookies(res, result.accessToken, token);
 
             res.json({
                 success: true,
-                data: result
+                data: { user: result.user }
             });
         } catch (error) {
             next(error);
@@ -78,9 +96,15 @@ class AuthController {
      */
     async logout(req, res, next) {
         try {
-            const { refreshToken } = req.body;
+            // Leggi refresh token dal cookie, fallback al body
+            const token = req.cookies?.refresh_token || req.body?.refreshToken;
 
-            await authService.logout(refreshToken);
+            if (token) {
+                await authService.logout(token);
+            }
+
+            // Clear httpOnly cookies
+            clearAuthCookies(res);
 
             res.json({
                 success: true,
@@ -98,6 +122,9 @@ class AuthController {
     async logoutAll(req, res, next) {
         try {
             await authService.logoutAll(req.user.id);
+
+            // Clear httpOnly cookies
+            clearAuthCookies(res);
 
             res.json({
                 success: true,
@@ -134,6 +161,9 @@ class AuthController {
             const { currentPassword, newPassword } = req.body;
 
             await authService.changePassword(req.user.id, currentPassword, newPassword);
+
+            // Clear cookies — forza re-login
+            clearAuthCookies(res);
 
             res.json({
                 success: true,

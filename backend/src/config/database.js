@@ -4,6 +4,8 @@
  */
 
 const mysql = require('mysql2/promise');
+const { createServiceLogger } = require('./logger');
+const logger = createServiceLogger('DATABASE');
 
 let pool = null;
 
@@ -14,7 +16,7 @@ const dbConfig = {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'pt_saas_db',
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: parseInt(process.env.DB_POOL_SIZE) || 50,
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0
@@ -36,11 +38,11 @@ const getPool = () => {
 const connectDB = async () => {
     try {
         const connection = await getPool().getConnection();
-        console.log(`MySQL connesso: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
+        logger.info(`MySQL connesso: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
         connection.release();
         return true;
     } catch (error) {
-        console.error('Errore connessione MySQL:', error.message);
+        logger.error('Errore connessione MySQL', { error: error.message });
         throw error;
     }
 };
@@ -56,9 +58,10 @@ const query = async (sql, params = []) => {
         const [rows] = await getPool().execute(sql, params);
         return rows;
     } catch (error) {
-        console.error('Errore query:', error.message);
-        console.error('SQL:', sql);
-        console.error('Params:', params);
+        logger.error('Errore query', { error: error.message });
+        if (process.env.NODE_ENV !== 'production') {
+            logger.error('SQL', { sql });
+        }
         throw error;
     }
 };
@@ -90,7 +93,7 @@ const closePool = async () => {
     if (pool) {
         await pool.end();
         pool = null;
-        console.log('Pool MySQL chiuso');
+        logger.info('Pool MySQL chiuso');
     }
 };
 

@@ -3,16 +3,29 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+const isMobileBuild = process.env.VITE_BUILD_TARGET === 'mobile'
+
 export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    css: false,
+    exclude: ['e2e/**', 'node_modules/**'],
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  },
   plugins: [
     vue(),
-    VitePWA({
+    // PWA disabilitata per build mobile Capacitor (il service worker confligge con WebView)
+    !isMobileBuild && VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'PT Fitness - Piattaforma Personal Trainer',
-        short_name: 'PT Fitness',
-        description: 'Piattaforma SaaS per Personal Trainer',
+        name: 'Atlas - Piattaforma Personal Trainer',
+        short_name: 'Atlas',
+        description: 'Atlas - Piattaforma per Personal Trainer',
         theme_color: '#3B82F6',
         background_color: '#ffffff',
         display: 'standalone',
@@ -76,11 +89,44 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 // 24 ore
               }
             }
+          },
+          {
+            urlPattern: /\/api\/workouts/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'workout-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 giorni
+              }
+            }
+          },
+          {
+            urlPattern: /\/api\/exercises/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'exercise-cache',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 7
+              }
+            }
+          },
+          {
+            urlPattern: /\/api\/clients\/.*\/workout/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'client-workout-cache',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 3 // 3 giorni
+              }
+            }
           }
         ]
       }
     })
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -101,6 +147,16 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: process.env.NODE_ENV !== 'production',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-charts': ['chart.js'],
+          'vendor-utils': ['axios', 'date-fns']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 500
   }
 })

@@ -42,8 +42,9 @@ class ClientService {
         }
 
         if (search) {
+            const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
             sql += ' AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ?)';
-            const searchPattern = `%${search}%`;
+            const searchPattern = `%${sanitizedSearch}%`;
             params.push(searchPattern, searchPattern, searchPattern);
         }
 
@@ -265,7 +266,7 @@ class ClientService {
     async addGoal(clientId, tenantId, goalData) {
         const { goalType, targetValue, currentValue, unit, deadline, priority, notes } = goalData;
 
-        const [result] = await query(
+        const result = await query(
             `INSERT INTO client_goals (tenant_id, client_id, goal_type, target_value, current_value, unit, deadline, priority, notes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [tenantId, clientId, goalType, targetValue, currentValue || 0, unit, deadline || null, priority || 1, notes || null]
@@ -280,7 +281,7 @@ class ClientService {
     async addInjury(clientId, tenantId, injuryData) {
         const { bodyPart, description, severity, injuryDate, restrictions, notes } = injuryData;
 
-        const [result] = await query(
+        const result = await query(
             `INSERT INTO injuries (tenant_id, client_id, body_part, description, severity, injury_date, restrictions, notes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [tenantId, clientId, bodyPart, description || null, severity || 'mild',

@@ -1,26 +1,46 @@
 /**
  * Middleware Autenticazione JWT
  * Verifica token e gestione ruoli
+ * Supporta httpOnly cookies (priorita) e Authorization header (fallback per API/mobile)
  */
 
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
+const { createServiceLogger } = require('../config/logger');
+const logger = createServiceLogger('AUTH');
+
+/**
+ * Estrai token JWT dalla request
+ * Priorita: cookie httpOnly > Authorization header
+ */
+const extractToken = (req) => {
+    // 1. Cookie httpOnly (browser)
+    if (req.cookies?.access_token) {
+        return req.cookies.access_token;
+    }
+
+    // 2. Authorization header (API/mobile)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.split(' ')[1];
+    }
+
+    return null;
+};
 
 /**
  * Verifica il token JWT
  */
 const verifyToken = async (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
+        const token = extractToken(req);
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        if (!token) {
             return res.status(401).json({
                 success: false,
                 message: 'Token di autenticazione mancante'
             });
         }
-
-        const token = authHeader.split(' ')[1];
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -45,6 +65,20 @@ const verifyToken = async (req, res, next) => {
             role: users[0].role
         };
 
+        // Validate tenant is active (skip for super_admin)
+        if (users[0].role !== 'super_admin' && users[0].tenant_id) {
+            const tenants = await query(
+                'SELECT id, subscription_status FROM tenants WHERE id = ?',
+                [users[0].tenant_id]
+            );
+            if (tenants.length === 0 || tenants[0].subscription_status === 'cancelled') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Tenant non attivo o sospeso'
+                });
+            }
+        }
+
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
@@ -60,7 +94,7 @@ const verifyToken = async (req, res, next) => {
                 message: 'Token non valido'
             });
         }
-        console.error('Errore verifica token:', error);
+        logger.error('Errore verifica token', { error: error.message });
         return res.status(500).json({
             success: false,
             message: 'Errore interno di autenticazione'
@@ -136,13 +170,13 @@ const requireSuperAdmin = (req, res, next) => {
 
 /**
  * Middleware opzionale - non blocca se non autenticato
+ * Supporta cookie httpOnly e Authorization header
  */
 const optionalAuth = async (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
+        const token = extractToken(req);
 
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
+        if (token) {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             const users = await query(
@@ -180,5 +214,6 @@ module.exports = {
     requireTenantOwner,
     requireSuperAdmin,
     optionalAuth,
+    extractToken,
     ROLES
 };

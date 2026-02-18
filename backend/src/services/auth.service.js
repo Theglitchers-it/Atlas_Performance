@@ -10,9 +10,29 @@ const { query, transaction } = require('../config/database');
 
 class AuthService {
     /**
+     * Validates password strength (defense-in-depth, independent from route validators)
+     */
+    _validatePassword(password) {
+        if (!password || password.length < 8) {
+            throw { status: 400, message: 'La password deve contenere almeno 8 caratteri' };
+        }
+        if (!/[A-Z]/.test(password)) {
+            throw { status: 400, message: 'La password deve contenere almeno una lettera maiuscola' };
+        }
+        if (!/[a-z]/.test(password)) {
+            throw { status: 400, message: 'La password deve contenere almeno una lettera minuscola' };
+        }
+        if (!/[0-9]/.test(password)) {
+            throw { status: 400, message: 'La password deve contenere almeno un numero' };
+        }
+    }
+
+    /**
      * Registra un nuovo tenant owner
      */
     async register({ email, password, firstName, lastName, phone, businessName }) {
+        this._validatePassword(password);
+
         // Verifica email non già registrata
         const existingUsers = await query(
             'SELECT id FROM users WHERE email = ?',
@@ -78,7 +98,8 @@ class AuthService {
         // Trova utente
         const users = await query(
             `SELECT u.id, u.tenant_id, u.email, u.password_hash, u.role,
-                    u.first_name, u.last_name, u.status, u.avatar_url,
+                    u.first_name, u.last_name, u.phone, u.status, u.avatar_url,
+                    u.failed_login_attempts, u.locked_until, u.created_at,
                     t.business_name, t.subscription_plan, t.subscription_status
              FROM users u
              LEFT JOIN tenants t ON u.tenant_id = t.id
@@ -92,15 +113,50 @@ class AuthService {
 
         const user = users[0];
 
+        // Account lockout check (5 failed attempts = 15 min lockout)
+        if (user.failed_login_attempts >= 5) {
+            if (user.locked_until) {
+                const lockedUntil = new Date(user.locked_until);
+                if (lockedUntil > new Date()) {
+                    const minutesLeft = Math.ceil((lockedUntil - new Date()) / 60000);
+                    throw { status: 429, message: `Account bloccato per troppi tentativi. Riprova tra ${minutesLeft} minuti.` };
+                }
+                // Lock expired, reset counter
+                await query('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?', [user.id]);
+                user.failed_login_attempts = 0;
+            } else {
+                // 5+ failed attempts but no lock set (edge case) - lock now
+                const lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+                await query('UPDATE users SET locked_until = ? WHERE id = ?', [lockUntil, user.id]);
+                throw { status: 429, message: 'Account bloccato per troppi tentativi. Riprova tra 15 minuti.' };
+            }
+        }
+
         // Verifica status
         if (user.status !== 'active') {
             throw { status: 403, message: 'Account non attivo. Contatta il supporto.' };
         }
 
-        // Verifica password
+        // Verifica password (utenti OAuth non hanno password)
+        if (!user.password_hash) {
+            throw { status: 401, message: 'Questo account usa login sociale. Accedi con Google, GitHub o Discord.' };
+        }
+
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) {
+            // Increment failed attempts
+            const attempts = (user.failed_login_attempts || 0) + 1;
+            const lockUntilValue = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+            await query(
+                'UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?',
+                [attempts, lockUntilValue, user.id]
+            );
             throw { status: 401, message: 'Credenziali non valide' };
+        }
+
+        // Reset failed attempts on successful login
+        if (user.failed_login_attempts > 0) {
+            await query('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?', [user.id]);
         }
 
         // Aggiorna last login
@@ -115,19 +171,40 @@ class AuthService {
         // Salva refresh token
         await this.saveRefreshToken(user.id, tokens.refreshToken);
 
+        // Build user data
+        const userData = {
+            id: user.id,
+            tenantId: user.tenant_id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+            phone: user.phone || null,
+            avatarUrl: user.avatar_url,
+            status: user.status,
+            businessName: user.business_name,
+            subscriptionPlan: user.subscription_plan,
+            subscriptionStatus: user.subscription_status,
+            createdAt: user.created_at
+        };
+
+        // For client users, resolve their clientId so the frontend can skip an extra API call
+        if (user.role === 'client') {
+            try {
+                const clients = await query(
+                    'SELECT id FROM clients WHERE user_id = ? LIMIT 1',
+                    [user.id]
+                );
+                if (clients.length > 0) {
+                    userData.clientId = clients[0].id;
+                }
+            } catch (err) {
+                // Non-critical — frontend will fallback to API lookup
+            }
+        }
+
         return {
-            user: {
-                id: user.id,
-                tenantId: user.tenant_id,
-                email: user.email,
-                firstName: user.first_name,
-                lastName: user.last_name,
-                role: user.role,
-                avatarUrl: user.avatar_url,
-                businessName: user.business_name,
-                subscriptionPlan: user.subscription_plan,
-                subscriptionStatus: user.subscription_status
-            },
+            user: userData,
             ...tokens
         };
     }
@@ -139,7 +216,7 @@ class AuthService {
         // Verifica token in database
         const tokens = await query(
             `SELECT rt.*, u.id as user_id, u.tenant_id, u.role, u.status,
-                    u.first_name, u.last_name, u.email, u.avatar_url
+                    u.first_name, u.last_name, u.email, u.phone, u.avatar_url, u.created_at
              FROM refresh_tokens rt
              JOIN users u ON rt.user_id = u.id
              WHERE rt.token = ? AND rt.expires_at > NOW()`,
@@ -177,7 +254,10 @@ class AuthService {
                 firstName: tokenData.first_name,
                 lastName: tokenData.last_name,
                 role: tokenData.role,
-                avatarUrl: tokenData.avatar_url
+                phone: tokenData.phone || null,
+                avatarUrl: tokenData.avatar_url,
+                status: tokenData.status,
+                createdAt: tokenData.created_at
             },
             ...newTokens
         };
@@ -207,7 +287,8 @@ class AuthService {
     async verifyAndGetUser(userId) {
         const users = await query(
             `SELECT u.id, u.tenant_id, u.email, u.role, u.first_name, u.last_name,
-                    u.avatar_url, u.status, t.business_name, t.subscription_plan
+                    u.phone, u.avatar_url, u.status, u.created_at,
+                    t.business_name, t.subscription_plan
              FROM users u
              LEFT JOIN tenants t ON u.tenant_id = t.id
              WHERE u.id = ? AND u.status = 'active'`,
@@ -219,17 +300,37 @@ class AuthService {
         }
 
         const user = users[0];
-        return {
+        const userData = {
             id: user.id,
             tenantId: user.tenant_id,
             email: user.email,
             firstName: user.first_name,
             lastName: user.last_name,
             role: user.role,
+            phone: user.phone || null,
             avatarUrl: user.avatar_url,
+            status: user.status,
             businessName: user.business_name,
-            subscriptionPlan: user.subscription_plan
+            subscriptionPlan: user.subscription_plan,
+            createdAt: user.created_at
         };
+
+        // For client users, include clientId
+        if (user.role === 'client') {
+            try {
+                const clients = await query(
+                    'SELECT id FROM clients WHERE user_id = ? LIMIT 1',
+                    [user.id]
+                );
+                if (clients.length > 0) {
+                    userData.clientId = clients[0].id;
+                }
+            } catch (err) {
+                // Non-critical
+            }
+        }
+
+        return userData;
     }
 
     /**
@@ -274,6 +375,8 @@ class AuthService {
      * Cambia password
      */
     async changePassword(userId, currentPassword, newPassword) {
+        this._validatePassword(newPassword);
+
         const users = await query(
             'SELECT password_hash FROM users WHERE id = ?',
             [userId]
@@ -283,9 +386,12 @@ class AuthService {
             throw { status: 404, message: 'Utente non trovato' };
         }
 
-        const validPassword = await bcrypt.compare(currentPassword, users[0].password_hash);
-        if (!validPassword) {
-            throw { status: 401, message: 'Password attuale non corretta' };
+        // Se l'utente ha una password, verificarla. OAuth users possono impostare password senza verifica
+        if (users[0].password_hash) {
+            const validPassword = await bcrypt.compare(currentPassword, users[0].password_hash);
+            if (!validPassword) {
+                throw { status: 401, message: 'Password attuale non corretta' };
+            }
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, 12);

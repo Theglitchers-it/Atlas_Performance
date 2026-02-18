@@ -8,25 +8,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Habitline theme colors
-        'habit-bg': '#131515',
-        'habit-bg-light': '#1a1c1c',
-        'habit-card': '#1e2020',
-        'habit-card-hover': '#252828',
+        // Habitline theme colors — CSS variables (light/dark automatic)
+        'habit-bg': 'rgb(var(--color-habit-bg) / <alpha-value>)',
+        'habit-bg-light': 'rgb(var(--color-habit-bg-light) / <alpha-value>)',
+        'habit-card': 'rgb(var(--color-habit-card) / <alpha-value>)',
+        'habit-card-hover': 'rgb(var(--color-habit-card-hover) / <alpha-value>)',
+        'habit-text': 'rgb(var(--color-habit-text) / <alpha-value>)',
+        'habit-skeleton': 'rgb(var(--color-habit-skeleton) / <alpha-value>)',
+        // Borders & muted text — rgba (no alpha-value decomposition needed)
+        'habit-border': 'var(--color-habit-border)',
+        'habit-border-light': 'var(--color-habit-border-light)',
+        'habit-text-muted': 'var(--color-habit-text-muted)',
+        'habit-text-subtle': 'var(--color-habit-text-subtle)',
+        // Accent colors — fixed (same in both themes)
         'habit-cyan': '#0283a7',
         'habit-orange': '#ff4c00',
         'habit-orange-light': '#ff6b2c',
         'habit-orange-dark': '#e04400',
-        'habit-border': 'rgba(255, 255, 255, 0.1)',
-        'habit-border-light': 'rgba(255, 255, 255, 0.15)',
         'habit-success': '#12a70a',
         'habit-success-light': '#22c55e',
         'habit-purple': '#8b5cf6',
         'habit-blue': '#3b82f6',
         'habit-red': '#ef4444',
-        'habit-text': '#ffffff',
-        'habit-text-muted': 'rgba(255, 255, 255, 0.7)',
-        'habit-text-subtle': 'rgba(255, 255, 255, 0.5)',
         // Brand colors - Orange theme (Habitline style)
         primary: {
           50: '#fff7ed',
@@ -92,11 +95,11 @@ export default {
         '128': '32rem',
       },
       boxShadow: {
-        'habit': '0 4px 24px rgba(0, 0, 0, 0.3)',
-        'habit-lg': '0 8px 40px rgba(0, 0, 0, 0.4)',
+        'habit': 'var(--shadow-habit)',
+        'habit-lg': 'var(--shadow-habit-lg)',
         'habit-glow': '0 0 40px rgba(255, 76, 0, 0.3)',
-        'habit-card': '0 2px 16px rgba(0, 0, 0, 0.2)',
-        'habit-card-hover': '0 8px 32px rgba(0, 0, 0, 0.3)',
+        'habit-card': 'var(--shadow-habit-card)',
+        'habit-card-hover': 'var(--shadow-habit-card-hover)',
       },
       backgroundImage: {
         'habit-gradient': 'linear-gradient(135deg, #1a1c1c 0%, #131515 100%)',

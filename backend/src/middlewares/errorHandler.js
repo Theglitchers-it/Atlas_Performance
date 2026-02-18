@@ -2,11 +2,19 @@
  * Middleware Gestione Errori
  */
 
+const { createServiceLogger } = require('../config/logger');
+const logger = createServiceLogger('ERROR_HANDLER');
+
 /**
  * Handler errori centralizzato
  */
 const errorHandler = (err, req, res, next) => {
-    console.error('Errore:', err);
+    const reqId = req.requestId;
+    if (process.env.NODE_ENV !== 'production') {
+        logger.error('Errore', { requestId: reqId, error: err.message, stack: err.stack });
+    } else {
+        logger.error('Errore', { requestId: reqId, error: err.message });
+    }
 
     // Errori di validazione Joi
     if (err.isJoi) {
@@ -39,7 +47,11 @@ const errorHandler = (err, req, res, next) => {
         // Generic database error
         return res.status(500).json({
             success: false,
-            message: 'Errore database'
+            message: 'Errore database',
+            ...(process.env.NODE_ENV !== 'production' && {
+                detail: err.message,
+                code: err.code
+            })
         });
     }
 
@@ -57,9 +69,10 @@ const errorHandler = (err, req, res, next) => {
         });
     }
 
-    // Errore con status code personalizzato
-    if (err.statusCode) {
-        return res.status(err.statusCode).json({
+    // Errore con status code personalizzato (supporta sia .status che .statusCode)
+    const customStatus = err.status || err.statusCode;
+    if (customStatus) {
+        return res.status(customStatus).json({
             success: false,
             message: err.message
         });
@@ -72,6 +85,7 @@ const errorHandler = (err, req, res, next) => {
         message: process.env.NODE_ENV === 'production'
             ? 'Errore interno del server'
             : err.message,
+        ...(reqId && { requestId: reqId }),
         ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
     });
 };

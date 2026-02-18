@@ -34,8 +34,9 @@ class UserService {
         }
 
         if (search) {
+            const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
             sql += ' AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)';
-            const searchPattern = `%${search}%`;
+            const searchPattern = `%${sanitizedSearch}%`;
             params.push(searchPattern, searchPattern, searchPattern);
         }
 
@@ -99,7 +100,7 @@ class UserService {
 
         const passwordHash = await bcrypt.hash(password, 12);
 
-        const [result] = await query(
+        const result = await query(
             `INSERT INTO users (tenant_id, email, password_hash, role, first_name, last_name, phone, status)
              VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
             [tenantId, email, passwordHash, role || 'staff', firstName, lastName, phone || null]
@@ -165,6 +166,32 @@ class UserService {
         );
 
         return this.getById(id, tenantId);
+    }
+
+    /**
+     * Ottieni info business del tenant
+     */
+    async getBusinessInfo(tenantId) {
+        const rows = await query(
+            'SELECT business_name, phone FROM tenants WHERE id = ?',
+            [tenantId]
+        );
+        if (rows.length === 0) {
+            throw { status: 404, message: 'Tenant non trovato' };
+        }
+        return rows[0];
+    }
+
+    /**
+     * Aggiorna info business del tenant
+     */
+    async updateBusinessInfo(tenantId, data) {
+        const { businessName, phone } = data;
+        await query(
+            `UPDATE tenants SET business_name = COALESCE(?, business_name), phone = ?, updated_at = NOW() WHERE id = ?`,
+            [businessName, phone || null, tenantId]
+        );
+        return this.getBusinessInfo(tenantId);
     }
 }
 

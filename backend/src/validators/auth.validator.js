@@ -6,7 +6,7 @@ const Joi = require('joi');
 
 const registerSchema = Joi.object({
     email: Joi.string()
-        .email()
+        .email({ tlds: { allow: false } })
         .required()
         .messages({
             'string.email': 'Email non valida',
@@ -58,7 +58,7 @@ const registerSchema = Joi.object({
 
 const loginSchema = Joi.object({
     email: Joi.string()
-        .email()
+        .email({ tlds: { allow: false } })
         .required()
         .messages({
             'string.email': 'Email non valida',
@@ -81,7 +81,7 @@ const refreshTokenSchema = Joi.object({
 
 const forgotPasswordSchema = Joi.object({
     email: Joi.string()
-        .email()
+        .email({ tlds: { allow: false } })
         .required()
         .messages({
             'string.email': 'Email non valida',

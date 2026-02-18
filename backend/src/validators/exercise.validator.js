@@ -15,7 +15,7 @@ const exerciseQuerySchema = Joi.object({
     equipment: Joi.string(),
     search: Joi.string().max(100),
     page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(100).default(50)
+    limit: Joi.number().integer().min(1).max(500).default(50)
 });
 
 // Schema per creazione esercizio

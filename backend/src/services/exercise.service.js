@@ -109,7 +109,7 @@ class ExerciseService {
             category, equipment, difficulty, isCompound, muscleGroups
         } = exerciseData;
 
-        const [result] = await query(`
+        const result = await query(`
             INSERT INTO exercises (tenant_id, name, description, instructions, video_url, image_url,
                                    category, equipment, difficulty, is_compound, is_custom, is_active)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE)

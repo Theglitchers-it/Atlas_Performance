@@ -1,163 +1,118 @@
 /**
  * Middleware Tenant Context
- * Inietta tenant_id in tutte le query per isolamento dati multi-tenant
+ * Verifica e valida il contesto tenant per ogni richiesta autenticata
  */
 
 const { query } = require('../config/database');
+const { createServiceLogger } = require('../config/logger');
+const logger = createServiceLogger('TENANT');
 
 /**
- * Inietta il contesto tenant nella request
- * Tutte le query devono filtrare per tenant_id
+ * Verifica che il tenant dell'utente sia attivo e valido
+ * Da usare dopo verifyToken per aggiungere info tenant alla request
  */
-const injectTenantContext = async (req, res, next) => {
+const validateTenant = async (req, res, next) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({
+        if (!req.user || !req.user.tenantId) {
+            return res.status(400).json({
                 success: false,
-                message: 'Autenticazione richiesta per accedere ai dati del tenant'
+                message: 'Contesto tenant mancante'
             });
         }
 
-        // Super admin può accedere a tutti i tenant (opzionale via query param)
-        if (req.user.role === 'super_admin') {
-            // Se specificato un tenant_id nel query param, usa quello
-            if (req.query.tenant_id) {
-                req.tenantId = req.query.tenant_id;
-            }
-            // Altrimenti non filtra per tenant (accesso globale)
-            req.isSuperAdmin = true;
-        } else {
-            // Utenti normali: usa sempre il loro tenant_id
-            req.tenantId = req.user.tenantId;
+        const tenants = await query(
+            'SELECT id, name, plan, status FROM tenants WHERE id = ? AND status = "active"',
+            [req.user.tenantId]
+        );
+
+        if (tenants.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'Tenant non trovato o disattivato'
+            });
         }
 
-        // Helper per aggiungere filtro tenant alle query
-        req.tenantFilter = (alias = '') => {
-            if (req.isSuperAdmin && !req.tenantId) {
-                return '1=1'; // Nessun filtro per super admin senza tenant specificato
-            }
-            const prefix = alias ? `${alias}.` : '';
-            return `${prefix}tenant_id = '${req.tenantId}'`;
-        };
-
-        // Helper per preparare dati con tenant_id
-        req.withTenant = (data) => {
-            if (req.isSuperAdmin && !req.tenantId) {
-                return data; // Super admin può omettere tenant_id
-            }
-            return {
-                ...data,
-                tenant_id: req.tenantId
-            };
+        req.tenant = {
+            id: tenants[0].id,
+            name: tenants[0].name,
+            plan: tenants[0].plan,
+            status: tenants[0].status
         };
 
         next();
     } catch (error) {
-        console.error('Errore tenant context:', error);
+        logger.error('Errore validazione tenant', { error: error.message });
         return res.status(500).json({
             success: false,
-            message: 'Errore nel contesto tenant'
+            message: 'Errore interno validazione tenant'
         });
     }
 };
 
 /**
- * Verifica che una risorsa appartenga al tenant corrente
- * @param {string} table - Nome tabella
- * @param {string} idField - Nome campo ID (default: 'id')
+ * Verifica limiti del piano del tenant (es. numero clienti)
  */
-const verifyTenantResource = (table, idField = 'id') => {
+const checkPlanLimits = (resource) => {
+    const PLAN_LIMITS = {
+        free: { clients: 5, videos: 0, api: false, ai_advanced: false },
+        starter: { clients: 20, videos: 50, api: true, ai_advanced: false },
+        pro: { clients: 50, videos: -1, api: true, ai_advanced: true },
+        enterprise: { clients: 200, videos: -1, api: true, ai_advanced: true }
+    };
+
     return async (req, res, next) => {
         try {
-            const resourceId = req.params.id || req.params[idField];
-
-            if (!resourceId) {
-                return next(); // Nessun ID da verificare
-            }
-
-            // Super admin può accedere a tutto
-            if (req.isSuperAdmin && !req.tenantId) {
+            if (!req.tenant) {
                 return next();
             }
 
-            const result = await query(
-                `SELECT tenant_id FROM ${table} WHERE ${idField} = ?`,
-                [resourceId]
-            );
+            const limits = PLAN_LIMITS[req.tenant.plan] || PLAN_LIMITS.free;
 
-            if (result.length === 0) {
-                return res.status(404).json({
+            if (resource === 'clients' && limits.clients > 0) {
+                const [count] = await query(
+                    'SELECT COUNT(*) as total FROM clients WHERE tenant_id = ? AND status != "cancelled"',
+                    [req.user.tenantId]
+                );
+                if (count.total >= limits.clients) {
+                    return res.status(403).json({
+                        success: false,
+                        message: `Limite clienti raggiunto per il piano ${req.tenant.plan}. Upgrade necessario.`,
+                        limit: limits.clients,
+                        current: count.total
+                    });
+                }
+            }
+
+            if (resource === 'videos' && limits.videos === 0) {
+                return res.status(403).json({
                     success: false,
-                    message: 'Risorsa non trovata'
+                    message: 'I corsi video non sono disponibili nel piano Free. Upgrade necessario.'
                 });
             }
 
-            if (result[0].tenant_id !== req.tenantId) {
+            if (resource === 'api' && !limits.api) {
                 return res.status(403).json({
                     success: false,
-                    message: 'Non hai accesso a questa risorsa'
+                    message: 'Le API pubbliche non sono disponibili nel piano Free. Upgrade necessario.'
+                });
+            }
+
+            if (resource === 'ai_advanced' && !limits.ai_advanced) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Le funzionalita AI avanzate non sono disponibili nel tuo piano. Upgrade necessario.'
                 });
             }
 
             next();
         } catch (error) {
-            console.error('Errore verifica tenant resource:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Errore nella verifica dei permessi'
-            });
+            logger.error('Errore verifica limiti piano', { error: error.message });
+            next();
         }
     };
 };
 
-/**
- * Verifica che il cliente appartenga al tenant corrente
- */
-const verifyClientBelongsToTenant = async (req, res, next) => {
-    try {
-        const clientId = req.params.clientId || req.body.client_id;
-
-        if (!clientId) {
-            return next();
-        }
-
-        // Super admin può accedere a tutto
-        if (req.isSuperAdmin && !req.tenantId) {
-            return next();
-        }
-
-        const result = await query(
-            'SELECT tenant_id FROM clients WHERE id = ?',
-            [clientId]
-        );
-
-        if (result.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Cliente non trovato'
-            });
-        }
-
-        if (result[0].tenant_id !== req.tenantId) {
-            return res.status(403).json({
-                success: false,
-                message: 'Questo cliente non appartiene al tuo account'
-            });
-        }
-
-        req.clientId = clientId;
-        next();
-    } catch (error) {
-        console.error('Errore verifica cliente:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Errore nella verifica del cliente'
-        });
-    }
-};
-
 module.exports = {
-    injectTenantContext,
-    verifyTenantResource,
-    verifyClientBelongsToTenant
+    validateTenant,
+    checkPlanLimits
 };

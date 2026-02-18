@@ -142,7 +142,7 @@ class SessionService {
         // Verify session exists and belongs to tenant
         await this.getById(sessionId, tenantId);
 
-        const [result] = await query(`
+        const result = await query(`
             INSERT INTO exercise_set_logs
             (session_exercise_id, set_number, reps_completed, weight_used, rpe, is_warmup, is_failure, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)

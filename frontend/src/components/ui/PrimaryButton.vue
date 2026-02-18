@@ -1,12 +1,15 @@
-<script setup>
-defineProps({
-  disabled: {
-    type: Boolean,
-    default: false
-  }
-})
+<script setup lang="ts">
+interface Props {
+  disabled?: boolean;
+}
 
-defineEmits(['click'])
+withDefaults(defineProps<Props>(), {
+  disabled: false,
+});
+
+defineEmits<{
+  (e: "click", event: MouseEvent): void;
+}>();
 </script>
 
 <template>
