@@ -52,13 +52,13 @@ class ReadinessService {
     async saveCheckin(clientId, tenantId, checkinData) {
         const {
             checkinDate, sleepQuality, sleepHours, energyLevel,
-            stressLevel, sorenessLevel, motivationLevel, mood, notes
+            stressLevel, muscleSoreness, motivation, mood, notes
         } = checkinData;
 
         // Calculate readiness score (weighted average)
         const readinessScore = this.calculateReadinessScore({
             sleepQuality, sleepHours, energyLevel,
-            stressLevel, sorenessLevel, motivationLevel
+            stressLevel, muscleSoreness, motivation
         });
 
         const date = checkinDate || new Date().toISOString().split('T')[0];
@@ -76,7 +76,7 @@ class ReadinessService {
                 WHERE id = ?
             `, [
                 sleepQuality, sleepHours, energyLevel,
-                stressLevel, sorenessLevel, motivationLevel,
+                stressLevel, muscleSoreness, motivation,
                 readinessScore, mood || null, notes || null, existing.id
             ]);
             return this.getCheckin(clientId, tenantId, date);
@@ -90,7 +90,7 @@ class ReadinessService {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 tenantId, clientId, date, sleepQuality, sleepHours,
-                energyLevel, stressLevel, sorenessLevel, motivationLevel,
+                energyLevel, stressLevel, muscleSoreness, motivation,
                 readinessScore, mood || null, notes || null
             ]);
             return this.getCheckin(clientId, tenantId, date);
@@ -101,7 +101,7 @@ class ReadinessService {
      * Calcola readiness score
      */
     calculateReadinessScore(data) {
-        const { sleepQuality, sleepHours, energyLevel, stressLevel, sorenessLevel, motivationLevel } = data;
+        const { sleepQuality, sleepHours, energyLevel, stressLevel, muscleSoreness, motivation } = data;
 
         // Weights
         const weights = {
@@ -113,24 +113,28 @@ class ReadinessService {
             motivation: 0.1
         };
 
-        // Normalize sleep hours (7-9 optimal = 10, <5 or >10 = lower)
-        let sleepHoursScore = 10;
-        if (sleepHours < 5) sleepHoursScore = sleepHours * 2;
-        else if (sleepHours < 7) sleepHoursScore = 6 + (sleepHours - 5);
-        else if (sleepHours > 9) sleepHoursScore = Math.max(6, 10 - (sleepHours - 9));
+        // Normalize sleep hours to 1-5 scale (7-9 optimal = 5)
+        let sleepHoursScore = 5;
+        if (sleepHours < 4) sleepHoursScore = 1;
+        else if (sleepHours < 5) sleepHoursScore = 2;
+        else if (sleepHours < 6) sleepHoursScore = 3;
+        else if (sleepHours < 7) sleepHoursScore = 4;
+        else if (sleepHours <= 9) sleepHoursScore = 5;
+        else if (sleepHours <= 10) sleepHoursScore = 4;
+        else sleepHoursScore = 3;
 
-        // Invert stress and soreness (lower is better)
-        const stressInverted = 11 - (stressLevel || 5);
-        const sorenessInverted = 11 - (sorenessLevel || 5);
+        // Invert stress and soreness (lower is better, scale 1-5)
+        const stressInverted = 6 - (stressLevel || 3);
+        const sorenessInverted = 6 - (muscleSoreness || 3);
 
         const score = (
-            (sleepQuality || 5) * weights.sleep +
+            (sleepQuality || 3) * weights.sleep +
             sleepHoursScore * weights.sleepHours +
-            (energyLevel || 5) * weights.energy +
+            (energyLevel || 3) * weights.energy +
             stressInverted * weights.stress +
             sorenessInverted * weights.soreness +
-            (motivationLevel || 5) * weights.motivation
-        ) * 10;
+            (motivation || 3) * weights.motivation
+        ) / 5 * 100;
 
         return Math.round(score * 10) / 10;
     }

@@ -256,23 +256,27 @@ router.get('/billing/stats', adminController.getBillingStats);
  */
 router.get('/audit-logs', async (req, res) => {
     try {
-        const { page = 1, limit = 30, action, search } = req.query;
-        const offset = (page - 1) * limit;
+        const safePage = Math.max(1, parseInt(req.query.page) || 1);
+        const safeLimit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 30));
+        const offset = (safePage - 1) * safeLimit;
+        const { action, search } = req.query;
 
-        let whereClause = '1=1';
+        const conditions = [];
         const params = [];
 
         if (action) {
-            whereClause += ' AND al.action = ?';
+            conditions.push('al.action = ?');
             params.push(action);
         }
         if (search) {
-            whereClause += ' AND (u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)';
+            conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
             params.push(`%${search}%`, `%${search}%`, `%${search}%`);
         }
 
+        const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
         const countResult = await query(
-            `SELECT COUNT(*) AS total FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id WHERE ${whereClause}`,
+            `SELECT COUNT(*) AS total FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id ${whereClause}`,
             params
         );
         const total = countResult[0]?.total || 0;
@@ -281,20 +285,23 @@ router.get('/audit-logs', async (req, res) => {
             `SELECT al.*, u.email AS user_email, CONCAT(u.first_name, ' ', u.last_name) AS user_name
             FROM audit_logs al
             LEFT JOIN users u ON al.user_id = u.id
-            WHERE ${whereClause}
+            ${whereClause}
             ORDER BY al.created_at DESC
             LIMIT ? OFFSET ?`,
-            [...params, parseInt(limit), parseInt(offset)]
+            [...params, safeLimit, offset]
         );
 
         res.json({
             success: true,
             data: {
                 logs,
-                pagination: { total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / limit) }
+                pagination: { total, page: safePage, limit: safeLimit, totalPages: Math.ceil(total / safeLimit) }
             }
         });
     } catch (error) {
+        if (error.code === 'ER_NO_SUCH_TABLE' || error.errno === 1146) {
+            return res.json({ success: true, data: { logs: [], pagination: { total: 0, page: 1, limit: 30, totalPages: 0 } } });
+        }
         logger.error('Error getting audit logs', { error: error.message });
         res.status(500).json({ success: false, message: 'Errore nel recupero audit log' });
     }

@@ -1,198 +1,120 @@
 <template>
   <div
-    class="card overflow-hidden transition-all"
-    :class="{ 'ring-2': isOpen }"
-    :style="
-      isOpen
-        ? { borderColor: accentColor, '--tw-ring-color': accentColor + '30' }
-        : {}
-    "
+    class="overflow-hidden transition-all border-b border-habit-border/50 last:border-b-0"
+    :class="{ 'ring-1 ring-inset rounded-lg': isOpen }"
+    :style="isOpen ? { '--tw-ring-color': accentColor + '30' } : {}"
   >
     <!-- Header (clickable to toggle) -->
     <button
-      class="w-full flex items-center justify-between p-3 sm:p-4 text-left"
+      class="w-full flex items-center justify-between py-2 px-1 text-left"
       @click="isOpen = !isOpen"
     >
-      <div class="flex items-center gap-2.5 sm:gap-3">
-        <div
-          class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-base sm:text-lg"
-          :style="{ backgroundColor: accentColor + '15', color: accentColor }"
-        >
-          {{ iconEmoji }}
-        </div>
-        <div>
-          <h3 class="font-semibold text-habit-text text-xs sm:text-sm">
-            {{ title }}
-          </h3>
-          <p class="text-[11px] sm:text-xs text-habit-text-muted">
-            {{
-              editingRecord
-                ? "Modifica misurazione"
-                : "Aggiungi nuova misurazione"
-            }}
-          </p>
-        </div>
+      <div class="flex items-center gap-2">
+        <span
+          class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+          :style="{ backgroundColor: accentColor }"
+        ></span>
+        <span class="text-xs font-medium text-habit-text">{{ title }}</span>
+        <span v-if="editingRecord" class="text-[10px] text-habit-orange">modifica</span>
       </div>
       <svg
-        class="w-4 h-4 sm:w-5 sm:h-5 text-habit-text-muted transition-transform duration-200"
+        class="w-3.5 h-3.5 text-habit-text-muted transition-transform duration-200"
         :class="{ 'rotate-180': isOpen }"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
       >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M19 9l-7 7-7-7"
-        />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
       </svg>
     </button>
 
     <!-- Form body -->
     <div
-      class="form-collapse-wrapper overflow-hidden"
-      :style="{ maxHeight: isOpen ? contentHeight + 'px' : '0px' }"
+      class="grid transition-[grid-template-rows] duration-300 ease-in-out"
+      :class="isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'"
     >
-      <div ref="formContentRef" class="border-t border-habit-border">
-        <div class="p-3 sm:p-4 space-y-3 sm:space-y-4">
+      <div class="overflow-hidden min-h-0">
+        <div class="px-1 pb-3 space-y-2">
           <!-- Date field (always first) -->
           <div>
-            <label class="label text-xs sm:text-sm">Data misurazione</label>
+            <label class="text-[10px] text-habit-text-muted">Data</label>
             <input
               type="date"
               v-model="form.measurementDate"
-              class="input w-full text-sm"
+              class="input w-full text-[11px] py-1"
             />
           </div>
 
           <!-- Special fields for skinfolds -->
-          <div
-            v-if="type === 'skinfolds'"
-            class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3"
-          >
+          <div v-if="type === 'skinfolds'" class="grid grid-cols-3 gap-1.5">
             <div>
-              <label class="label text-xs sm:text-sm">Sesso</label>
-              <select v-model="form.gender" class="input w-full text-sm">
-                <option value="male">Maschio</option>
-                <option value="female">Femmina</option>
+              <label class="text-[10px] text-habit-text-muted">Sesso</label>
+              <select v-model="form.gender" class="input w-full text-[11px] py-1 bg-habit-card text-habit-text">
+                <option value="male">M</option>
+                <option value="female">F</option>
               </select>
             </div>
             <div>
-              <label class="label text-xs sm:text-sm">Eta</label>
-              <input
-                type="number"
-                v-model.number="form.age"
-                class="input w-full text-sm"
-                min="5"
-                max="120"
-                placeholder="30"
-              />
+              <label class="text-[10px] text-habit-text-muted">Eta</label>
+              <input type="number" v-model.number="form.age" class="input w-full text-[11px] py-1" min="5" max="120" placeholder="30" />
             </div>
             <div>
-              <label class="label text-xs sm:text-sm">Metodo calcolo</label>
-              <select
-                v-model="form.calculationMethod"
-                class="input w-full text-sm"
-              >
-                <option value="jackson_pollock_3">Jackson-Pollock 3</option>
-                <option value="jackson_pollock_7">Jackson-Pollock 7</option>
-                <option value="durnin_womersley">Durnin-Womersley</option>
+              <label class="text-[10px] text-habit-text-muted">Metodo</label>
+              <select v-model="form.calculationMethod" class="input w-full text-[11px] py-1 bg-habit-card text-habit-text">
+                <option value="jackson_pollock_3">JP3</option>
+                <option value="jackson_pollock_7">JP7</option>
+                <option value="durnin_womersley">D-W</option>
               </select>
             </div>
           </div>
 
           <!-- Dynamic fields grid -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
             <div v-for="field in fields" :key="field.key">
-              <label class="label text-xs sm:text-sm">{{ field.label }}</label>
+              <label class="text-[10px] text-habit-text-muted">{{ field.label }}</label>
               <div class="relative">
                 <input
                   :type="field.type || 'number'"
                   v-model.number="form[field.key]"
-                  class="input w-full pr-10 text-sm"
+                  class="input w-full pr-8 text-[11px] py-1"
                   :min="field.min"
                   :max="field.max"
                   :step="field.step || 0.1"
                   :placeholder="field.placeholder || ''"
                 />
-                <span
-                  v-if="field.unit"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-habit-text-muted"
-                >
-                  {{ field.unit }}
-                </span>
+                <span v-if="field.unit" class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-habit-text-muted">{{ field.unit }}</span>
               </div>
             </div>
           </div>
 
           <!-- Device model for BIA -->
           <div v-if="type === 'bia'">
-            <label class="label text-xs sm:text-sm">Modello dispositivo</label>
-            <input
-              type="text"
-              v-model="form.deviceModel"
-              class="input w-full text-sm"
-              placeholder="es. InBody 270"
-            />
+            <label class="text-[10px] text-habit-text-muted">Dispositivo</label>
+            <input type="text" v-model="form.deviceModel" class="input w-full text-[11px] py-1" placeholder="es. InBody 270" />
           </div>
 
           <!-- Notes -->
           <div>
-            <label class="label text-xs sm:text-sm">Note</label>
-            <textarea
-              v-model="form.notes"
-              class="input w-full text-sm"
-              rows="2"
-              placeholder="Note opzionali..."
-            ></textarea>
+            <label class="text-[10px] text-habit-text-muted">Note</label>
+            <textarea v-model="form.notes" class="input w-full text-[11px] py-1" rows="1" placeholder="Opzionali..."></textarea>
           </div>
 
+          <!-- Validation error -->
+          <p v-if="validationError" class="text-[11px] text-red-500 dark:text-red-400 px-0.5">
+            {{ validationError }}
+          </p>
+
           <!-- Actions -->
-          <div
-            class="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1.5 sm:pt-2"
-          >
-            <button
-              class="btn btn-primary btn-sm text-xs sm:text-sm"
-              :disabled="saving"
-              @click="handleSave"
-            >
-              <svg
-                v-if="saving"
-                class="animate-spin -ml-1 mr-1.5 h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                />
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
+          <div class="flex items-center gap-1.5 pt-1">
+            <button class="btn btn-primary text-[11px] px-3 py-1" :disabled="saving" @click="handleSave">
+              <svg v-if="saving" class="animate-spin -ml-0.5 mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               {{ editingRecord ? "Aggiorna" : "Salva" }}
             </button>
-            <button
-              v-if="editingRecord"
-              class="btn btn-outline btn-sm text-xs sm:text-sm"
-              @click="handleCancel"
-            >
-              Annulla
-            </button>
-            <button
-              v-if="editingRecord"
-              class="btn btn-danger btn-sm text-xs sm:text-sm sm:ml-auto"
-              @click="handleDelete"
-            >
-              Elimina
-            </button>
+            <button v-if="editingRecord" class="btn btn-outline text-[11px] px-3 py-1" @click="handleCancel">Annulla</button>
+            <button v-if="editingRecord" class="btn btn-danger text-[11px] px-3 py-1 ml-auto" @click="handleDelete">Elimina</button>
           </div>
         </div>
       </div>
@@ -201,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive, nextTick, onMounted } from "vue";
+import { ref, computed, watch, reactive } from "vue";
 import type { MeasurementType } from "@/types";
 
 interface FieldConfig {
@@ -232,27 +154,7 @@ const emit = defineEmits<{
 }>();
 
 const isOpen = ref(false);
-const formContentRef = ref<HTMLElement | null>(null);
-const contentHeight = ref(2000); // Default generous height
-
-const updateContentHeight = () => {
-  nextTick(() => {
-    if (formContentRef.value) {
-      contentHeight.value = formContentRef.value.scrollHeight + 10;
-    }
-  });
-};
-
-// Update height when isOpen changes
-watch(isOpen, (val) => {
-  if (val) {
-    updateContentHeight();
-  }
-});
-
-onMounted(() => {
-  updateContentHeight();
-});
+const validationError = ref("");
 
 const fieldConfigs: Record<string, FieldConfig[]> = {
   anthropometric: [
@@ -622,11 +524,52 @@ watch(
   { immediate: true },
 );
 
+// Clear validation error when form changes
+watch(form, () => {
+  validationError.value = "";
+}, { deep: true });
+
+const validateForm = (): boolean => {
+  validationError.value = "";
+
+  // At least one numeric field must have a value (exclude NaN)
+  const hasAnyNumericValue = fields.value.some((field) => {
+    const v = form[field.key];
+    return v != null && v !== "" && !(typeof v === "number" && isNaN(v));
+  });
+
+  if (!hasAnyNumericValue) {
+    validationError.value = "Inserisci almeno un valore numerico";
+    return false;
+  }
+
+  // Range validation using field.min/field.max
+  for (const field of fields.value) {
+    const val = form[field.key];
+    if (val != null && val !== "" && !(typeof val === "number" && isNaN(val))) {
+      if (field.min !== undefined && val < field.min) {
+        validationError.value = `${field.label}: minimo ${field.min}${field.unit ? " " + field.unit : ""}`;
+        return false;
+      }
+      if (field.max !== undefined && val > field.max) {
+        validationError.value = `${field.label}: massimo ${field.max}${field.unit ? " " + field.unit : ""}`;
+        return false;
+      }
+    }
+  }
+
+  return true;
+};
+
 const handleSave = () => {
-  // Clean nulls and empty strings for numeric fields
+  if (!validateForm()) return;
+
+  // Clean nulls, empty strings, NaN for numeric fields
   const data: Record<string, any> = {};
   for (const [key, value] of Object.entries(form)) {
     if (value !== null && value !== "" && value !== undefined) {
+      // Skip NaN values (from empty number inputs)
+      if (typeof value === "number" && isNaN(value)) continue;
       data[key] = value;
     }
   }
@@ -647,9 +590,3 @@ const handleDelete = () => {
   }
 };
 </script>
-
-<style scoped>
-.form-collapse-wrapper {
-  transition: max-height 0.3s ease-in-out;
-}
-</style>

@@ -19,6 +19,18 @@ jest.mock('../src/utils/cookies', () => ({
     clearAuthCookies: jest.fn()
 }));
 
+jest.mock('../src/middlewares/auth', () => ({
+    verifyToken: jest.fn(),
+    extractToken: jest.fn(() => 'mock-access-token'),
+    blacklistToken: jest.fn()
+}));
+
+jest.mock('jsonwebtoken', () => ({
+    decode: jest.fn(() => ({ jti: 'mock-jti', exp: Math.floor(Date.now() / 1000) + 3600 })),
+    verify: jest.fn(),
+    sign: jest.fn()
+}));
+
 const authController = require('../src/controllers/auth.controller');
 const authService = require('../src/services/auth.service');
 const { setAuthCookies, clearAuthCookies } = require('../src/utils/cookies');

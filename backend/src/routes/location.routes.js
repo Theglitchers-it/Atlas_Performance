@@ -41,6 +41,10 @@ router.get('/', async (req, res) => {
         );
         res.json({ success: true, data: { locations } });
     } catch (error) {
+        // Se la tabella non esiste, ritorna array vuoto
+        if (error.code === 'ER_NO_SUCH_TABLE' || error.errno === 1146) {
+            return res.json({ success: true, data: { locations: [] } });
+        }
         logger.error('Error getting locations', { error: error.message });
         res.status(500).json({ success: false, message: 'Errore nel recupero sedi' });
     }

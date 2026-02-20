@@ -7,6 +7,7 @@ import ChartWidget from "@/components/ui/ChartWidget.vue";
 import _TrendBadge from "@/components/ui/TrendBadge.vue";
 import SparkLine from "@/components/ui/SparkLine.vue";
 import { useNative } from "@/composables/useNative";
+import { useSlowRequest } from "@/composables/useSlowRequest";
 
 const store = useAnalyticsStore();
 const toast = useToast();
@@ -47,6 +48,7 @@ const appointmentDist = computed(() => store.appointmentDistribution);
 const readinessTrend = computed(() => store.readinessTrend);
 const programCompletion = computed(() => store.programCompletion);
 const loading = computed(() => store.loading);
+const { isSlowRequest } = useSlowRequest(loading);
 const error = computed(() => store.error);
 const trendGroupBy = computed(() => store.trendGroupBy);
 
@@ -287,18 +289,18 @@ onMounted(() => {
   <div>
     <!-- Header -->
     <div
-      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
+      class="flex items-center justify-between gap-3 mb-4 sm:mb-6"
     >
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">Analytics</h1>
-        <p class="text-habit-text-subtle text-sm mt-1">
+      <div class="min-w-0">
+        <h1 class="text-lg sm:text-2xl font-bold text-habit-text">Analytics</h1>
+        <p class="text-habit-text-subtle text-xs sm:text-sm mt-0.5 sm:mt-1">
           Panoramica statistiche e performance
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex-shrink-0">
         <div class="relative group">
           <button
-            class="px-3 py-2 text-sm bg-habit-card border border-habit-border rounded-habit text-habit-text-muted hover:text-habit-text hover:bg-habit-card-hover transition-all flex items-center gap-1.5"
+            class="px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm bg-habit-card border border-habit-border rounded-xl sm:rounded-habit text-habit-text-muted hover:text-habit-text hover:bg-habit-card-hover transition-all flex items-center gap-1.5"
           >
             <svg
               class="w-4 h-4"
@@ -424,58 +426,61 @@ onMounted(() => {
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="space-y-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div v-if="loading" class="space-y-4 sm:space-y-6">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
         <div
           v-for="i in 4"
           :key="i"
-          class="bg-habit-card border border-habit-border rounded-habit p-5 animate-pulse"
+          class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5 animate-pulse"
         >
-          <div class="h-3 bg-habit-skeleton rounded w-1/2 mb-3"></div>
-          <div class="h-7 bg-habit-skeleton rounded w-1/3"></div>
+          <div class="h-2.5 sm:h-3 bg-habit-skeleton rounded w-1/2 mb-2 sm:mb-3"></div>
+          <div class="h-5 sm:h-7 bg-habit-skeleton rounded w-1/3"></div>
         </div>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div
-          class="bg-habit-card border border-habit-border rounded-habit p-6 animate-pulse h-80"
+          class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6 animate-pulse h-52 sm:h-80"
         ></div>
         <div
-          class="bg-habit-card border border-habit-border rounded-habit p-6 animate-pulse h-80"
+          class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6 animate-pulse h-52 sm:h-80"
         ></div>
       </div>
     </div>
+    <p v-if="isSlowRequest" class="text-sm text-habit-text-subtle text-center mt-2">
+      La richiesta sta impiegando piu tempo del previsto...
+    </p>
 
-    <div v-else class="space-y-6">
+    <div v-else class="space-y-4 sm:space-y-6">
       <!-- ═══════════ STATS ROW ═══════════ -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-habit-card border border-habit-border rounded-habit p-5">
-          <p class="text-habit-text-subtle text-xs uppercase tracking-wide">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Clienti Attivi
           </p>
-          <p class="text-2xl font-bold text-habit-text mt-1">
+          <p class="text-xl sm:text-2xl font-bold text-habit-text mt-0.5 sm:mt-1">
             {{ n(overview?.clients?.active_clients) }}
           </p>
-          <p class="text-habit-text-subtle text-xs mt-1">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs mt-0.5 sm:mt-1">
             {{ n(overview?.clients?.new_clients_30d) }} nuovi (30gg)
           </p>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-habit p-5">
-          <p class="text-habit-text-subtle text-xs uppercase tracking-wide">
+        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Sessioni Completate
           </p>
-          <p class="text-2xl font-bold text-habit-text mt-1">
+          <p class="text-xl sm:text-2xl font-bold text-habit-text mt-0.5 sm:mt-1">
             {{ n(overview?.sessions?.completed_sessions) }}
           </p>
-          <p class="text-habit-text-subtle text-xs mt-1">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs mt-0.5 sm:mt-1">
             {{ n(overview?.sessions?.sessions_this_week) }} questa settimana
           </p>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-habit p-5">
-          <p class="text-habit-text-subtle text-xs uppercase tracking-wide">
+        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Tasso Completamento
           </p>
           <p
-            class="text-2xl font-bold mt-1"
+            class="text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1"
             :class="
               completionRate >= 70
                 ? 'text-emerald-400'
@@ -486,25 +491,25 @@ onMounted(() => {
           >
             {{ completionRate }}%
           </p>
-          <p class="text-habit-text-subtle text-xs mt-1">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs mt-0.5 sm:mt-1">
             {{ n(overview?.sessions?.total_sessions) }} sessioni totali
           </p>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-habit p-5">
-          <p class="text-habit-text-subtle text-xs uppercase tracking-wide">
+        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Programmi Attivi
           </p>
-          <p class="text-2xl font-bold text-habit-text mt-1">
+          <p class="text-xl sm:text-2xl font-bold text-habit-text mt-0.5 sm:mt-1">
             {{ n(overview?.programs?.active_programs) }}
           </p>
-          <p class="text-habit-text-subtle text-xs mt-1">
+          <p class="text-habit-text-subtle text-[10px] sm:text-xs mt-0.5 sm:mt-1">
             {{ n(overview?.programs?.completed_programs) }} completati
           </p>
         </div>
       </div>
 
       <!-- ═══════════ CHARTS 2-COL GRID ═══════════ -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <!-- Session Trend Bar Chart (2/3 width) -->
         <div class="lg:col-span-2">
           <ChartWidget
@@ -573,12 +578,12 @@ onMounted(() => {
       />
 
       <!-- ═══════════ BOTTOM SECTION: TOP CLIENTS + PROGRAMS ═══════════ -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <!-- Top Clients Table with SparkLines (2/3) -->
         <div
-          class="lg:col-span-2 bg-habit-card border border-habit-border rounded-habit p-6"
+          class="lg:col-span-2 bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6"
         >
-          <h2 class="text-habit-text font-semibold text-sm mb-4">
+          <h2 class="text-habit-text font-semibold text-sm mb-3 sm:mb-4">
             Clienti Piu Attivi (30gg)
           </h2>
           <div v-if="topClients.length === 0" class="text-center py-8">
@@ -586,11 +591,11 @@ onMounted(() => {
               Nessun dato disponibile
             </p>
           </div>
-          <div v-else class="space-y-2">
+          <div v-else class="space-y-1.5 sm:space-y-2">
             <div
               v-for="(client, idx) in topClients"
               :key="client.id"
-              class="flex items-center gap-3 bg-habit-bg-light/50 rounded-lg p-3"
+              class="flex items-center gap-2 sm:gap-3 bg-habit-bg-light/50 rounded-lg p-2.5 sm:p-3"
             >
               <span
                 class="text-habit-text-subtle text-xs font-bold w-5 text-center"
@@ -662,7 +667,7 @@ onMounted(() => {
           <!-- Summary below chart -->
           <div
             v-if="programCompletion.length > 0"
-            class="bg-habit-card border border-habit-border border-t-0 rounded-b-habit px-6 pb-4 -mt-px"
+            class="bg-habit-card border border-habit-border border-t-0 rounded-b-xl sm:rounded-b-habit px-4 sm:px-6 pb-3 sm:pb-4 -mt-px"
           >
             <p
               class="text-habit-text-subtle text-xs pt-3 border-t border-habit-border"
@@ -679,32 +684,32 @@ onMounted(() => {
       <!-- ═══════════ TODAY SUMMARY ═══════════ -->
       <div
         v-if="quickStats"
-        class="bg-habit-card border border-habit-border rounded-habit p-6"
+        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6"
       >
-        <h2 class="text-habit-text font-semibold text-sm mb-4">Oggi</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <h2 class="text-habit-text font-semibold text-sm mb-3 sm:mb-4">Oggi</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div class="text-center">
-            <p class="text-habit-text-subtle text-xs">Sessioni</p>
-            <p class="text-habit-text text-xl font-bold mt-1">
+            <p class="text-habit-text-subtle text-[10px] sm:text-xs">Sessioni</p>
+            <p class="text-habit-text text-lg sm:text-xl font-bold mt-0.5 sm:mt-1">
               {{ n(quickStats.sessions_today) }}
             </p>
           </div>
           <div class="text-center">
-            <p class="text-habit-text-subtle text-xs">Appuntamenti</p>
-            <p class="text-habit-text text-xl font-bold mt-1">
+            <p class="text-habit-text-subtle text-[10px] sm:text-xs">Appuntamenti</p>
+            <p class="text-habit-text text-lg sm:text-xl font-bold mt-0.5 sm:mt-1">
               {{ n(quickStats.appointments_today) }}
             </p>
           </div>
           <div class="text-center">
-            <p class="text-habit-text-subtle text-xs">Clienti Attivi</p>
-            <p class="text-habit-text text-xl font-bold mt-1">
+            <p class="text-habit-text-subtle text-[10px] sm:text-xs">Clienti Attivi</p>
+            <p class="text-habit-text text-lg sm:text-xl font-bold mt-0.5 sm:mt-1">
               {{ n(quickStats.active_clients) }}
             </p>
           </div>
           <div class="text-center">
-            <p class="text-habit-text-subtle text-xs">Readiness Media</p>
+            <p class="text-habit-text-subtle text-[10px] sm:text-xs">Readiness Media</p>
             <p
-              class="text-xl font-bold mt-1"
+              class="text-lg sm:text-xl font-bold mt-0.5 sm:mt-1"
               :class="
                 n(quickStats.avg_readiness_today) >= 75
                   ? 'text-emerald-400'

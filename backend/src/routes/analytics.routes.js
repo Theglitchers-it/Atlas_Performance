@@ -102,6 +102,26 @@ router.get('/top-clients', analyticsController.getTopClients);
 
 /**
  * @swagger
+ * /analytics/top-clients-progress:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Top clienti con progressi (peso, sessioni, streak)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 5
+ *     responses:
+ *       200:
+ *         description: Lista clienti con metriche di progresso
+ */
+router.get('/top-clients-progress', analyticsController.getTopClientsProgress);
+
+/**
+ * @swagger
  * /analytics/appointments-distribution:
  *   get:
  *     tags: [Analytics]

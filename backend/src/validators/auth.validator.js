@@ -14,11 +14,11 @@ const registerSchema = Joi.object({
         }),
     password: Joi.string()
         .min(8)
-        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/)
         .required()
         .messages({
             'string.min': 'La password deve avere almeno 8 caratteri',
-            'string.pattern.base': 'La password deve contenere almeno una maiuscola, una minuscola e un numero',
+            'string.pattern.base': 'La password deve contenere almeno una maiuscola, una minuscola, un numero e un carattere speciale',
             'any.required': 'Password obbligatoria'
         }),
     firstName: Joi.string()
@@ -97,11 +97,11 @@ const resetPasswordSchema = Joi.object({
         }),
     password: Joi.string()
         .min(8)
-        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/)
         .required()
         .messages({
             'string.min': 'La password deve avere almeno 8 caratteri',
-            'string.pattern.base': 'La password deve contenere almeno una maiuscola, una minuscola e un numero',
+            'string.pattern.base': 'La password deve contenere almeno una maiuscola, una minuscola, un numero e un carattere speciale',
             'any.required': 'Password obbligatoria'
         })
 });

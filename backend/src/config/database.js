@@ -17,7 +17,8 @@ const dbConfig = {
     database: process.env.DB_NAME || 'pt_saas_db',
     waitForConnections: true,
     connectionLimit: parseInt(process.env.DB_POOL_SIZE) || 50,
-    queueLimit: 0,
+    queueLimit: 1000,
+    connectTimeout: 30000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0
 };

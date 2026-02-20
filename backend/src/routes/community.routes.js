@@ -5,12 +5,23 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
 const communityController = require('../controllers/community.controller');
 const { verifyToken, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { createPostSchema, updatePostSchema, addCommentSchema } = require('../validators/community.validator');
 const { uploadImage, handleUploadError } = require('../middlewares/upload');
+
+// Rate limit on community post creation with image (5 posts / 1 min per IP)
+const postUploadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    message: {
+        success: false,
+        message: 'Troppi post, riprova tra un minuto'
+    }
+});
 
 // Tutte le route richiedono autenticazione
 router.use(verifyToken);
@@ -107,7 +118,7 @@ router.get('/posts/:id', communityController.getPostById);
  *       500:
  *         description: Errore server
  */
-router.post('/posts', uploadImage.single('image'), handleUploadError, validate(createPostSchema), communityController.createPost);
+router.post('/posts', postUploadLimiter, uploadImage.single('image'), handleUploadError, validate(createPostSchema), communityController.createPost);
 
 /**
  * @swagger

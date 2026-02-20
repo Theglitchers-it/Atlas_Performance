@@ -593,14 +593,16 @@ describe('ClassController', () => {
             expect(res.json).toHaveBeenCalledWith({ success: true, data: result });
         });
 
-        test('returns 400 when clientId cannot be resolved', async () => {
+        test('returns empty sessions when clientId cannot be resolved', async () => {
             const req = mockReq({ query: {} });
             const res = mockRes();
 
             await classController.getMyClasses(req, res, mockNext);
 
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Client ID richiesto' });
+            expect(res.json).toHaveBeenCalledWith({
+                success: true,
+                data: { sessions: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+            });
         });
     });
 });

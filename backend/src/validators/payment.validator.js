@@ -11,7 +11,8 @@ const createPaymentSchema = Joi.object({
         .messages({ 'any.required': 'Importo obbligatorio' }),
     currency: Joi.string().valid('EUR', 'USD', 'GBP').default('EUR'),
     paymentMethod: Joi.string().valid('cash', 'card', 'bank_transfer', 'stripe', 'other').allow(null),
-    paymentDate: Joi.date().default(() => new Date()),
+    paymentDate: Joi.date().max('now').default(() => new Date())
+        .messages({ 'date.max': 'La data di pagamento non puo essere nel futuro' }),
     status: Joi.string().valid('pending', 'completed', 'failed', 'cancelled').default('completed'),
     transactionId: Joi.string().max(255).allow('', null),
     notes: Joi.string().max(1000).allow('', null)

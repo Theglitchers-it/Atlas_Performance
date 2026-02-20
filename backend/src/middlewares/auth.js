@@ -10,6 +10,33 @@ const { createServiceLogger } = require('../config/logger');
 const logger = createServiceLogger('AUTH');
 
 /**
+ * In-memory token blacklist with TTL auto-cleanup.
+ * Stores JTI (JWT ID) of revoked access tokens until they expire.
+ * For single-instance deployments this is sufficient; for multi-instance
+ * use Redis or a shared store.
+ */
+const _tokenBlacklist = new Map(); // jti -> expiresAt (epoch ms)
+
+const blacklistToken = (jti, expiresAt) => {
+    if (!jti) return;
+    _tokenBlacklist.set(jti, expiresAt);
+};
+
+const isTokenBlacklisted = (jti) => {
+    if (!jti) return false;
+    return _tokenBlacklist.has(jti);
+};
+
+// Cleanup expired entries every 5 minutes
+const _blacklistCleanup = setInterval(() => {
+    const now = Date.now();
+    for (const [jti, exp] of _tokenBlacklist) {
+        if (exp < now) _tokenBlacklist.delete(jti);
+    }
+}, 5 * 60 * 1000);
+_blacklistCleanup.unref();
+
+/**
  * Estrai token JWT dalla request
  * Priorita: cookie httpOnly > Authorization header
  */
@@ -43,6 +70,14 @@ const verifyToken = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Check token blacklist (revoked on logout)
+        if (decoded.jti && isTokenBlacklisted(decoded.jti)) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token revocato'
+            });
+        }
 
         // Verifica che l'utente esista ancora
         const users = await query(
@@ -179,18 +214,23 @@ const optionalAuth = async (req, res, next) => {
         if (token) {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            const users = await query(
-                'SELECT id, tenant_id, email, role FROM users WHERE id = ? AND status = "active"',
-                [decoded.userId]
-            );
+            // Check blacklist for optional auth too
+            if (decoded.jti && isTokenBlacklisted(decoded.jti)) {
+                // Token revoked — treat as unauthenticated
+            } else {
+                const users = await query(
+                    'SELECT id, tenant_id, email, role, status FROM users WHERE id = ?',
+                    [decoded.userId]
+                );
 
-            if (users.length > 0) {
-                req.user = {
-                    id: users[0].id,
-                    tenantId: users[0].tenant_id,
-                    email: users[0].email,
-                    role: users[0].role
-                };
+                if (users.length > 0 && users[0].status === 'active') {
+                    req.user = {
+                        id: users[0].id,
+                        tenantId: users[0].tenant_id,
+                        email: users[0].email,
+                        role: users[0].role
+                    };
+                }
             }
         }
     } catch (error) {
@@ -215,5 +255,6 @@ module.exports = {
     requireSuperAdmin,
     optionalAuth,
     extractToken,
+    blacklistToken,
     ROLES
 };

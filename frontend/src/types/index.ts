@@ -12,7 +12,8 @@ export interface User {
   phone?: string;
   isActive: boolean;
   createdAt: string;
-  [key: string]: any;
+  subscription_plan?: string;
+  subscriptionPlan?: string;
 }
 
 export interface Client {
@@ -31,7 +32,6 @@ export interface Client {
   notes?: string;
   created_at: string;
   updated_at: string;
-  [key: string]: any;
 }
 
 export interface Appointment {
@@ -256,7 +256,8 @@ export interface Notification {
   is_read: boolean;
   action_url?: string;
   created_at: string;
-  [key: string]: any;
+  priority?: string;
+  category?: string;
 }
 
 // ===== Gamification Types =====
@@ -269,7 +270,8 @@ export interface GamificationDashboard {
   streak_days: number;
   titles: Title[];
   recentXP: XPTransaction[];
-  [key: string]: any;
+  badges?: Title[];
+  challenges?: Challenge[];
 }
 
 export interface Title {
@@ -279,7 +281,8 @@ export interface Title {
   icon: string;
   unlocked: boolean;
   unlocked_at?: string;
-  [key: string]: any;
+  category?: string;
+  rarity?: string;
 }
 
 export interface XPTransaction {
@@ -287,7 +290,8 @@ export interface XPTransaction {
   amount: number;
   reason: string;
   created_at: string;
-  [key: string]: any;
+  source_type?: string;
+  source_id?: number;
 }
 
 export interface Challenge {
@@ -299,7 +303,9 @@ export interface Challenge {
   start_date: string;
   end_date: string;
   participants_count: number;
-  [key: string]: any;
+  status?: "active" | "completed" | "upcoming";
+  reward_xp?: number;
+  progress?: number;
 }
 
 // ===== API Response Types =====

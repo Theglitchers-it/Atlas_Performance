@@ -104,6 +104,26 @@ class AnalyticsService {
     }
 
     /**
+     * Top clienti con progressi (peso, sessioni, check-in streak)
+     */
+    async getTopClientsProgress(tenantId, limit = 5) {
+        const rows = await query(
+            `SELECT
+                c.id, c.first_name, c.last_name, c.status,
+                (SELECT bm.weight_kg FROM body_measurements bm WHERE bm.client_id = c.id AND bm.tenant_id = c.tenant_id ORDER BY bm.measurement_date DESC LIMIT 1) as current_weight,
+                (SELECT bm.weight_kg FROM body_measurements bm WHERE bm.client_id = c.id AND bm.tenant_id = c.tenant_id AND bm.measurement_date <= DATE_SUB(CURDATE(), INTERVAL 30 DAY) ORDER BY bm.measurement_date DESC LIMIT 1) as prev_weight,
+                (SELECT COUNT(*) FROM daily_checkins dc WHERE dc.client_id = c.id AND dc.checkin_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) as checkin_count,
+                (SELECT COUNT(*) FROM workout_sessions ws WHERE ws.client_id = c.id AND ws.status = 'completed' AND ws.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) as recent_completed
+            FROM clients c
+            WHERE c.tenant_id = ? AND c.status = 'active'
+            ORDER BY recent_completed DESC
+            LIMIT ?`,
+            [tenantId, parseInt(limit)]
+        );
+        return rows;
+    }
+
+    /**
      * Distribuzione tipi appuntamento
      */
     async getAppointmentDistribution(tenantId) {

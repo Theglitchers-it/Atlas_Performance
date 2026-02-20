@@ -284,27 +284,35 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
       'fixed top-0 left-0 right-0 bg-habit-card/90 backdrop-blur-xl border-b border-habit-border z-40 transition-all duration-300 safe-top',
     ]"
   >
-    <div class="flex items-center justify-between h-full px-2 sm:px-4">
+    <div class="flex items-center justify-between h-full px-3 sm:px-4">
       <!-- Left side -->
-      <div class="flex items-center gap-2 sm:gap-4">
+      <div class="flex items-center gap-1.5 sm:gap-4 flex-shrink-0">
         <!-- Menu toggle (mobile + tablet — hidden su desktop >= 1024px dove c'e la Sidebar fissa) -->
         <button
           @click="$emit('toggle-sidebar')"
           aria-label="Apri menu di navigazione"
-          class="lg:hidden p-2 rounded-xl hover:bg-habit-card-hover transition-colors touch-target"
+          class="lg:hidden p-1.5 sm:p-2 rounded-xl hover:bg-habit-card-hover transition-colors touch-target"
         >
-          <Bars3Icon class="w-6 h-6 text-habit-text-muted" />
+          <Bars3Icon class="w-5 h-5 sm:w-6 sm:h-6 text-habit-text-muted" />
         </button>
 
         <!-- Logo -->
-        <router-link to="/" class="flex items-center gap-2 sm:gap-3">
+        <router-link to="/" class="flex items-baseline gap-1 sm:gap-2">
           <span
             :class="[
-              'font-display font-bold text-habit-text transition-all duration-300',
-              isCollapsed && isMobile ? 'text-lg' : 'text-xl sm:text-2xl',
+              'font-display font-bold bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent transition-all duration-300',
+              isCollapsed && isMobile ? 'text-base' : 'text-lg sm:text-2xl',
             ]"
           >
-            Atlas
+            ATLAS
+          </span>
+          <span
+            :class="[
+              'font-medium text-habit-text/40 tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-all duration-300',
+              isCollapsed && isMobile ? 'hidden' : 'text-[0.55rem] sm:text-xs',
+            ]"
+          >
+            Performance
           </span>
         </router-link>
       </div>
@@ -479,12 +487,12 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
       </div>
 
       <!-- Right side -->
-      <div class="flex items-center gap-1 sm:gap-2">
+      <div class="flex items-center gap-0.5 sm:gap-2">
         <!-- Mobile search toggle -->
         <button
           @click="showSearch = !showSearch"
           aria-label="Apri ricerca"
-          class="md:hidden p-2 rounded-xl hover:bg-habit-card-hover transition-colors touch-target flex items-center justify-center"
+          class="md:hidden p-1.5 sm:p-2 rounded-xl hover:bg-habit-card-hover transition-colors touch-target flex items-center justify-center"
         >
           <MagnifyingGlassIcon class="w-5 h-5 text-habit-text-muted" />
         </button>
@@ -517,7 +525,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
         <!-- Theme toggle -->
         <button
           @click="toggleTheme"
-          class="p-2 rounded-xl hover:bg-habit-card-hover transition-all duration-200 touch-target flex items-center justify-center"
+          class="p-1.5 sm:p-2 rounded-xl hover:bg-habit-card-hover transition-all duration-200 touch-target flex items-center justify-center"
           :title="isDark ? 'Modalita chiara' : 'Modalita scura'"
           :aria-label="
             isDark ? 'Attiva modalita chiara' : 'Attiva modalita scura'
@@ -534,7 +542,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
             aria-label="Notifiche"
             aria-haspopup="true"
             :aria-expanded="showNotifications"
-            class="relative p-2 rounded-xl hover:bg-habit-card-hover transition-colors touch-target flex items-center justify-center"
+            class="relative p-1.5 sm:p-2 rounded-xl hover:bg-habit-card-hover transition-colors touch-target flex items-center justify-center"
           >
             <BellIcon class="w-5 h-5 text-habit-text-muted" />
             <!-- Notification badge -->
@@ -658,7 +666,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
         <!-- User menu -->
         <router-link
           to="/profile"
-          class="flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-xl hover:bg-habit-card-hover transition-colors"
+          class="hidden xs:flex items-center gap-2 sm:gap-3 p-1 sm:p-2 rounded-xl hover:bg-habit-card-hover transition-colors"
         >
           <div
             v-if="user?.avatarUrl"

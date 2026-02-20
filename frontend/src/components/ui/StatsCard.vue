@@ -9,13 +9,13 @@
     :style="{ animationDelay: `${delay}s` }"
   >
     <!-- Header with icon -->
-    <div class="flex items-start justify-between mb-2 xs:mb-4">
+    <div class="flex items-start justify-between mb-1 xs:mb-2 sm:mb-3">
       <div
         v-if="icon || iconEmoji"
-        class="feature-icon w-8 h-8 xs:w-10 xs:h-10 text-sm"
+        class="feature-icon w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 text-xs xs:text-sm"
         :class="iconColorClass"
       >
-        <component :is="icon" v-if="icon" class="w-5 h-5" />
+        <component :is="icon" v-if="icon" class="w-4 h-4 sm:w-5 sm:h-5" />
         <span v-else>{{ iconEmoji }}</span>
       </div>
 
@@ -23,7 +23,7 @@
       <div v-if="trend" class="stat-change" :class="trendClass">
         <svg
           v-if="trend > 0"
-          class="w-4 h-4"
+          class="w-3 h-3 sm:w-4 sm:h-4"
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -33,7 +33,7 @@
             clip-rule="evenodd"
           />
         </svg>
-        <svg v-else class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <svg v-else class="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
           <path
             fill-rule="evenodd"
             d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z"
@@ -49,11 +49,11 @@
       class="stat-value mb-1"
       :class="{ 'text-gradient-orange': gradientValue }"
     >
-      <span v-if="prefix" class="text-xl text-habit-text-muted">{{
+      <span v-if="prefix" class="text-sm sm:text-xl text-habit-text-muted">{{
         prefix
       }}</span>
       {{ animatedFormattedValue }}
-      <span v-if="suffix" class="text-xl text-habit-text-muted">{{
+      <span v-if="suffix" class="text-sm sm:text-xl text-habit-text-muted">{{
         suffix
       }}</span>
     </div>
@@ -78,7 +78,7 @@
     <!-- Footer slot -->
     <div
       v-if="$slots.footer"
-      class="mt-2 pt-2 xs:mt-4 xs:pt-4 border-t border-habit-border"
+      class="mt-1.5 pt-1.5 xs:mt-2 xs:pt-2 sm:mt-4 sm:pt-4 border-t border-habit-border"
     >
       <slot name="footer"></slot>
     </div>

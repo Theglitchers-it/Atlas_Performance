@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
-import type { Client } from "@/types";
+import { useMeasurementStore } from "@/store/measurement";
+import { useSlowRequest } from "@/composables/useSlowRequest";
+import { useToast } from "vue-toastification";
+import BodyCompositionChart from "@/components/measurements/BodyCompositionChart.vue";
+import MeasurementFormCard from "@/components/measurements/MeasurementFormCard.vue";
+import MeasurementComparison from "@/components/measurements/MeasurementComparison.vue";
+import MeasurementHistory from "@/components/measurements/MeasurementHistory.vue";
+import type { Client, MeasurementType } from "@/types";
 
-interface ClientDetail extends Omit<Client, "status"> {
+interface ClientDetail extends Omit<Client, "status" | "fitness_level"> {
   status: string;
   level?: number;
   xp_points?: number;
@@ -41,11 +48,22 @@ interface TabItem {
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
+const measurementStore = useMeasurementStore();
 
 const client = ref<ClientDetail | null>(null);
 const stats = ref<ClientStats | null>(null);
 const isLoading = ref<boolean>(true);
+const { isSlowRequest } = useSlowRequest(isLoading);
 const activeTab = ref<string>("overview");
+
+// Measurement state
+const saving = ref<string | null>(null);
+const editingRecord = ref<{
+  type: MeasurementType;
+  record: Record<string, any>;
+} | null>(null);
+const measurementsInitialized = ref(false);
 
 const tabs: TabItem[] = [
   { id: "overview", label: "Panoramica" },
@@ -155,451 +173,440 @@ const sendMessage = () => {
 const createWorkout = () => {
   router.push(`/workouts/builder?client=${clientId.value}`);
 };
+
+// === Measurements: load when progress tab is activated ===
+const initMeasurements = async () => {
+  if (!clientId.value || measurementsInitialized.value) return;
+  measurementsInitialized.value = true;
+  await measurementStore.setClient(Number(clientId.value));
+};
+
+watch(activeTab, (tab) => {
+  if (tab === "progress") initMeasurements();
+});
+
+// Quick stats for measurements
+const measurementStats = computed(() => {
+  const o = measurementStore.overview;
+  return [
+    {
+      label: "Peso",
+      value: o?.body?.weight_kg ?? o?.anthropometric?.weight_kg ?? null,
+      suffix: "kg",
+      color: "text-habit-text",
+      dotColor: "bg-blue-500",
+    },
+    {
+      label: "% Grasso",
+      value:
+        o?.bia?.fat_mass_pct ??
+        o?.skinfold?.body_fat_percentage ??
+        o?.body?.body_fat_percentage ??
+        null,
+      suffix: "%",
+      color: "text-habit-orange",
+      dotColor: "bg-habit-orange",
+    },
+    {
+      label: "Massa Magra",
+      value: o?.bia?.lean_mass_kg ?? o?.body?.muscle_mass_kg ?? null,
+      suffix: "kg",
+      color: "text-habit-success",
+      dotColor: "bg-habit-success",
+    },
+    {
+      label: "BMR",
+      value: o?.bia?.basal_metabolic_rate ?? null,
+      suffix: "kcal",
+      color: "text-habit-purple",
+      dotColor: "bg-habit-purple",
+    },
+  ];
+});
+
+// Stat row tap → open forms section and scroll to the relevant form
+const openFormForStat = (statLabel: string) => {
+  const typeMap: Record<string, string> = {
+    Peso: "body",
+    "% Grasso": "bia",
+    "Massa Magra": "bia",
+    BMR: "bia",
+  };
+  const type = typeMap[statLabel];
+  if (!type) return;
+  const details = document.getElementById(
+    "details-forms",
+  ) as HTMLDetailsElement;
+  if (details) details.open = true;
+  setTimeout(() => {
+    const el = document.getElementById(`form-${type}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 100);
+};
+
+// Measurement form handlers
+const handleFormSave = async (
+  type: MeasurementType,
+  data: Record<string, any>,
+) => {
+  saving.value = type;
+  let result;
+  try {
+    if (editingRecord.value && editingRecord.value.type === type) {
+      const id = editingRecord.value.record.id;
+      switch (type) {
+        case "anthropometric":
+          result = await measurementStore.updateAnthropometric(id, data);
+          break;
+        case "body":
+          result = await measurementStore.updateBody(id, data);
+          break;
+        case "circumferences":
+          result = await measurementStore.updateCircumference(id, data);
+          break;
+        case "skinfolds":
+          result = await measurementStore.updateSkinfold(id, data);
+          break;
+        case "bia":
+          result = await measurementStore.updateBia(id, data);
+          break;
+      }
+      if (result?.success) {
+        toast.success("Misurazione aggiornata");
+        editingRecord.value = null;
+        setTimeout(() => {
+          document.getElementById("progress-stats")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
+      } else {
+        toast.error(result?.message || "Errore aggiornamento");
+      }
+    } else {
+      switch (type) {
+        case "anthropometric":
+          result = await measurementStore.createAnthropometric(data);
+          break;
+        case "body":
+          result = await measurementStore.createBody(data);
+          break;
+        case "circumferences":
+          result = await measurementStore.createCircumference(data);
+          break;
+        case "skinfolds":
+          result = await measurementStore.createSkinfold(data);
+          break;
+        case "bia":
+          result = await measurementStore.createBia(data);
+          break;
+      }
+      if (result?.success) {
+        toast.success("Misurazione salvata");
+        setTimeout(() => {
+          document.getElementById("progress-stats")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
+      } else {
+        toast.error(result?.message || "Errore salvataggio");
+      }
+    }
+  } finally {
+    saving.value = null;
+  }
+};
+
+const handleFormCancel = () => {
+  editingRecord.value = null;
+};
+
+const handleHistoryEdit = (
+  type: MeasurementType,
+  record: Record<string, any>,
+) => {
+  editingRecord.value = { type, record };
+  const details = document.getElementById(
+    "details-forms",
+  ) as HTMLDetailsElement;
+  if (details) details.open = true;
+  setTimeout(() => {
+    const el = document.getElementById(`form-${type}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 100);
+};
+
+const handleHistoryDelete = async (type: MeasurementType, id: number) => {
+  let result;
+  switch (type) {
+    case "anthropometric":
+      result = await measurementStore.deleteAnthropometric(id);
+      break;
+    case "body":
+      result = await measurementStore.deleteBody(id);
+      break;
+    case "circumferences":
+      result = await measurementStore.deleteCircumference(id);
+      break;
+    case "skinfolds":
+      result = await measurementStore.deleteSkinfold(id);
+      break;
+    case "bia":
+      result = await measurementStore.deleteBia(id);
+      break;
+  }
+  if (result?.success) {
+    toast.success("Misurazione eliminata");
+    if (editingRecord.value?.record?.id === id) editingRecord.value = null;
+  } else {
+    toast.error("Errore nell'eliminazione");
+  }
+};
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-3 sm:space-y-4">
     <!-- Loading -->
-    <div v-if="isLoading" class="animate-pulse space-y-6">
-      <div class="h-8 bg-habit-skeleton rounded w-1/4"></div>
-      <div class="bg-habit-bg rounded-xl p-6">
-        <div class="flex items-center space-x-4">
-          <div class="w-20 h-20 bg-habit-skeleton rounded-full"></div>
-          <div class="space-y-2 flex-1">
-            <div class="h-6 bg-habit-skeleton rounded w-1/3"></div>
-            <div class="h-4 bg-habit-skeleton rounded w-1/4"></div>
-          </div>
-        </div>
+    <div v-if="isLoading" class="animate-pulse space-y-3">
+      <div class="h-6 bg-habit-skeleton rounded w-1/3"></div>
+      <div class="h-16 bg-habit-skeleton rounded-lg"></div>
+      <div class="grid grid-cols-4 gap-2">
+        <div v-for="i in 4" :key="i" class="h-12 bg-habit-skeleton rounded-lg"></div>
       </div>
     </div>
+    <p v-if="isSlowRequest" class="text-sm text-habit-text-subtle text-center mt-2">
+      La richiesta sta impiegando piu tempo del previsto...
+    </p>
 
     <!-- Content -->
     <template v-else-if="client">
-      <!-- Header -->
-      <div
-        class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
-        <div class="flex items-center gap-4">
+      <!-- Compact header: back + name + actions inline -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
           <button
             @click="goBack"
-            class="p-2 text-habit-text-subtle hover:text-habit-text hover:bg-habit-card-hover rounded-lg"
+            class="p-1.5 text-habit-text-subtle hover:text-habit-text rounded-lg flex-shrink-0"
           >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 19l-7-7 7-7"
-              />
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
-            {{ client.first_name }} {{ client.last_name }}
-          </h1>
-        </div>
-        <div class="flex gap-2">
-          <button
-            @click="sendMessage"
-            class="px-4 py-2 border border-habit-border rounded-lg text-habit-text-muted hover:bg-habit-card-hover transition-colors flex items-center"
-          >
-            <svg
-              class="w-5 h-5 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
-            Messaggio
-          </button>
-          <button
-            @click="createWorkout"
-            class="px-4 py-2 bg-habit-cyan text-white rounded-lg hover:bg-cyan-500 transition-colors flex items-center"
-          >
-            <svg
-              class="w-5 h-5 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Nuova Scheda
-          </button>
-        </div>
-      </div>
-
-      <!-- Profile Card -->
-      <div
-        class="bg-habit-bg border border-habit-border rounded-xl shadow-sm p-6"
-      >
-        <div class="flex flex-col sm:flex-row sm:items-center gap-6">
-          <div
-            class="flex-shrink-0 w-20 h-20 bg-habit-cyan/20 rounded-full flex items-center justify-center"
-          >
-            <span class="text-2xl font-bold text-habit-cyan">
-              {{ client.first_name?.charAt(0)
-              }}{{ client.last_name?.charAt(0) }}
-            </span>
-          </div>
-          <div class="flex-1">
-            <div class="flex flex-wrap items-center gap-3 mb-2">
-              <span
-                :class="getStatusBadgeClass(client.status)"
-                class="px-3 py-1 text-sm rounded-full"
-              >
+          <div class="min-w-0">
+            <h1 class="text-base sm:text-xl font-bold text-habit-text truncate">
+              {{ client.first_name }} {{ client.last_name }}
+            </h1>
+            <div class="flex items-center gap-2 text-xs text-habit-text-subtle">
+              <span :class="getStatusBadgeClass(client.status)" class="px-1.5 py-0.5 rounded-full text-[10px] font-medium">
                 {{ getStatusLabel(client.status) }}
               </span>
-              <span class="text-sm text-habit-text-subtle">
-                Livello {{ client.level || 1 }}
-              </span>
-              <span class="text-sm text-habit-text-subtle">
-                {{ client.xp_points || 0 }} XP
-              </span>
-            </div>
-            <div class="flex flex-wrap gap-4 text-sm text-habit-text-subtle">
-              <span v-if="client.email" class="flex items-center">
-                <svg
-                  class="w-4 h-4 mr-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-                {{ client.email }}
-              </span>
-              <span v-if="client.phone" class="flex items-center">
-                <svg
-                  class="w-4 h-4 mr-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                  />
-                </svg>
-                {{ client.phone }}
-              </span>
+              <span>Lv.{{ client.level || 1 }}</span>
+              <span>{{ client.xp_points || 0 }} XP</span>
+              <span v-if="client.streak_days" class="text-orange-500 font-semibold">{{ client.streak_days }}d</span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="text-center px-4">
-              <div class="flex items-center text-orange-500">
-                <svg
-                  class="w-5 h-5 mr-1"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
-                  />
-                </svg>
-                <span class="text-xl font-bold">{{
-                  client.streak_days || 0
-                }}</span>
-              </div>
-              <p class="text-xs text-habit-text-subtle">Streak</p>
-            </div>
-          </div>
+        </div>
+        <div class="flex gap-1.5 flex-shrink-0">
+          <button @click="sendMessage" class="p-2 border border-habit-border rounded-lg text-habit-text-muted hover:bg-habit-card-hover">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </button>
+          <button @click="createWorkout" class="p-2 bg-habit-cyan text-white rounded-lg hover:bg-cyan-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      <!-- Stats Grid -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          class="bg-habit-bg border border-habit-border rounded-xl p-4 shadow-sm"
-        >
-          <p class="text-sm text-habit-text-subtle">Workout Totali</p>
-          <p class="text-2xl font-bold text-habit-text">
-            {{ stats?.totalWorkouts || 0 }}
-          </p>
+      <!-- Contact + info: single compact row -->
+      <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-habit-text-subtle px-1">
+        <span v-if="client.email" class="truncate max-w-[200px]">{{ client.email }}</span>
+        <span v-if="client.phone">{{ client.phone }}</span>
+        <span v-if="client.height_cm">{{ client.height_cm }} cm</span>
+        <span v-if="client.current_weight_kg">{{ client.current_weight_kg }} kg</span>
+        <span>{{ getGoalLabel(client.primary_goal) }}</span>
+      </div>
+
+      <!-- Stats: flat inline row -->
+      <div class="flex justify-between px-1 text-center">
+        <div>
+          <p class="text-sm sm:text-lg font-bold text-habit-text">{{ stats?.totalWorkouts || 0 }}</p>
+          <p class="text-[10px] text-habit-text-subtle">Workout</p>
         </div>
-        <div
-          class="bg-habit-bg border border-habit-border rounded-xl p-4 shadow-sm"
-        >
-          <p class="text-sm text-habit-text-subtle">Questa Settimana</p>
-          <p class="text-2xl font-bold text-habit-success">
-            {{ stats?.workoutsThisWeek || 0 }}
-          </p>
+        <div>
+          <p class="text-sm sm:text-lg font-bold text-habit-success">{{ stats?.workoutsThisWeek || 0 }}</p>
+          <p class="text-[10px] text-habit-text-subtle">Settimana</p>
         </div>
-        <div
-          class="bg-habit-bg border border-habit-border rounded-xl p-4 shadow-sm"
-        >
-          <p class="text-sm text-habit-text-subtle">Minuti Totali</p>
-          <p class="text-2xl font-bold text-habit-blue">
-            {{ stats?.totalMinutes || 0 }}
-          </p>
+        <div>
+          <p class="text-sm sm:text-lg font-bold text-habit-blue">{{ stats?.totalMinutes || 0 }}</p>
+          <p class="text-[10px] text-habit-text-subtle">Minuti</p>
         </div>
-        <div
-          class="bg-habit-bg border border-habit-border rounded-xl p-4 shadow-sm"
-        >
-          <p class="text-sm text-habit-text-subtle">Media Durata</p>
-          <p class="text-2xl font-bold text-habit-purple">
-            {{ stats?.avgDuration || 0 }} min
-          </p>
+        <div>
+          <p class="text-sm sm:text-lg font-bold text-habit-purple">{{ stats?.avgDuration || 0 }}<span class="text-[10px] font-normal">m</span></p>
+          <p class="text-[10px] text-habit-text-subtle">Media</p>
         </div>
       </div>
 
       <!-- Tabs -->
-      <div
-        class="bg-habit-bg border border-habit-border rounded-xl shadow-sm overflow-hidden"
-      >
-        <div class="border-b border-habit-border">
-          <nav class="flex -mb-px overflow-x-auto hide-scrollbar">
-            <button
-              v-for="tab in tabs"
-              :key="tab.id"
-              @click="activeTab = tab.id"
-              class="px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
-              :class="
-                activeTab === tab.id
-                  ? 'border-habit-cyan text-habit-cyan'
-                  : 'border-transparent text-habit-text-subtle hover:text-habit-text-muted'
-              "
-            >
-              {{ tab.label }}
-            </button>
-          </nav>
-        </div>
+      <div class="bg-habit-bg border border-habit-border rounded-lg sm:rounded-xl shadow-sm overflow-hidden">
+        <nav class="flex border-b border-habit-border overflow-x-auto hide-scrollbar">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            @click="activeTab = tab.id"
+            class="flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center"
+            :class="
+              activeTab === tab.id
+                ? 'border-habit-cyan text-habit-cyan'
+                : 'border-transparent text-habit-text-subtle'
+            "
+          >
+            {{ tab.label }}
+          </button>
+        </nav>
 
-        <div class="p-6">
+        <div class="p-3 sm:p-5">
           <!-- Overview Tab -->
-          <div v-if="activeTab === 'overview'" class="space-y-6">
-            <div class="grid md:grid-cols-2 gap-6">
-              <!-- Personal Info -->
-              <div>
-                <h3 class="text-lg font-semibold text-habit-text mb-4">
-                  Informazioni Personali
-                </h3>
-                <dl class="space-y-3">
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Eta</dt>
-                    <dd class="text-sm text-habit-text">
-                      {{ calculateAge(client.date_of_birth) }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Genere</dt>
-                    <dd class="text-sm text-habit-text capitalize">
-                      {{ client.gender || "-" }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Altezza</dt>
-                    <dd class="text-sm text-habit-text">
-                      {{ client.height_cm ? client.height_cm + " cm" : "-" }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Peso attuale</dt>
-                    <dd class="text-sm text-habit-text">
-                      {{
-                        client.current_weight_kg
-                          ? client.current_weight_kg + " kg"
-                          : "-"
-                      }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Cliente dal</dt>
-                    <dd class="text-sm text-habit-text">
-                      {{ formatDate(client.created_at) }}
-                    </dd>
-                  </div>
-                </dl>
+          <div v-if="activeTab === 'overview'">
+            <div class="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <div class="flex justify-between">
+                <span class="text-habit-text-subtle">Eta</span>
+                <span class="text-habit-text">{{ calculateAge(client.date_of_birth) }}</span>
               </div>
-
-              <!-- Fitness Profile -->
-              <div>
-                <h3 class="text-lg font-semibold text-habit-text mb-4">
-                  Profilo Fitness
-                </h3>
-                <dl class="space-y-3">
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Livello</dt>
-                    <dd class="text-sm text-habit-text">
-                      {{ getFitnessLevelLabel(client.fitness_level) }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Obiettivo</dt>
-                    <dd class="text-sm text-habit-text">
-                      {{ getGoalLabel(client.primary_goal) }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">Modalita</dt>
-                    <dd class="text-sm text-habit-text capitalize">
-                      {{ client.training_location || "-" }}
-                    </dd>
-                  </div>
-                  <div class="flex justify-between">
-                    <dt class="text-sm text-habit-text-subtle">
-                      Ultimo workout
-                    </dt>
-                    <dd class="text-sm text-habit-text">
-                      {{ formatDate(client.last_workout_at) }}
-                    </dd>
-                  </div>
-                </dl>
+              <div class="flex justify-between">
+                <span class="text-habit-text-subtle">Genere</span>
+                <span class="text-habit-text capitalize">{{ client.gender || "-" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-habit-text-subtle">Livello</span>
+                <span class="text-habit-text">{{ getFitnessLevelLabel(client.fitness_level) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-habit-text-subtle">Modalita</span>
+                <span class="text-habit-text capitalize">{{ client.training_location || "-" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-habit-text-subtle">Cliente dal</span>
+                <span class="text-habit-text">{{ formatDate(client.created_at) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-habit-text-subtle">Ultimo workout</span>
+                <span class="text-habit-text">{{ formatDate(client.last_workout_at) }}</span>
               </div>
             </div>
 
-            <!-- Notes -->
-            <div v-if="client.medical_notes || client.notes">
-              <h3 class="text-lg font-semibold text-habit-text mb-4">Note</h3>
-              <div
-                v-if="client.medical_notes"
-                class="mb-4 p-4 bg-yellow-500/10 rounded-lg"
-              >
-                <h4 class="text-sm font-medium text-yellow-700 mb-1">
-                  Note Mediche
-                </h4>
-                <p class="text-sm text-yellow-600">
-                  {{ client.medical_notes }}
-                </p>
-              </div>
-              <div
-                v-if="client.notes"
-                class="p-4 bg-habit-card-hover/50 rounded-lg"
-              >
-                <p class="text-sm text-habit-text-muted">{{ client.notes }}</p>
-              </div>
+            <!-- Notes (compact) -->
+            <div v-if="client.medical_notes" class="mt-3 p-2.5 bg-yellow-500/10 rounded-lg">
+              <p class="text-xs text-yellow-600"><span class="font-medium">Note mediche:</span> {{ client.medical_notes }}</p>
+            </div>
+            <div v-if="client.notes" class="mt-2 p-2.5 bg-habit-card-hover/50 rounded-lg">
+              <p class="text-xs text-habit-text-muted">{{ client.notes }}</p>
             </div>
 
             <!-- Goals -->
-            <div v-if="client.goals && client.goals.length > 0">
-              <h3 class="text-lg font-semibold text-habit-text mb-4">
-                Obiettivi Attivi
-              </h3>
-              <div class="space-y-3">
-                <div
-                  v-for="goal in client.goals"
-                  :key="goal.id"
-                  class="p-4 bg-habit-card-hover/50 rounded-lg"
-                >
-                  <div class="flex justify-between items-center mb-2">
-                    <span class="font-medium text-habit-text">{{
-                      goal.goal_type
-                    }}</span>
-                    <span class="text-sm text-habit-text-subtle">
-                      {{ goal.current_value || 0 }} / {{ goal.target_value }}
-                      {{ goal.unit }}
-                    </span>
-                  </div>
-                  <div class="w-full bg-habit-skeleton rounded-full h-2">
-                    <div
-                      class="bg-habit-cyan h-2 rounded-full"
-                      :style="{
-                        width:
-                          (goal.target_value
-                            ? Math.min(
-                                ((goal.current_value || 0) /
-                                  goal.target_value) *
-                                  100,
-                                100,
-                              )
-                            : 0) + '%',
-                      }"
-                    ></div>
-                  </div>
+            <div v-if="client.goals && client.goals.length > 0" class="mt-3 space-y-2">
+              <div
+                v-for="goal in client.goals"
+                :key="goal.id"
+                class="flex items-center gap-3"
+              >
+                <span class="text-xs text-habit-text flex-shrink-0">{{ goal.goal_type }}</span>
+                <div class="flex-1 bg-habit-skeleton rounded-full h-1.5">
+                  <div
+                    class="bg-habit-cyan h-1.5 rounded-full"
+                    :style="{ width: (goal.target_value ? Math.min(((goal.current_value || 0) / goal.target_value) * 100, 100) : 0) + '%' }"
+                  ></div>
                 </div>
+                <span class="text-[10px] text-habit-text-subtle flex-shrink-0">{{ goal.current_value || 0 }}/{{ goal.target_value }}{{ goal.unit }}</span>
               </div>
             </div>
           </div>
 
           <!-- Workouts Tab -->
-          <div
-            v-if="activeTab === 'workouts'"
-            class="text-center py-8 text-habit-text-subtle"
-          >
-            <svg
-              class="w-12 h-12 mx-auto mb-4 text-habit-text-subtle"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
-            </svg>
-            <p>Sezione allenamenti in arrivo</p>
-            <button
-              @click="createWorkout"
-              class="mt-4 px-4 py-2 bg-habit-cyan text-white rounded-lg hover:bg-cyan-500"
-            >
+          <div v-if="activeTab === 'workouts'" class="text-center py-6 text-habit-text-subtle">
+            <p class="text-sm">Sezione allenamenti in arrivo</p>
+            <button @click="createWorkout" class="mt-3 px-4 py-1.5 bg-habit-cyan text-white text-sm rounded-lg hover:bg-cyan-500">
               Crea prima scheda
             </button>
           </div>
 
           <!-- Progress Tab -->
-          <div
-            v-if="activeTab === 'progress'"
-            class="text-center py-8 text-habit-text-subtle"
-          >
-            <svg
-              class="w-12 h-12 mx-auto mb-4 text-habit-text-subtle"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <p>Sezione progressi in arrivo</p>
+          <div v-if="activeTab === 'progress'" class="space-y-2">
+            <!-- Loading -->
+            <div v-if="measurementStore.overviewLoading" class="space-y-1.5">
+              <div v-for="i in 4" :key="i" class="h-5 bg-habit-skeleton rounded animate-pulse"></div>
+            </div>
+
+            <!-- Quick Stats: tappable rows → scroll to form -->
+            <div v-else id="progress-stats" class="divide-y divide-habit-border/50">
+              <div
+                v-for="stat in measurementStats"
+                :key="stat.label"
+                role="button"
+                tabindex="0"
+                @click="openFormForStat(stat.label)"
+                @keydown.enter="openFormForStat(stat.label)"
+                @keydown.space.prevent="openFormForStat(stat.label)"
+                class="flex items-center justify-between py-2 -mx-1 px-1 rounded transition-all cursor-pointer select-none
+                       active:bg-habit-card-hover active:scale-[0.98]
+                       hover:bg-habit-card-hover/30
+                       focus-visible:ring-2 focus-visible:ring-habit-orange focus-visible:ring-offset-1"
+              >
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1 h-1 rounded-full flex-shrink-0" :class="stat.dotColor"></span>
+                  <span class="text-xs text-habit-text">{{ stat.label }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-sm font-semibold tabular-nums" :class="stat.color">
+                    {{ stat.value != null ? `${stat.value}` : "-" }}<span v-if="stat.value != null" class="text-[10px] font-normal ml-0.5 text-habit-text-muted">{{ stat.suffix }}</span>
+                  </span>
+                  <svg class="w-3 h-3 text-habit-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart: compact -->
+            <BodyCompositionChart
+              :body-measurements="measurementStore.bodyMeasurements"
+              :bia-measurements="measurementStore.biaMeasurements"
+              :skinfolds="measurementStore.skinfolds"
+              :circumferences="measurementStore.circumferences"
+              :loading="measurementStore.bodyLoading || measurementStore.biaLoading"
+            />
+
+            <!-- Action rows: flat links -->
+            <div class="divide-y divide-habit-border/50 text-xs">
+              <details class="group">
+                <summary class="flex items-center justify-between cursor-pointer py-2 text-habit-text font-medium select-none">
+                  Confronto date
+                  <svg class="w-3.5 h-3.5 text-habit-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </summary>
+                <div class="pb-2"><MeasurementComparison /></div>
+              </details>
+              <details id="details-forms" class="group">
+                <summary class="flex items-center justify-between cursor-pointer py-2 text-habit-text font-medium select-none">
+                  Inserisci misurazioni
+                  <svg class="w-3.5 h-3.5 text-habit-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </summary>
+                <div class="space-y-1.5 pb-2">
+                  <div id="form-anthropometric"><MeasurementFormCard type="anthropometric" title="Antropometria" accent-color="#3b82f6" icon-emoji="" :saving="saving === 'anthropometric'" :editing-record="editingRecord?.type === 'anthropometric' ? editingRecord.record : null" @save="(data: Record<string, any>) => handleFormSave('anthropometric', data)" @cancel="handleFormCancel" @delete="(id: number) => handleHistoryDelete('anthropometric', id)" /></div>
+                  <div id="form-body"><MeasurementFormCard type="body" title="Peso & Composizione" accent-color="#06b6d4" icon-emoji="" :saving="saving === 'body'" :editing-record="editingRecord?.type === 'body' ? editingRecord.record : null" @save="(data: Record<string, any>) => handleFormSave('body', data)" @cancel="handleFormCancel" @delete="(id: number) => handleHistoryDelete('body', id)" /></div>
+                  <div id="form-circumferences"><MeasurementFormCard type="circumferences" title="Circonferenze" accent-color="#22c55e" icon-emoji="" :saving="saving === 'circumferences'" :editing-record="editingRecord?.type === 'circumferences' ? editingRecord.record : null" @save="(data: Record<string, any>) => handleFormSave('circumferences', data)" @cancel="handleFormCancel" @delete="(id: number) => handleHistoryDelete('circumferences', id)" /></div>
+                  <div id="form-skinfolds"><MeasurementFormCard type="skinfolds" title="Plicometria" accent-color="#f97316" icon-emoji="" :saving="saving === 'skinfolds'" :editing-record="editingRecord?.type === 'skinfolds' ? editingRecord.record : null" @save="(data: Record<string, any>) => handleFormSave('skinfolds', data)" @cancel="handleFormCancel" @delete="(id: number) => handleHistoryDelete('skinfolds', id)" /></div>
+                  <div id="form-bia"><MeasurementFormCard type="bia" title="BIA (Bioimpedenza)" accent-color="#8b5cf6" icon-emoji="" :saving="saving === 'bia'" :editing-record="editingRecord?.type === 'bia' ? editingRecord.record : null" @save="(data: Record<string, any>) => handleFormSave('bia', data)" @cancel="handleFormCancel" @delete="(id: number) => handleHistoryDelete('bia', id)" /></div>
+                </div>
+              </details>
+              <details class="group">
+                <summary class="flex items-center justify-between cursor-pointer py-2 text-habit-text font-medium select-none">
+                  Storico misurazioni
+                  <svg class="w-3.5 h-3.5 text-habit-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </summary>
+                <div class="pb-2">
+                  <MeasurementHistory :anthropometric="measurementStore.anthropometric" :body-measurements="measurementStore.bodyMeasurements" :circumferences="measurementStore.circumferences" :skinfolds="measurementStore.skinfolds" :bia-measurements="measurementStore.biaMeasurements" @edit="handleHistoryEdit" @delete="handleHistoryDelete" />
+                </div>
+              </details>
+            </div>
           </div>
 
           <!-- Nutrition Tab -->
-          <div
-            v-if="activeTab === 'nutrition'"
-            class="text-center py-8 text-habit-text-subtle"
-          >
-            <svg
-              class="w-12 h-12 mx-auto mb-4 text-habit-text-subtle"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-              />
-            </svg>
-            <p>Sezione nutrizione in arrivo</p>
+          <div v-if="activeTab === 'nutrition'" class="text-center py-6 text-habit-text-subtle">
+            <p class="text-sm">Sezione nutrizione in arrivo</p>
           </div>
         </div>
       </div>

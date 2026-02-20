@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/store/auth'
 import type { Appointment, Client, User, BookingFilters } from '@/types'
 
 type CalendarView = 'day' | 'week' | 'month'
@@ -153,7 +154,7 @@ export const useBookingStore = defineStore('booking', () => {
             return { success: true }
         } catch (err: any) {
             error.value = err.response?.data?.message || 'Errore nell\'aggiornamento stato'
-            return { success: false }
+            return { success: false, message: error.value }
         }
     }
 
@@ -165,7 +166,7 @@ export const useBookingStore = defineStore('booking', () => {
             return { success: true }
         } catch (err: any) {
             error.value = err.response?.data?.message || 'Errore nell\'eliminazione appuntamento'
-            return { success: false }
+            return { success: false, message: error.value }
         }
     }
 
@@ -219,7 +220,12 @@ export const useBookingStore = defineStore('booking', () => {
     }
 
     const initialize = async (): Promise<void> => {
-        await Promise.all([fetchClients(), fetchTrainers()])
+        const auth = useAuthStore()
+        const role = auth.user?.role
+        // Only trainer/admin roles can access /clients and /users endpoints
+        if (role !== 'client') {
+            await Promise.all([fetchClients(), fetchTrainers()])
+        }
         await fetchAppointments()
     }
 

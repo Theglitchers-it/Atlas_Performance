@@ -22,10 +22,13 @@ interface ActionResult {
 }
 
 interface CheckinData {
-    sleep_quality: number
-    energy_level: number
-    muscle_soreness: number
-    stress_level: number
+    sleepQuality: number
+    sleepHours?: number
+    energyLevel: number
+    stressLevel: number
+    muscleSoreness: number
+    motivation: number
+    mood?: number
     notes?: string
 }
 

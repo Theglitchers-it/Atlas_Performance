@@ -61,16 +61,23 @@ const greeting = computed(() => {
   return "Buonasera";
 });
 
-// Mood config
-const moodConfig: Record<string, MoodConfig> = {
-  terrible: { emoji: "\u{1F62B}", label: "Terribile", color: "text-red-400" },
-  bad: { emoji: "\u{1F61E}", label: "Male", color: "text-orange-400" },
-  neutral: { emoji: "\u{1F610}", label: "Neutrale", color: "text-yellow-400" },
-  good: { emoji: "\u{1F60A}", label: "Bene", color: "text-green-400" },
-  great: { emoji: "\u{1F929}", label: "Ottimo", color: "text-habit-cyan" },
+// Mood config (supports both integer 1-5 and legacy string values)
+const moodConfigByInt: Record<number, MoodConfig> = {
+  1: { emoji: "\u{1F62B}", label: "Terribile", color: "text-red-400" },
+  2: { emoji: "\u{1F61E}", label: "Male", color: "text-orange-400" },
+  3: { emoji: "\u{1F610}", label: "Neutrale", color: "text-yellow-400" },
+  4: { emoji: "\u{1F60A}", label: "Bene", color: "text-green-400" },
+  5: { emoji: "\u{1F929}", label: "Ottimo", color: "text-habit-cyan" },
 };
 
-const getMood = (m: string): MoodConfig => moodConfig[m] || moodConfig.neutral;
+const moodStringToInt: Record<string, number> = {
+  terrible: 1, bad: 2, neutral: 3, good: 4, great: 5,
+};
+
+const getMood = (m: string | number): MoodConfig => {
+  const val = typeof m === "number" ? m : (moodStringToInt[m] || 3);
+  return moodConfigByInt[val] || moodConfigByInt[3];
+};
 
 // Readiness progress color for CircularProgress component
 const getReadinessProgressColor = (score: number): string => {
@@ -328,13 +335,13 @@ onMounted(loadDashboard);
               </div>
               <div class="text-center p-2 bg-habit-bg-light rounded-lg">
                 <div class="text-sm font-bold text-habit-text">
-                  {{ todayCheckin.energy_level }}/10
+                  {{ todayCheckin.energy_level }}/5
                 </div>
                 <div class="text-habit-text-subtle text-xs">Energia</div>
               </div>
               <div class="text-center p-2 bg-habit-bg-light rounded-lg">
                 <div class="text-sm font-bold text-habit-text">
-                  {{ todayCheckin.stress_level }}/10
+                  {{ todayCheckin.stress_level }}/5
                 </div>
                 <div class="text-habit-text-subtle text-xs">Stress</div>
               </div>

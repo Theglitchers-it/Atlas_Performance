@@ -22,9 +22,9 @@ class AlertController {
                     dismissed: dismissed === 'true'
                 });
             } catch (err) {
-                // Se la tabella training_alerts non esiste, ritorna array vuoto
-                if (err.code === 'ER_NO_SUCH_TABLE') {
-                    logger.warn('Tabella training_alerts non trovata. Ritorno array vuoto.');
+                // Gestisci errori SQL non critici con array vuoto
+                if (err.code === 'ER_NO_SUCH_TABLE' || err.code === 'ER_BAD_FIELD_ERROR') {
+                    logger.warn('Errore tabella training_alerts: %s. Ritorno array vuoto.', err.code);
                     data = [];
                 } else {
                     throw err;

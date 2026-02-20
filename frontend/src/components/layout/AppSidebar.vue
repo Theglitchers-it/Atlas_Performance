@@ -20,7 +20,6 @@ import {
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
   HeartIcon,
-  ScaleIcon,
   SparklesIcon,
   UsersIcon,
   ChevronRightIcon,
@@ -262,7 +261,6 @@ const trainerMenuGroups = [
     items: [
       { name: "Nutrizione", path: "/nutrition", icon: HeartIcon },
       { name: "Readiness", path: "/readiness", icon: HeartIcon },
-      { name: "Misurazioni", path: "/measurements", icon: ScaleIcon },
     ],
   },
   {
@@ -617,9 +615,10 @@ const getPlanLabel = (plan: string | undefined): string =>
 
         <!-- Drawer: close button + header -->
         <div v-if="drawer" class="flex items-center justify-between mb-2 px-1">
-          <span class="text-habit-text font-display font-bold text-lg"
-            >Atlas</span
-          >
+          <span class="font-display font-bold text-lg">
+            <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
+            <span class="text-habit-text/40 font-medium text-xs ml-1 tracking-[0.15em] uppercase">Performance</span>
+          </span>
           <button
             @click="emit('close')"
             aria-label="Chiudi menu"

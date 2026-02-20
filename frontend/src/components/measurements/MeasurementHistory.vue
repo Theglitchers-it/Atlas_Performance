@@ -1,136 +1,62 @@
 <template>
-  <div class="card">
-    <div class="p-3 sm:p-4 border-b border-habit-border space-y-2 sm:space-y-3">
-      <h3 class="font-semibold text-habit-text text-xs sm:text-sm">
-        Storico Misurazioni
-      </h3>
-
-      <!-- Type filter - horizontal scroll on mobile -->
-      <div class="flex gap-1 sm:gap-1.5 overflow-x-auto hide-scrollbar -mx-3 px-3 sm:-mx-4 sm:px-4 pb-1">
-        <button
-          v-for="f in filters"
-          :key="f.key"
-          class="text-[11px] sm:text-xs px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full transition-colors whitespace-nowrap shrink-0"
-          :class="
-            activeFilter === f.key
-              ? 'bg-habit-orange/10 text-habit-orange font-medium'
-              : 'text-habit-text-muted hover:text-habit-text hover:bg-habit-bg-light'
-          "
-          @click="activeFilter = f.key"
-        >
-          {{ f.label }}
-        </button>
-      </div>
+  <div>
+    <!-- Filter: compact flex-wrap -->
+    <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1 pb-1.5">
+      <button
+        v-for="f in filters"
+        :key="f.key"
+        @click="activeFilter = f.key"
+        class="text-[10px] py-0.5 px-1.5 rounded-full transition-colors"
+        :class="activeFilter === f.key
+          ? 'bg-habit-card-hover text-habit-text font-medium'
+          : 'text-habit-text-muted hover:text-habit-text'"
+      >{{ f.label }}</button>
+      <span class="text-[10px] text-habit-text-muted">({{ filteredEntries.length }})</span>
     </div>
 
     <!-- Empty state -->
-    <div
-      v-if="filteredEntries.length === 0"
-      class="p-5 sm:p-8 text-center text-habit-text-muted text-xs sm:text-sm"
-    >
-      Nessuna misurazione registrata
+    <div v-if="filteredEntries.length === 0" class="text-center text-habit-text-muted text-[11px] py-2">
+      Nessuna misurazione
     </div>
 
-    <!-- Timeline entries -->
-    <div v-else class="divide-y divide-habit-border">
+    <!-- Timeline entries: compact -->
+    <div v-else class="divide-y divide-habit-border/50">
       <div
         v-for="entry in displayedEntries"
         :key="`${entry.type}-${entry.id}`"
-        class="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-4 hover:bg-habit-bg-light transition-colors group"
+        class="flex items-center gap-1.5 py-1.5 group"
       >
-        <!-- Timeline dot -->
-        <div class="flex-shrink-0 mt-1">
-          <div
-            class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full"
-            :style="{ backgroundColor: typeColors[entry.type] }"
-          />
-        </div>
-
-        <!-- Content -->
+        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ backgroundColor: typeColors[entry.type] }"></span>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 sm:gap-2 mb-0.5">
-            <span
-              class="text-[10px] sm:text-xs font-medium"
-              :style="{ color: typeColors[entry.type] }"
-            >
-              {{ typeLabels[entry.type] }}
-            </span>
-            <span class="text-[10px] sm:text-xs text-habit-text-muted">
-              {{ formatDate(entry.date) }}
-            </span>
-            <span class="text-[10px] sm:text-xs text-habit-text-subtle hidden xs:inline">
-              {{ relativeTime(entry.date) }}
-            </span>
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] font-medium" :style="{ color: typeColors[entry.type] }">{{ typeLabels[entry.type] }}</span>
+            <span class="text-[10px] text-habit-text-muted">{{ formatDate(entry.date) }}</span>
           </div>
-          <p class="text-xs sm:text-sm text-habit-text truncate">
-            {{ entry.summary }}
-          </p>
+          <p class="text-[11px] text-habit-text truncate">{{ entry.summary }}</p>
         </div>
-
-        <!-- Actions (always visible on mobile, hover on desktop) -->
-        <div
-          class="flex-shrink-0 flex items-center gap-0.5 sm:gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-        >
-          <button
-            class="p-1.5 sm:p-1.5 rounded-lg hover:bg-habit-bg-light text-habit-text-muted hover:text-habit-text transition-colors"
-            title="Modifica"
-            @click="$emit('edit', entry.type, entry.record)"
-          >
-            <svg
-              class="w-3.5 h-3.5 sm:w-4 sm:h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
+        <div class="flex-shrink-0 flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <button class="p-1 rounded text-habit-text-muted hover:text-habit-text" title="Modifica" @click="$emit('edit', entry.type, entry.record)">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
           </button>
-          <button
-            class="p-1.5 sm:p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-habit-text-muted hover:text-red-600 transition-colors"
-            title="Elimina"
-            @click="confirmDelete(entry)"
-          >
-            <svg
-              class="w-3.5 h-3.5 sm:w-4 sm:h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
+          <button class="p-1 rounded text-habit-text-muted hover:text-red-600" title="Elimina" @click="confirmDelete(entry)">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Show more button -->
-    <div
-      v-if="filteredEntries.length > displayCount"
-      class="p-2 sm:p-3 border-t border-habit-border text-center"
-    >
-      <button
-        class="text-xs sm:text-sm text-habit-orange hover:underline"
-        @click="displayCount += 15"
-      >
-        Mostra altri ({{ filteredEntries.length - displayCount }} rimanenti)
+    <!-- Show more -->
+    <div v-if="filteredEntries.length > displayCount" class="text-center pt-1.5">
+      <button class="text-[11px] text-habit-orange hover:underline" @click="displayCount += 15">
+        +{{ filteredEntries.length - displayCount }} altre
       </button>
     </div>
 
-    <!-- Delete confirmation dialog -->
+    <!-- Delete confirmation -->
     <ConfirmDialog
       :open="showDeleteDialog"
       title="Elimina misurazione"
-      message="Sei sicuro di voler eliminare questa misurazione? L'azione non puo essere annullata."
+      :message="deleteMessage"
       confirm-text="Elimina"
       variant="danger"
       @confirm="handleDelete"
@@ -168,7 +94,7 @@ const emit = defineEmits<{
 const activeFilter = ref("all");
 const displayCount = ref(15);
 const showDeleteDialog = ref(false);
-const deleteTarget = ref<{ type: MeasurementType; id: number } | null>(null);
+const deleteTarget = ref<{ type: MeasurementType; id: number; summary: string; date: string } | null>(null);
 
 const filters = [
   { key: "all", label: "Tutti" },
@@ -303,22 +229,19 @@ const formatDate = (d: string) => {
   });
 };
 
-const relativeTime = (d: string) => {
-  const now = new Date();
-  const date = new Date(d);
-  const diffDays = Math.floor(
-    (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
-  );
-  if (diffDays === 0) return "Oggi";
-  if (diffDays === 1) return "Ieri";
-  if (diffDays < 7) return `${diffDays}g fa`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}sett fa`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mesi fa`;
-  return `${Math.floor(diffDays / 365)}a fa`;
-};
+const deleteMessage = computed(() => {
+  if (!deleteTarget.value) return "";
+  const label = typeLabels[deleteTarget.value.type] || "";
+  return `Eliminare ${label} del ${deleteTarget.value.date} (${deleteTarget.value.summary})? L'azione non puo essere annullata.`;
+});
 
 const confirmDelete = (entry: TimelineEntry) => {
-  deleteTarget.value = { type: entry.type, id: entry.id };
+  deleteTarget.value = {
+    type: entry.type,
+    id: entry.id,
+    summary: entry.summary,
+    date: formatDate(entry.date),
+  };
   showDeleteDialog.value = true;
 };
 

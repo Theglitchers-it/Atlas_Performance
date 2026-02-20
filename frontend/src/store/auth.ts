@@ -92,8 +92,10 @@ export const useAuthStore = defineStore('auth', () => {
             }
 
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore durante il login'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore durante il login'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         } finally {
             loading.value = false
@@ -113,8 +115,10 @@ export const useAuthStore = defineStore('auth', () => {
             }
 
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore durante la registrazione'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore durante la registrazione'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         } finally {
             loading.value = false
@@ -164,8 +168,10 @@ export const useAuthStore = defineStore('auth', () => {
             const response = await api.put('/auth/profile', profileData)
             user.value = { ...user.value!, ...response.data.user }
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore aggiornamento profilo'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiornamento profilo'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         } finally {
             loading.value = false
@@ -244,8 +250,10 @@ export const useAuthStore = defineStore('auth', () => {
                     }
                 }, 500)
             })
-        } catch (err: any) {
-            const message = err.response?.data?.message || 'Errore durante il login sociale'
+        } catch (err: unknown) {
+            const fallback = err instanceof Error ? err.message : 'Errore durante il login sociale'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            const message = axiosErr.response?.data?.message || fallback
             error.value = message
             loading.value = false
             return { success: false, message }
@@ -259,8 +267,10 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             await api.put('/auth/password', { currentPassword, newPassword })
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore cambio password'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore cambio password'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         } finally {
             loading.value = false

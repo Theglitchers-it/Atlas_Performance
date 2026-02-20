@@ -7,10 +7,11 @@
       <div class="container mx-auto px-4">
         <div class="flex items-center justify-between h-16">
           <!-- Logo -->
-          <div class="flex items-center gap-3">
-            <span class="font-display font-bold text-2xl text-habit-text">
+          <div class="flex items-center gap-2">
+            <span class="font-display font-bold text-2xl bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">
               Atlas
             </span>
+            <span class="font-medium text-sm text-habit-text/40">Performance</span>
           </div>
 
           <!-- Desktop Menu -->
@@ -113,7 +114,7 @@
             Suggerimenti AI che si adattano<br />alla tua giornata
           </h2>
           <p class="section-description">
-            Atlas impara i tuoi pattern e offre suggerimenti intelligenti che ti
+            Atlas Performance impara i tuoi pattern e offre suggerimenti intelligenti che ti
             aiutano a rimanere costante senza dover indovinare cosa fare.
           </p>
         </div>
@@ -139,7 +140,7 @@
         <div class="section-header">
           <p class="text-habit-text-subtle text-sm mb-2">A closer look</p>
           <h2 class="section-title">
-            Come i professionisti usano Atlas ogni giorno
+            Come i professionisti usano Atlas Performance ogni giorno
           </h2>
           <div class="flex items-center justify-center gap-2 mt-4">
             <div class="flex items-center">
@@ -183,7 +184,7 @@
             Un layout che mantiene<br />la tua giornata chiara
           </h2>
           <p class="section-description">
-            Atlas porta chiarezza alle tue routine con card chiare, tracking
+            Atlas Performance porta chiarezza alle tue routine con card chiare, tracking
             realistico dei progressi e guida che si adatta alla tua giornata.
           </p>
         </div>
@@ -381,7 +382,8 @@
           class="flex flex-col md:flex-row items-center justify-between gap-6"
         >
           <div class="flex items-center gap-3">
-            <span class="text-habit-text font-bold text-lg">Atlas</span>
+            <span class="font-bold text-lg bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">Atlas</span>
+            <span class="font-medium text-xs text-habit-text/40 ml-1">Performance</span>
           </div>
 
           <div
@@ -402,7 +404,7 @@
           </div>
 
           <p class="text-habit-text-subtle text-sm">
-            © 2024 Atlas. All rights reserved.
+            © 2025 Atlas Performance. Tutti i diritti riservati.
           </p>
         </div>
       </div>
@@ -490,7 +492,7 @@ const stats: any[] = [
 const testimonials: any[] = [
   {
     quote:
-      "Atlas ha cambiato completamente il modo in cui gestisco i miei clienti. Non potrei più farne a meno!",
+      "Atlas Performance ha cambiato completamente il modo in cui gestisco i miei clienti. Non potrei più farne a meno!",
     name: "Marco Rossi",
     role: "Personal Trainer",
     rating: 5,

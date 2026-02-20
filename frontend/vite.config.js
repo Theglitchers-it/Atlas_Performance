@@ -86,7 +86,7 @@ export default defineConfig({
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 24 ore
+                maxAgeSeconds: 60 * 60 * 4 // 4 ore (dati generici)
               }
             }
           },
@@ -97,7 +97,7 @@ export default defineConfig({
               cacheName: 'workout-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 giorni
+                maxAgeSeconds: 60 * 60 * 12 // 12 ore (schede allenamento)
               }
             }
           },
@@ -108,7 +108,7 @@ export default defineConfig({
               cacheName: 'exercise-cache',
               expiration: {
                 maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 7
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 giorni (dati quasi-statici)
               }
             }
           },
@@ -119,7 +119,7 @@ export default defineConfig({
               cacheName: 'client-workout-cache',
               expiration: {
                 maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 3 // 3 giorni
+                maxAgeSeconds: 60 * 60 * 4 // 4 ore (dati sensibili cliente)
               }
             }
           }

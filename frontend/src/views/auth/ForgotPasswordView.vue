@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import api from "@/services/api";
+import AuthThemeToggle from "@/components/auth/AuthThemeToggle.vue";
 
 const email = ref<string>("");
 const isLoading = ref<boolean>(false);
@@ -37,6 +38,7 @@ const resetForm = () => {
 
 <template>
   <div class="auth-gradient-bg py-12 px-4 sm:px-6 lg:px-8">
+    <AuthThemeToggle />
     <!-- Floating Orbs -->
     <div class="auth-orb auth-orb-1 hidden sm:block"></div>
     <div class="auth-orb auth-orb-2 hidden sm:block"></div>
@@ -45,33 +47,18 @@ const resetForm = () => {
     <div class="max-w-md w-full relative z-10">
       <!-- Logo & Title -->
       <div class="text-center mb-8">
-        <div
-          class="auth-logo-glow mx-auto h-16 w-16 bg-gradient-to-br from-[#ff4c00] to-[#ff8c00] rounded-2xl flex items-center justify-center mb-5 shadow-lg"
-        >
-          <!-- Lock icon with shake animation on error -->
-          <svg
-            class="h-9 w-9 text-white"
-            :class="errorMessage ? 'auth-shake' : ''"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-            />
-          </svg>
-        </div>
-        <h1 class="text-2xl sm:text-3xl font-bold">
-          <span class="text-white">Password </span
+        <h1 class="text-3xl sm:text-4xl font-display font-bold">
+          <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
+        </h1>
+        <p class="text-sm font-medium text-habit-text/40 tracking-[0.2em] uppercase mt-1">Performance</p>
+        <h2 class="text-xl sm:text-2xl font-bold mt-4">
+          <span class="text-habit-text">Password </span
           ><span
             class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent"
             >dimenticata?</span
           >
-        </h1>
-        <p class="mt-2 text-white/50 text-sm">
+        </h2>
+        <p class="mt-2 text-habit-text/50 text-sm">
           Ti invieremo le istruzioni per reimpostarla
         </p>
       </div>
@@ -108,15 +95,15 @@ const resetForm = () => {
               </div>
             </div>
 
-            <h3 class="text-xl font-bold text-white mb-2">Email inviata!</h3>
-            <p class="text-white/50 text-sm mb-6 leading-relaxed">
+            <h3 class="text-xl font-bold text-habit-text mb-2">Email inviata!</h3>
+            <p class="text-habit-text/50 text-sm mb-6 leading-relaxed">
               Se l'email esiste nel nostro sistema, riceverai le istruzioni per
               reimpostare la password.
             </p>
 
             <!-- Email display -->
             <div
-              class="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl border border-white/10 mb-6"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-habit-text/5 rounded-xl border border-habit-text/10 mb-6"
             >
               <svg
                 class="w-4 h-4 text-[#0283a7]"
@@ -131,7 +118,7 @@ const resetForm = () => {
                   d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                 />
               </svg>
-              <span class="text-sm text-white/60"
+              <span class="text-sm text-habit-text/60"
                 >Controlla la tua casella di posta</span
               >
             </div>
@@ -139,7 +126,7 @@ const resetForm = () => {
             <div class="space-y-3">
               <button
                 @click="resetForm"
-                class="w-full py-3 px-4 text-sm text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all duration-200"
+                class="w-full py-3 px-4 text-sm text-habit-text/60 hover:text-habit-text bg-habit-text/5 hover:bg-habit-text/10 border border-habit-text/10 rounded-xl transition-all duration-200"
               >
                 Non hai ricevuto l'email? Riprova
               </button>
@@ -182,7 +169,7 @@ const resetForm = () => {
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-              <p class="text-sm text-red-400">{{ errorMessage }}</p>
+              <p class="text-sm text-red-500 dark:text-red-400">{{ errorMessage }}</p>
             </div>
           </Transition>
 
@@ -214,7 +201,7 @@ const resetForm = () => {
             <div class="auth-input-group">
               <label
                 for="email"
-                class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                 >Email</label
               >
               <div class="relative">
@@ -294,7 +281,7 @@ const resetForm = () => {
           <div class="mt-6 text-center">
             <router-link
               to="/login"
-              class="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors"
+              class="inline-flex items-center gap-2 text-sm text-habit-text/40 hover:text-habit-text/70 transition-colors"
             >
               <svg
                 class="w-4 h-4"
@@ -316,8 +303,8 @@ const resetForm = () => {
       </div>
 
       <!-- Footer -->
-      <p class="mt-8 text-center text-xs text-white/25">
-        &copy; 2025 Atlas. Tutti i diritti riservati.
+      <p class="mt-8 text-center text-xs text-habit-text/25">
+        &copy; 2025 Atlas Performance. Tutti i diritti riservati.
       </p>
     </div>
   </div>

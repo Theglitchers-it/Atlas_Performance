@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 import type { RegisterForm } from "@/types";
+import AuthThemeToggle from "@/components/auth/AuthThemeToggle.vue";
 
 interface PasswordChecks {
   length: boolean;
@@ -172,6 +173,7 @@ const prevStep = () => {
 
 <template>
   <div class="auth-gradient-bg py-8 px-4 sm:px-6 lg:px-8">
+    <AuthThemeToggle />
     <!-- Floating Orbs -->
     <div class="auth-orb auth-orb-1 hidden sm:block"></div>
     <div class="auth-orb auth-orb-2 hidden sm:block"></div>
@@ -180,31 +182,18 @@ const prevStep = () => {
     <div class="max-w-md w-full relative z-10">
       <!-- Logo & Title -->
       <div class="text-center mb-6">
-        <div
-          class="auth-logo-glow mx-auto h-16 w-16 bg-gradient-to-br from-[#ff4c00] to-[#ff8c00] rounded-2xl flex items-center justify-center mb-5 shadow-lg"
-        >
-          <svg
-            class="h-9 w-9 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-        </div>
-        <h1 class="text-2xl sm:text-3xl font-bold">
-          <span class="text-white">Crea il tuo </span
+        <h1 class="text-3xl sm:text-4xl font-display font-bold">
+          <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
+        </h1>
+        <p class="text-sm font-medium text-habit-text/40 tracking-[0.2em] uppercase mt-1">Performance</p>
+        <h2 class="text-xl sm:text-2xl font-bold mt-4">
+          <span class="text-habit-text">Crea il tuo </span
           ><span
             class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent"
             >Account</span
           >
-        </h1>
-        <p class="mt-2 text-white/50 text-sm">
+        </h2>
+        <p class="mt-2 text-habit-text/50 text-sm">
           Inizia la prova gratuita di 14 giorni
         </p>
       </div>
@@ -217,28 +206,28 @@ const prevStep = () => {
             :class="
               currentStep >= 1
                 ? 'bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] text-white'
-                : 'bg-white/10 text-white/40'
+                : 'bg-habit-text/10 text-habit-text/40'
             "
           >
             1
           </div>
-          <span class="text-xs text-white/50 hidden sm:inline"
+          <span class="text-xs text-habit-text/50 hidden sm:inline"
             >Dati personali</span
           >
         </div>
-        <div class="w-8 h-px bg-white/20"></div>
+        <div class="w-8 h-px bg-habit-text/20"></div>
         <div class="flex items-center gap-2">
           <div
             class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
             :class="
               currentStep >= 2
                 ? 'bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] text-white'
-                : 'bg-white/10 text-white/40'
+                : 'bg-habit-text/10 text-habit-text/40'
             "
           >
             2
           </div>
-          <span class="text-xs text-white/50 hidden sm:inline">Sicurezza</span>
+          <span class="text-xs text-habit-text/50 hidden sm:inline">Sicurezza</span>
         </div>
       </div>
 
@@ -274,7 +263,7 @@ const prevStep = () => {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <p class="text-sm text-red-400">{{ errorMessage }}</p>
+            <p class="text-sm text-red-500 dark:text-red-400">{{ errorMessage }}</p>
           </div>
         </Transition>
 
@@ -294,7 +283,7 @@ const prevStep = () => {
                 <div class="auth-input-group">
                   <label
                     for="firstName"
-                    class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                    class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                     >Nome *</label
                   >
                   <div class="relative">
@@ -334,7 +323,7 @@ const prevStep = () => {
                 <div class="auth-input-group">
                   <label
                     for="lastName"
-                    class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                    class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                     >Cognome *</label
                   >
                   <div class="relative">
@@ -377,7 +366,7 @@ const prevStep = () => {
               <div class="auth-input-group">
                 <label
                   for="email"
-                  class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                  class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                   >Email *</label
                 >
                 <div class="relative">
@@ -419,7 +408,7 @@ const prevStep = () => {
               <div class="auth-input-group">
                 <label
                   for="phone"
-                  class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                  class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                   >Telefono</label
                 >
                 <div class="relative">
@@ -453,7 +442,7 @@ const prevStep = () => {
               <div class="auth-input-group">
                 <label
                   for="businessName"
-                  class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                  class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                   >Nome Attivita *</label
                 >
                 <div class="relative">
@@ -586,7 +575,7 @@ const prevStep = () => {
               <button
                 type="button"
                 @click="prevStep"
-                class="flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors mb-2"
+                class="flex items-center gap-1.5 text-sm text-habit-text/40 hover:text-habit-text/70 transition-colors mb-2"
               >
                 <svg
                   class="w-4 h-4"
@@ -608,7 +597,7 @@ const prevStep = () => {
               <div class="auth-input-group">
                 <label
                   for="password"
-                  class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                  class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                   >Password *</label
                 >
                 <div class="relative">
@@ -642,7 +631,7 @@ const prevStep = () => {
                     :aria-label="
                       showPassword ? 'Nascondi password' : 'Mostra password'
                     "
-                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
+                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-habit-text/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
                   >
                     <svg
                       v-if="!showPassword"
@@ -697,7 +686,7 @@ const prevStep = () => {
                     <div
                       v-for="i in 4"
                       :key="i"
-                      class="h-1.5 flex-1 rounded-full overflow-hidden bg-white/10"
+                      class="h-1.5 flex-1 rounded-full overflow-hidden bg-habit-text/10"
                     >
                       <div
                         class="h-full rounded-full transition-all duration-500 ease-out"
@@ -723,7 +712,7 @@ const prevStep = () => {
                     :class="
                       passwordChecks.length
                         ? 'text-emerald-400'
-                        : 'text-white/30'
+                        : 'text-habit-text/30'
                     "
                   >
                     <svg
@@ -749,7 +738,7 @@ const prevStep = () => {
                     :class="
                       passwordChecks.uppercase
                         ? 'text-emerald-400'
-                        : 'text-white/30'
+                        : 'text-habit-text/30'
                     "
                   >
                     <svg
@@ -777,7 +766,7 @@ const prevStep = () => {
                     :class="
                       passwordChecks.lowercase
                         ? 'text-emerald-400'
-                        : 'text-white/30'
+                        : 'text-habit-text/30'
                     "
                   >
                     <svg
@@ -805,7 +794,7 @@ const prevStep = () => {
                     :class="
                       passwordChecks.number
                         ? 'text-emerald-400'
-                        : 'text-white/30'
+                        : 'text-habit-text/30'
                     "
                   >
                     <svg
@@ -831,7 +820,7 @@ const prevStep = () => {
                     :class="
                       passwordChecks.symbol
                         ? 'text-emerald-400'
-                        : 'text-white/30'
+                        : 'text-habit-text/30'
                     "
                   >
                     <svg
@@ -859,7 +848,7 @@ const prevStep = () => {
               <div class="auth-input-group">
                 <label
                   for="confirmPassword"
-                  class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+                  class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
                   >Conferma Password *</label
                 >
                 <div class="relative">
@@ -897,7 +886,7 @@ const prevStep = () => {
                         ? 'Nascondi password'
                         : 'Mostra password'
                     "
-                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
+                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-habit-text/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
                   >
                     <svg
                       v-if="!showConfirmPassword"
@@ -975,10 +964,10 @@ const prevStep = () => {
                   <input
                     v-model="acceptTerms"
                     type="checkbox"
-                    class="h-4 w-4 mt-0.5 rounded bg-white/5 border-white/15 text-[#0283a7] focus:ring-[#0283a7]/30 focus:ring-offset-0 transition-colors"
+                    class="h-4 w-4 mt-0.5 rounded bg-habit-text/5 border-habit-text/15 text-[#0283a7] focus:ring-[#0283a7]/30 focus:ring-offset-0 transition-colors"
                   />
                   <span
-                    class="ml-2.5 text-sm text-white/40 group-hover:text-white/60 transition-colors"
+                    class="ml-2.5 text-sm text-habit-text/40 group-hover:text-habit-text/60 transition-colors"
                   >
                     Accetto i
                     <a
@@ -1042,7 +1031,7 @@ const prevStep = () => {
 
         <!-- Login Link -->
         <div class="mt-6 text-center">
-          <p class="text-sm text-white/40">
+          <p class="text-sm text-habit-text/40">
             Hai gia un account?
             <router-link
               to="/login"
@@ -1057,32 +1046,32 @@ const prevStep = () => {
       <!-- Features Banner -->
       <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div
-          class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3 text-center"
+          class="bg-habit-text/5 backdrop-blur-sm border border-habit-text/10 rounded-2xl p-3 text-center"
         >
           <div
             class="text-2xl font-bold bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent"
           >
             14
           </div>
-          <div class="text-[11px] text-white/40 mt-0.5">Giorni di prova</div>
+          <div class="text-[11px] text-habit-text/40 mt-0.5">Giorni di prova</div>
         </div>
         <div
-          class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3 text-center"
+          class="bg-habit-text/5 backdrop-blur-sm border border-habit-text/10 rounded-2xl p-3 text-center"
         >
           <div class="text-2xl font-bold text-[#0283a7]">5</div>
-          <div class="text-[11px] text-white/40 mt-0.5">Clienti inclusi</div>
+          <div class="text-[11px] text-habit-text/40 mt-0.5">Clienti inclusi</div>
         </div>
         <div
-          class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-3 text-center"
+          class="bg-habit-text/5 backdrop-blur-sm border border-habit-text/10 rounded-2xl p-3 text-center"
         >
           <div class="text-2xl font-bold text-emerald-400">0</div>
-          <div class="text-[11px] text-white/40 mt-0.5">Costi nascosti</div>
+          <div class="text-[11px] text-habit-text/40 mt-0.5">Costi nascosti</div>
         </div>
       </div>
 
       <!-- Footer -->
-      <p class="mt-6 text-center text-xs text-white/25">
-        &copy; 2025 Atlas. Tutti i diritti riservati.
+      <p class="mt-6 text-center text-xs text-habit-text/25">
+        &copy; 2025 Atlas Performance. Tutti i diritti riservati.
       </p>
     </div>
   </div>

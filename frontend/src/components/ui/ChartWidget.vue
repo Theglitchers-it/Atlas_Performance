@@ -109,6 +109,10 @@ const props = withDefaults(defineProps<Props>(), {
   title: "",
 });
 
+const emit = defineEmits<{
+  (e: "chart-click", payload: { index: number; label: string; value: number; datasetIndex: number }): void;
+}>();
+
 const BRAND_COLORS_LIGHT = [
   "#ff4c00",
   "#0283a7",
@@ -191,8 +195,8 @@ const mergedData = computed(() => {
             ds.data?.length || BRAND_COLORS.value.length,
           );
           defaults.borderWidth = 0;
-          defaults.hoverOffset = 6;
         }
+        defaults.hoverOffset = 8;
       } else if (props.type === "radar") {
         defaults.borderColor = color;
         defaults.backgroundColor = color + "33";
@@ -206,6 +210,18 @@ const mergedData = computed(() => {
 
   return data;
 });
+
+// -- Chart click handler (extracted to avoid recreating inside computed) --
+const handleChartClick = (_event: any, elements: any[]) => {
+  if (elements.length > 0) {
+    const el = elements[0];
+    const datasetIndex = el.datasetIndex ?? 0;
+    const index = el.index ?? 0;
+    const label = mergedData.value.labels?.[index] ?? "";
+    const value = mergedData.value.datasets?.[datasetIndex]?.data?.[index] ?? 0;
+    emit("chart-click", { index, label: String(label), value: Number(value), datasetIndex });
+  }
+};
 
 // -- Merge default options --
 const mergedOptions = computed(() => {
@@ -221,6 +237,11 @@ const mergedOptions = computed(() => {
   const base: Record<string, any> = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 800,
+      easing: "easeOutQuart",
+    },
+    onClick: handleChartClick,
     plugins: {
       legend: {
         display: true,

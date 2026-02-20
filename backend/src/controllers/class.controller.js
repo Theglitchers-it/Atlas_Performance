@@ -200,8 +200,11 @@ class ClassController {
     async getMyClasses(req, res, next) {
         try {
             const clientId = await this._resolveClientId(req);
-            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
             const { status, page, limit } = req.query;
+            // Per trainer/owner senza clientId selezionato, ritorna lista vuota
+            if (!clientId) {
+                return res.json({ success: true, data: { sessions: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } } });
+            }
             const result = await classService.getClientSessions(req.user.tenantId, clientId, {
                 status, page: parseInt(page) || 1, limit: parseInt(limit) || 20
             });

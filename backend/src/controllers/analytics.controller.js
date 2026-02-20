@@ -45,6 +45,19 @@ class AnalyticsController {
     }
 
     /**
+     * GET /api/analytics/top-clients-progress - Top clienti con progressi
+     */
+    async getTopClientsProgress(req, res, next) {
+        try {
+            const { limit } = req.query;
+            const data = await analyticsService.getTopClientsProgress(req.user.tenantId, limit || 5);
+            res.json({ success: true, data: { clients: data } });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * GET /api/analytics/appointments-distribution - Distribuzione appuntamenti
      */
     async getAppointmentDistribution(req, res, next) {

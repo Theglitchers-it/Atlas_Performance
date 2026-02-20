@@ -1,52 +1,19 @@
 <template>
-  <div class="space-y-3 sm:space-y-4">
-    <!-- Metric selector pills -->
-    <div class="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 hide-scrollbar">
+  <div class="space-y-2 sm:space-y-3">
+    <!-- Metric selector: compact flex-wrap -->
+    <div class="flex flex-wrap gap-x-3 gap-y-1 pb-1">
       <button
         v-for="metric in metrics"
         :key="metric.key"
-        class="pill whitespace-nowrap text-xs sm:text-sm transition-all"
-        :class="activeMetric === metric.key ? 'pill-active' : ''"
-        :style="
-          activeMetric === metric.key
-            ? {
-                backgroundColor: metric.color + '18',
-                color: metric.color,
-                borderColor: metric.color,
-              }
-            : {}
-        "
         @click="activeMetric = metric.key"
+        class="flex items-center gap-1 text-[11px] py-0.5 transition-colors"
+        :class="activeMetric === metric.key
+          ? 'text-habit-text font-medium'
+          : 'text-habit-text-muted hover:text-habit-text'"
       >
+        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ backgroundColor: metric.color }"></span>
         {{ metric.label }}
       </button>
-    </div>
-
-    <!-- Quick stats row (Apple Health style) -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-      <div
-        v-for="stat in quickStats"
-        :key="stat.label"
-        class="rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-habit-border"
-        :style="{ backgroundColor: stat.color + '08' }"
-      >
-        <div class="text-[10px] sm:text-xs text-habit-text-muted mb-0.5 sm:mb-1">
-          {{ stat.label }}
-        </div>
-        <div
-          class="text-base sm:text-lg font-semibold text-habit-text"
-          :style="{ color: stat.color }"
-        >
-          {{ stat.value }}
-        </div>
-        <div
-          v-if="stat.change !== null"
-          class="text-xs mt-0.5"
-          :class="stat.changePositive ? 'text-green-500' : 'text-red-500'"
-        >
-          {{ stat.change > 0 ? "+" : "" }}{{ stat.change }} {{ stat.unit }}
-        </div>
-      </div>
     </div>
 
     <!-- Chart -->
@@ -64,9 +31,9 @@
     </div>
     <div
       v-else
-      class="flex items-center justify-center h-32 sm:h-48 rounded-xl border border-dashed border-habit-border text-habit-text-muted text-xs sm:text-sm"
+      class="flex items-center justify-center h-20 sm:h-36 rounded-lg border border-dashed border-habit-border text-habit-text-muted text-[11px] sm:text-sm"
     >
-      Nessun dato disponibile per questa metrica
+      Nessun dato per questa metrica
     </div>
   </div>
 </template>
@@ -97,10 +64,10 @@ const activeMetric = ref<string>("weight");
 
 const metrics = [
   { key: "weight", label: "Peso", color: "#3b82f6" },
-  { key: "bodyFat", label: "% Grasso", color: "#f97316" },
-  { key: "leanMass", label: "Massa Magra", color: "#22c55e" },
-  { key: "composition", label: "Composizione", color: "#8b5cf6" },
-  { key: "circumferences", label: "Circonferenze", color: "#06b6d4" },
+  { key: "bodyFat", label: "Grasso", color: "#f97316" },
+  { key: "leanMass", label: "Magra", color: "#22c55e" },
+  { key: "composition", label: "Comp.", color: "#8b5cf6" },
+  { key: "circumferences", label: "Circ.", color: "#06b6d4" },
 ];
 
 const currentChartType = computed(() => {
@@ -325,79 +292,15 @@ const chartOptions = computed(() => {
   return opts;
 });
 
-// === Quick stats ===
-
-const quickStats = computed(() => {
-  const latestBody = props.bodyMeasurements[0];
-  const prevBody = props.bodyMeasurements[1];
-  const latestBia = props.biaMeasurements[0];
-  const latestSkinfold = props.skinfolds[0];
-  const prevSkinfold = props.skinfolds[1];
-
-  const weight = latestBody?.weight_kg;
-  const prevWeight = prevBody?.weight_kg;
-  const bf =
-    latestBia?.fat_mass_pct ??
-    latestSkinfold?.body_fat_percentage ??
-    latestBody?.body_fat_percentage;
-  const prevBf =
-    props.biaMeasurements[1]?.fat_mass_pct ??
-    prevSkinfold?.body_fat_percentage ??
-    prevBody?.body_fat_percentage;
-  const lean = latestBia?.lean_mass_kg ?? latestBody?.muscle_mass_kg;
-  const bmr = latestBia?.basal_metabolic_rate;
-
-  return [
-    {
-      label: "Peso",
-      value: weight != null ? `${weight} kg` : "\u2014",
-      color: "#3b82f6",
-      unit: "kg",
-      change:
-        weight != null && prevWeight != null
-          ? Math.round((weight - prevWeight) * 10) / 10
-          : null,
-      changePositive:
-        weight != null && prevWeight != null ? weight <= prevWeight : null,
-    },
-    {
-      label: "% Grasso",
-      value: bf != null ? `${bf}%` : "\u2014",
-      color: "#f97316",
-      unit: "%",
-      change:
-        bf != null && prevBf != null
-          ? Math.round((bf - prevBf) * 10) / 10
-          : null,
-      changePositive: bf != null && prevBf != null ? bf <= prevBf : null,
-    },
-    {
-      label: "Massa Magra",
-      value: lean != null ? `${lean} kg` : "\u2014",
-      color: "#22c55e",
-      unit: "kg",
-      change: null,
-      changePositive: null,
-    },
-    {
-      label: "BMR",
-      value: bmr != null ? `${bmr}` : "\u2014",
-      color: "#8b5cf6",
-      unit: "kcal",
-      change: null,
-      changePositive: null,
-    },
-  ];
-});
 </script>
 
 <style scoped>
 .chart-height-wrapper {
-  height: 180px;
+  height: 150px;
 }
 @media (min-width: 640px) {
   .chart-height-wrapper {
-    height: 280px;
+    height: 260px;
   }
 }
 </style>

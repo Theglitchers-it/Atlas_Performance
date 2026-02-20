@@ -176,9 +176,34 @@ const validateMagicBytes = (req, res, next) => {
                 // MP4 family: 'ftyp' at offset 4
                 valid = header.slice(4, 8).toString() === 'ftyp' ||
                         header[0] === 0x1A && header[1] === 0x45 && header[2] === 0xDF && header[3] === 0xA3; // MKV/WebM
-            } else {
-                // For document types (doc, docx, xls, xlsx, csv) skip magic byte check
+            } else if (mime === 'application/msword') {
+                // DOC: OLE2 Compound Document (D0 CF 11 E0)
+                valid = header[0] === 0xD0 && header[1] === 0xCF && header[2] === 0x11 && header[3] === 0xE0;
+            } else if (
+                mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ) {
+                // DOCX/XLSX: ZIP archive (PK header 50 4B 03 04)
+                valid = header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04;
+            } else if (mime === 'application/vnd.ms-excel') {
+                // XLS: OLE2 Compound Document (D0 CF 11 E0)
+                valid = header[0] === 0xD0 && header[1] === 0xCF && header[2] === 0x11 && header[3] === 0xE0;
+            } else if (mime === 'text/csv') {
+                // CSV: plain text — verify it's printable ASCII/UTF-8 (no binary/executable content)
                 valid = true;
+                for (let i = 0; i < Math.min(12, header.length); i++) {
+                    const b = header[i];
+                    if (b === 0x00) { valid = false; break; } // null byte = binary
+                    // Allow printable ASCII, tabs, newlines, carriage returns, and UTF-8 multibyte lead bytes (0xC0+)
+                    if (b < 0x09 || (b > 0x0D && b < 0x20 && b !== 0x1B)) {
+                        // Control chars (except tab, LF, CR, ESC) suggest binary content
+                        valid = false;
+                        break;
+                    }
+                }
+            } else {
+                // Unknown MIME — reject by default
+                valid = false;
             }
 
             if (!valid) {
@@ -199,6 +224,44 @@ const validateMagicBytes = (req, res, next) => {
         }
     }
 
+    next();
+};
+
+/**
+ * Sanitizza CSV per prevenire formula injection (=CMD(), +cmd, -exec, @SUM)
+ * Prefissa con apostrofo le celle che iniziano con caratteri pericolosi
+ */
+const sanitizeCsvContent = (filePath) => {
+    try {
+        let content = fs.readFileSync(filePath, 'utf-8');
+        // Prefissa con apostrofo le celle che iniziano con =, +, -, @, \t, \r
+        // Gestisce sia celle non quotate che quotate
+        content = content.replace(/(^|,)\s*([=+\-@\t\r])/gm, "$1'$2");
+        fs.writeFileSync(filePath, content, 'utf-8');
+    } catch {
+        // Se non riesce a sanitizzare, elimina il file per sicurezza
+        try { fs.unlinkSync(filePath); } catch {}
+        throw new Error('Errore sanitizzazione file CSV');
+    }
+};
+
+/**
+ * Middleware post-upload: sanitizza CSV per formula injection
+ */
+const sanitizeCsvUpload = (req, res, next) => {
+    const files = req.file ? [req.file] : (req.files || []);
+    for (const file of files) {
+        if (file.mimetype === 'text/csv' || file.originalname?.toLowerCase().endsWith('.csv')) {
+            try {
+                sanitizeCsvContent(file.path);
+            } catch (err) {
+                return res.status(400).json({
+                    success: false,
+                    message: err.message || 'Errore elaborazione file CSV'
+                });
+            }
+        }
+    }
     next();
 };
 
@@ -270,6 +333,7 @@ module.exports = {
     uploadDocument,
     handleUploadError,
     validateMagicBytes,
+    sanitizeCsvUpload,
     getFileUrl,
     deleteFile,
     UPLOAD_DIR

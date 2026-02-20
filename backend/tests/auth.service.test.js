@@ -45,7 +45,7 @@ describe('AuthService.register', () => {
 
         const result = await authService.register({
             email: 'mario@test.com',
-            password: 'Password1',
+            password: 'Password1!',
             firstName: 'Mario',
             lastName: 'Rossi',
             phone: '+39 333 1234567',
@@ -66,7 +66,7 @@ describe('AuthService.register', () => {
         await expect(
             authService.register({
                 email: 'existing@test.com',
-                password: 'Password1',
+                password: 'Password1!',
                 firstName: 'Test',
                 lastName: 'User',
                 businessName: 'Test'
@@ -90,7 +90,7 @@ describe('AuthService.register', () => {
 
         await authService.register({
             email: 'new@test.com',
-            password: 'MyPassword1',
+            password: 'MyPassword1!',
             firstName: 'Test',
             lastName: 'User',
             businessName: 'Test'
@@ -100,8 +100,8 @@ describe('AuthService.register', () => {
         const insertCall = mockConnection.execute.mock.calls[1];
         const passwordHash = insertCall[1][2]; // third param is password_hash
         expect(passwordHash).toBeDefined();
-        expect(passwordHash).not.toBe('MyPassword1'); // Not plaintext
-        expect(await bcrypt.compare('MyPassword1', passwordHash)).toBe(true);
+        expect(passwordHash).not.toBe('MyPassword1!'); // Not plaintext
+        expect(await bcrypt.compare('MyPassword1!', passwordHash)).toBe(true);
     });
 });
 
@@ -109,7 +109,7 @@ describe('AuthService.register', () => {
 // login
 // =============================================
 describe('AuthService.login', () => {
-    const hashedPassword = bcrypt.hashSync('Password1', 12);
+    const hashedPassword = bcrypt.hashSync('Password1!', 12);
     const mockUser = {
         id: 1,
         tenant_id: 'tenant-1',
@@ -133,7 +133,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([]); // INSERT refresh_token
         mockQuery.mockResolvedValueOnce([]); // DELETE expired tokens
 
-        const result = await authService.login('test@test.com', 'Password1');
+        const result = await authService.login('test@test.com', 'Password1!');
 
         expect(result.user).toBeDefined();
         expect(result.user.id).toBe(1);
@@ -146,7 +146,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([]); // No user found
 
         await expect(
-            authService.login('wrong@test.com', 'Password1')
+            authService.login('wrong@test.com', 'Password1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 401,
             message: 'Credenziali non valide'
@@ -158,7 +158,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([]); // UPDATE failed_login_attempts
 
         await expect(
-            authService.login('test@test.com', 'WrongPassword1')
+            authService.login('test@test.com', 'WrongPassword1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 401
         }));
@@ -181,7 +181,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([]); // UPDATE with lock
 
         await expect(
-            authService.login('test@test.com', 'WrongPassword1')
+            authService.login('test@test.com', 'WrongPassword1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 401
         }));
@@ -203,7 +203,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([lockedUser]);
 
         await expect(
-            authService.login('test@test.com', 'Password1')
+            authService.login('test@test.com', 'Password1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 429,
             message: expect.stringContaining('bloccato')
@@ -222,7 +222,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([]); // INSERT refresh_token
         mockQuery.mockResolvedValueOnce([]); // DELETE expired tokens
 
-        const result = await authService.login('test@test.com', 'Password1');
+        const result = await authService.login('test@test.com', 'Password1!');
 
         expect(result.user).toBeDefined();
         // Verify lock was reset
@@ -237,7 +237,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([inactiveUser]);
 
         await expect(
-            authService.login('test@test.com', 'Password1')
+            authService.login('test@test.com', 'Password1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 403,
             message: expect.stringContaining('non attivo')
@@ -249,7 +249,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([oauthUser]);
 
         await expect(
-            authService.login('test@test.com', 'Password1')
+            authService.login('test@test.com', 'Password1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 401,
             message: expect.stringContaining('login sociale')
@@ -264,7 +264,7 @@ describe('AuthService.login', () => {
         mockQuery.mockResolvedValueOnce([]); // INSERT refresh_token
         mockQuery.mockResolvedValueOnce([]); // DELETE expired tokens
 
-        await authService.login('test@test.com', 'Password1');
+        await authService.login('test@test.com', 'Password1!');
 
         expect(mockQuery).toHaveBeenCalledWith(
             'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?',
@@ -283,7 +283,7 @@ describe('AuthService.login', () => {
         // Then client lookup for role='client':
         mockQuery.mockResolvedValueOnce([{ id: 99 }]); // SELECT client id
 
-        const result = await authService.login('test@test.com', 'Password1');
+        const result = await authService.login('test@test.com', 'Password1!');
         expect(result.user.clientId).toBe(99);
     });
 });
@@ -372,21 +372,21 @@ describe('AuthService.logout', () => {
 // =============================================
 describe('AuthService.changePassword', () => {
     test('changes password successfully', async () => {
-        const hash = bcrypt.hashSync('OldPassword1', 12);
+        const hash = bcrypt.hashSync('OldPassword1!', 12);
         mockQuery.mockResolvedValueOnce([{ password_hash: hash }]); // SELECT user
         mockQuery.mockResolvedValueOnce([]); // UPDATE password
         mockQuery.mockResolvedValueOnce([]); // DELETE all refresh tokens
 
-        const result = await authService.changePassword(1, 'OldPassword1', 'NewPassword1');
+        const result = await authService.changePassword(1, 'OldPassword1!', 'NewPassword1!');
         expect(result).toEqual({ success: true });
     });
 
     test('rejects wrong current password', async () => {
-        const hash = bcrypt.hashSync('CorrectPassword1', 12);
+        const hash = bcrypt.hashSync('CorrectPassword1!', 12);
         mockQuery.mockResolvedValueOnce([{ password_hash: hash }]);
 
         await expect(
-            authService.changePassword(1, 'WrongPassword1', 'NewPassword1')
+            authService.changePassword(1, 'WrongPassword1!', 'NewPassword1!')
         ).rejects.toEqual(expect.objectContaining({
             status: 401,
             message: expect.stringContaining('non corretta')
@@ -398,7 +398,7 @@ describe('AuthService.changePassword', () => {
         mockQuery.mockResolvedValueOnce([]); // UPDATE
         mockQuery.mockResolvedValueOnce([]); // DELETE tokens
 
-        const result = await authService.changePassword(1, '', 'NewPassword1');
+        const result = await authService.changePassword(1, '', 'NewPassword1!');
         expect(result).toEqual({ success: true });
     });
 
@@ -406,19 +406,19 @@ describe('AuthService.changePassword', () => {
         mockQuery.mockResolvedValueOnce([]); // User not found
 
         await expect(
-            authService.changePassword(999, 'OldPass1', 'NewPass99')
+            authService.changePassword(999, 'OldPass1!', 'NewPass99!')
         ).rejects.toEqual(expect.objectContaining({
             status: 404
         }));
     });
 
     test('invalidates all sessions after password change', async () => {
-        const hash = bcrypt.hashSync('OldPass1', 12);
+        const hash = bcrypt.hashSync('OldPass1!', 12);
         mockQuery.mockResolvedValueOnce([{ password_hash: hash }]);
         mockQuery.mockResolvedValueOnce([]);
         mockQuery.mockResolvedValueOnce([]);
 
-        await authService.changePassword(5, 'OldPass1', 'NewPass99');
+        await authService.changePassword(5, 'OldPass1!', 'NewPass99!');
 
         // Verify logout all was called
         expect(mockQuery).toHaveBeenCalledWith(

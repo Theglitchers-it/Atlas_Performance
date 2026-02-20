@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useBookingStore } from "@/store/booking";
+import { useAuthStore } from "@/store/auth";
 import { useToast } from "vue-toastification";
 import { useNative } from "@/composables/useNative";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -9,12 +10,19 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import CalendarSkeleton from "@/components/skeleton/CalendarSkeleton.vue";
+import { useSlowRequest } from "@/composables/useSlowRequest";
 import PullToRefresh from "@/components/mobile/PullToRefresh.vue";
 import type { Appointment, CreateAppointmentForm } from "@/types";
 
 const store = useBookingStore();
+const auth = useAuthStore();
 const toast = useToast();
 const { isMobile } = useNative();
+
+// Role check: trainer/admin can manage appointments, clients can only view
+const isTrainer = computed(() =>
+  ["tenant_owner", "staff", "super_admin"].includes(auth.user?.role as string),
+);
 
 // Calendar ref for programmatic control
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null);
@@ -49,6 +57,7 @@ const appointments = computed(() => store.appointments);
 const clients = computed(() => store.clients);
 const trainers = computed(() => store.trainers as any[]);
 const loading = computed(() => store.loading);
+const { isSlowRequest } = useSlowRequest(loading);
 const error = computed(() => store.error);
 const filters = computed(() => store.filters);
 
@@ -80,6 +89,61 @@ const calendarEvents = computed(() => {
   }));
 });
 
+// --- Status dot colors for event preview ---
+const statusDotColors: Record<string, string> = {
+  scheduled: "#eab308",
+  confirmed: "#3b82f6",
+  completed: "#10b981",
+  cancelled: "#ef4444",
+  no_show: "#f97316",
+};
+
+// --- Type short labels for event preview ---
+const typeShortLabels: Record<string, string> = {
+  training: "ALL",
+  assessment: "VAL",
+  consultation: "CON",
+  other: "ALT",
+};
+
+// --- Escape HTML to prevent XSS in eventContent ---
+const escapeHtml = (str: string): string =>
+  str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// --- Custom event content renderer ---
+const renderEventContent = (arg: any) => {
+  const apt = arg.event.extendedProps?.appointment;
+  if (!apt) return { html: escapeHtml(arg.event.title || "") };
+
+  const time = formatTime(apt.start_datetime);
+  const name = escapeHtml(getClientName(apt));
+  const dotColor = statusDotColors[apt.status] || "#6b7280";
+  const typeShort = typeShortLabels[apt.appointment_type] || "";
+
+  if (isMobile.value) {
+    return {
+      html: `<div class="fc-custom-event">
+        <div class="fc-custom-event__row">
+          <span class="fc-custom-event__dot" style="background:${dotColor}"></span>
+          <span class="fc-custom-event__time">${time}</span>
+        </div>
+        <div class="fc-custom-event__name">${name}</div>
+      </div>`,
+    };
+  }
+
+  return {
+    html: `<div class="fc-custom-event">
+      <div class="fc-custom-event__row">
+        <span class="fc-custom-event__dot" style="background:${dotColor}"></span>
+        <span class="fc-custom-event__time">${time}</span>
+        <span class="fc-custom-event__badge">${typeShort}</span>
+      </div>
+      <div class="fc-custom-event__name">${name}</div>
+    </div>`,
+  };
+};
+
 // --- FullCalendar options ---
 const calendarOptions = computed((): any => ({
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -90,8 +154,8 @@ const calendarOptions = computed((): any => ({
   slotMaxTime: "21:00:00",
   slotDuration: "00:30:00",
   allDaySlot: false,
-  editable: true,
-  selectable: true,
+  editable: isTrainer.value,
+  selectable: isTrainer.value,
   selectMirror: true,
   dayMaxEvents: true,
   weekends: true,
@@ -101,6 +165,7 @@ const calendarOptions = computed((): any => ({
   eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
   slotLabelFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
   events: calendarEvents.value,
+  eventContent: renderEventContent,
   select: handleDateSelect,
   eventClick: handleEventClick,
   eventDrop: handleEventDrop,
@@ -164,15 +229,21 @@ const handleDateSelect = (selectInfo: any) => {
   const start = selectInfo.start;
   const end = selectInfo.end;
   const dateStr = start.toISOString().substring(0, 10);
-  const startTime = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
-  const endTime = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  let startTime = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+  let endTime = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+
+  // If selecting from month/day grid, times may both be "00:00" — use sensible defaults
+  if (startTime === "00:00" && endTime === "00:00") {
+    startTime = "09:00";
+    endTime = "10:00";
+  }
 
   createForm.value = {
     clientId: "",
     trainerId: "",
     date: dateStr,
     startTime: startTime,
-    endTime: endTime || "10:00",
+    endTime: endTime,
     appointmentType: "training",
     location: "",
     notes: "",
@@ -480,6 +551,7 @@ onMounted(() => {
         </p>
       </div>
       <button
+        v-if="isTrainer"
         @click="openCreateModal()"
         class="px-4 py-2 bg-habit-cyan text-white rounded-habit hover:bg-cyan-500 transition-colors text-sm font-medium flex items-center gap-2"
       >
@@ -564,8 +636,9 @@ onMounted(() => {
               {{ calendarTitle }}
             </span>
           </div>
-          <!-- Filter icon button (mobile only) -->
+          <!-- Filter icon button (mobile only, trainer/admin) -->
           <button
+            v-if="isTrainer"
             @click="showMobileFilters = !showMobileFilters"
             class="sm:hidden p-2 rounded-habit border border-habit-border text-habit-text-subtle hover:text-habit-text transition-colors"
             :class="{ 'border-habit-cyan text-habit-cyan': showMobileFilters }"
@@ -625,8 +698,8 @@ onMounted(() => {
               Mese
             </button>
           </div>
-          <!-- Desktop filters (hidden on mobile) -->
-          <div class="hidden sm:flex items-center gap-2">
+          <!-- Desktop filters (hidden on mobile, trainer/admin only) -->
+          <div v-if="isTrainer" class="hidden sm:flex items-center gap-2">
             <select
               :value="filters.clientId || ''"
               @change="handleFilterClient"
@@ -650,9 +723,9 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Mobile filters dropdown (shown when filter icon is toggled) -->
+        <!-- Mobile filters dropdown (shown when filter icon is toggled, trainer/admin only) -->
         <div
-          v-if="showMobileFilters"
+          v-if="showMobileFilters && isTrainer"
           class="sm:hidden flex flex-col gap-2 pt-2 border-t border-habit-border"
         >
           <select
@@ -681,6 +754,9 @@ onMounted(() => {
 
     <!-- Loading Skeleton -->
     <CalendarSkeleton v-if="loading && appointments.length === 0" />
+    <p v-if="isSlowRequest && appointments.length === 0" class="text-sm text-habit-text-subtle text-center mt-2">
+      La richiesta sta impiegando piu tempo del previsto...
+    </p>
 
     <!-- FullCalendar wrapped with PullToRefresh and swipe -->
     <PullToRefresh v-else @refresh="handlePullRefresh">
@@ -964,8 +1040,9 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Status Actions -->
+          <!-- Status Actions: trainer/admin = full, client = confirm/cancel -->
           <div
+            v-if="isTrainer"
             class="flex flex-wrap gap-2 mt-5 pt-4 border-t border-habit-border"
           >
             <button
@@ -1000,6 +1077,28 @@ onMounted(() => {
               class="px-3 py-1.5 border border-habit-border text-habit-text-subtle rounded-habit hover:text-red-400 hover:border-red-500/50 transition-colors text-xs ml-auto"
             >
               Elimina
+            </button>
+          </div>
+          <!-- Client: can only confirm or cancel own appointments -->
+          <div
+            v-else-if="
+              selectedAppointment.status !== 'completed' &&
+              selectedAppointment.status !== 'cancelled'
+            "
+            class="flex flex-wrap gap-2 mt-5 pt-4 border-t border-habit-border"
+          >
+            <button
+              v-if="selectedAppointment.status === 'scheduled'"
+              @click="handleStatusChange(selectedAppointment, 'confirmed')"
+              class="px-3 py-1.5 bg-blue-600 text-white rounded-habit hover:bg-blue-500 transition-colors text-xs"
+            >
+              Conferma
+            </button>
+            <button
+              @click="handleStatusChange(selectedAppointment, 'cancelled')"
+              class="px-3 py-1.5 border border-red-500/50 text-red-400 rounded-habit hover:bg-red-500/10 transition-colors text-xs"
+            >
+              Annulla Appuntamento
             </button>
           </div>
 
@@ -1065,6 +1164,9 @@ onMounted(() => {
 }
 :deep(.fc .fc-timegrid-event .fc-event-main) {
   padding: 2px 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 :deep(.fc .fc-scrollgrid) {
   border-color: var(--habit-border, #2a2a3e);
@@ -1081,20 +1183,137 @@ onMounted(() => {
   font-weight: 700;
 }
 
+/* Event overflow containment — keep events inside their cells */
+:deep(.fc .fc-timegrid-event) {
+  overflow: hidden;
+  max-width: 100%;
+}
+:deep(.fc .fc-timegrid-event-harness) {
+  overflow: hidden;
+}
+:deep(.fc .fc-timegrid-col-events) {
+  overflow: hidden;
+}
+:deep(.fc .fc-event-main) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:deep(.fc .fc-event-title) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:deep(.fc .fc-event-time) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Mobile-optimized FullCalendar */
 @media (max-width: 640px) {
   :deep(.fc .fc-timegrid-slot) {
     height: 2.5rem;
   }
   :deep(.fc .fc-event) {
-    font-size: 0.65rem;
-    padding: 1px 3px;
+    font-size: 0.6rem;
+    padding: 1px 2px;
+    line-height: 1.2;
+    border-left-width: 2px;
+  }
+  :deep(.fc .fc-timegrid-event .fc-event-main) {
+    padding: 1px 2px;
+    overflow: hidden;
+  }
+  :deep(.fc .fc-event-time) {
+    font-size: 0.55rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  :deep(.fc .fc-event-title) {
+    font-size: 0.55rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
   :deep(.fc .fc-col-header-cell-cushion) {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
+    padding: 4px 1px;
   }
   :deep(.fc .fc-timegrid-slot-label) {
-    font-size: 0.6rem;
+    font-size: 0.55rem;
+    padding-right: 2px;
+  }
+  :deep(.fc .fc-timegrid-col) {
+    min-width: 0;
+  }
+  /* Ensure event harness respects column boundaries */
+  :deep(.fc .fc-timegrid-col-events) {
+    margin: 0 1px;
+  }
+  :deep(.fc .fc-timegrid-event-harness) {
+    overflow: hidden;
+  }
+}
+
+/* Custom event content preview */
+:deep(.fc-custom-event) {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  line-height: 1.3;
+  width: 100%;
+}
+:deep(.fc-custom-event__row) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+:deep(.fc-custom-event__dot) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+:deep(.fc-custom-event__time) {
+  font-size: 0.65rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+:deep(.fc-custom-event__badge) {
+  font-size: 0.5rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0 3px;
+  border-radius: 3px;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+:deep(.fc-custom-event__name) {
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+/* Mobile adjustments for custom event */
+@media (max-width: 640px) {
+  :deep(.fc-custom-event__row) {
+    gap: 2px;
+  }
+  :deep(.fc-custom-event__dot) {
+    width: 4px;
+    height: 4px;
+  }
+  :deep(.fc-custom-event__time) {
+    font-size: 0.5rem;
+  }
+  :deep(.fc-custom-event__name) {
+    font-size: 0.5rem;
   }
 }
 </style>

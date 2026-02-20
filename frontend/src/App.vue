@@ -126,7 +126,7 @@ onMounted(async () => {
 
 <template>
   <div
-    class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+    class="min-h-screen bg-habit-bg transition-colors duration-300"
   >
     <!-- Global page loading bar -->
     <Transition name="fade">
@@ -218,11 +218,7 @@ onMounted(async () => {
     <template v-else>
       <main id="main-content" tabindex="-1">
         <ErrorBoundary>
-          <router-view v-slot="{ Component }">
-            <Transition name="page-fade" mode="out-in">
-              <component :is="Component" />
-            </Transition>
-          </router-view>
+          <router-view />
         </ErrorBoundary>
       </main>
     </template>

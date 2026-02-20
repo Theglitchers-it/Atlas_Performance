@@ -1,114 +1,54 @@
 <template>
-  <div class="card">
-    <div class="p-3 sm:p-4 border-b border-habit-border">
-      <h3 class="font-semibold text-habit-text text-xs sm:text-sm mb-2 sm:mb-3">
-        Confronto Misurazioni
-      </h3>
-
-      <!-- Date selectors -->
-      <div class="flex items-center gap-2 sm:gap-3">
-        <div class="flex-1 min-w-0">
-          <label class="label text-xs">Data iniziale</label>
-          <select
-            v-model="selectedDate1"
-            class="input w-full text-xs sm:text-sm"
-            @change="loadComparison"
-          >
-            <option value="">Seleziona...</option>
-            <option v-for="d in uniqueDates" :key="d" :value="d">
-              {{ formatDateLong(d) }}
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center pt-5">
-          <svg
-            class="w-4 h-4 sm:w-5 sm:h-5 text-habit-text-muted shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M14 5l7 7m0 0l-7 7m7-7H3"
-            />
-          </svg>
-        </div>
-        <div class="flex-1 min-w-0">
-          <label class="label text-xs">Data finale</label>
-          <select
-            v-model="selectedDate2"
-            class="input w-full text-xs sm:text-sm"
-            @change="loadComparison"
-          >
-            <option value="">Seleziona...</option>
-            <option v-for="d in uniqueDates" :key="d" :value="d">
-              {{ formatDateLong(d) }}
-            </option>
-          </select>
-        </div>
+  <div>
+    <!-- Date selectors: compact inline -->
+    <div class="flex items-end gap-1.5 mb-2">
+      <div class="flex-1 min-w-0">
+        <label class="text-[10px] text-habit-text-muted">Da</label>
+        <select v-model="selectedDate1" class="input w-full text-[11px] py-1 px-1.5 bg-habit-card text-habit-text" @change="loadComparison">
+          <option value="">...</option>
+          <option v-for="d in uniqueDates" :key="d" :value="d">{{ formatDateLong(d) }}</option>
+        </select>
+      </div>
+      <span class="text-habit-text-muted text-[10px] pb-1.5">→</span>
+      <div class="flex-1 min-w-0">
+        <label class="text-[10px] text-habit-text-muted">A</label>
+        <select v-model="selectedDate2" class="input w-full text-[11px] py-1 px-1.5 bg-habit-card text-habit-text" @change="loadComparison">
+          <option value="">...</option>
+          <option v-for="d in uniqueDates" :key="d" :value="d">{{ formatDateLong(d) }}</option>
+        </select>
       </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="p-4 sm:p-6">
-      <div class="space-y-2 sm:space-y-3">
-        <div
-          v-for="i in 5"
-          :key="i"
-          class="h-7 sm:h-8 bg-habit-skeleton rounded animate-pulse"
-        />
-      </div>
+    <div v-if="loading" class="space-y-1">
+      <div v-for="i in 3" :key="i" class="h-5 bg-habit-skeleton rounded animate-pulse" />
     </div>
 
     <!-- Empty state -->
-    <div
-      v-else-if="!comparison || !selectedDate1 || !selectedDate2"
-      class="p-4 sm:p-6 text-center text-habit-text-muted text-xs sm:text-sm"
-    >
-      Seleziona due date per confrontare le misurazioni
+    <div v-else-if="!comparison || !selectedDate1 || !selectedDate2" class="text-center text-habit-text-muted text-[11px] py-2">
+      Seleziona due date per confrontare
     </div>
 
-    <!-- Comparison table -->
-    <div v-else class="p-3 sm:p-4 space-y-3 sm:space-y-4">
+    <!-- Comparison table: ultra compact -->
+    <div v-else class="space-y-2">
       <div v-for="section in comparisonSections" :key="section.title">
-        <div v-if="section.rows.length > 0" class="space-y-0.5 sm:space-y-1">
-          <h4
-            class="text-[10px] sm:text-xs font-medium text-habit-text-muted uppercase tracking-wider mb-1.5 sm:mb-2"
-          >
-            {{ section.title }}
-          </h4>
+        <div v-if="section.rows.length > 0">
+          <p class="text-[10px] font-medium text-habit-text-muted uppercase tracking-wider mb-1">{{ section.title }}</p>
           <div
             v-for="row in section.rows"
             :key="row.label"
-            class="flex items-center justify-between py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg hover:bg-habit-bg-light transition-colors"
+            class="flex items-center justify-between py-0.5"
           >
-            <span class="text-xs sm:text-sm text-habit-text truncate mr-2">{{
-              row.label
-            }}</span>
-            <div
-              class="flex items-center gap-1.5 xs:gap-3 text-xs xs:text-sm shrink-0"
-            >
-              <span class="text-habit-text-muted w-12 xs:w-16 text-right">{{
-                row.before ?? "\u2014"
-              }}</span>
+            <span class="text-[11px] text-habit-text truncate mr-2">{{ row.label }}</span>
+            <div class="flex items-center gap-1 text-[11px] shrink-0">
+              <span class="text-habit-text-muted w-10 text-right">{{ row.before ?? "\u2014" }}</span>
               <span
                 v-if="row.delta !== null"
-                class="font-medium w-14 xs:w-20 text-center px-1.5 xs:px-2 py-0.5 rounded-full text-xs"
+                class="font-medium w-12 text-center px-1 py-0.5 rounded-full text-[10px]"
                 :class="getDeltaClass(row.delta, row.inverse)"
-              >
-                {{ row.delta > 0 ? "+" : "" }}{{ row.delta }} {{ row.unit }}
-              </span>
-              <span
-                v-else
-                class="w-14 xs:w-20 text-center text-habit-text-muted text-xs"
-                >\u2014</span
-              >
-              <span
-                class="text-habit-text font-medium w-12 xs:w-16 text-right"
-                >{{ row.after ?? "\u2014" }}</span
-              >
+              >{{ row.delta > 0 ? "+" : "" }}{{ row.delta }}</span>
+              <span v-else class="w-12 text-center text-habit-text-muted text-[10px]">\u2014</span>
+              <span class="text-habit-text font-medium w-10 text-right">{{ row.after ?? "\u2014" }}</span>
             </div>
           </div>
         </div>
@@ -168,7 +108,7 @@ const getDeltaClass = (delta: number, inverse: boolean) => {
     return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
   if (isNegative)
     return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-  return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400";
+  return "bg-gray-100 text-gray-500 dark:bg-habit-card dark:text-gray-400";
 };
 
 interface ComparisonRow {

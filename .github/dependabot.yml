@@ -1,6 +1,5 @@
 version: 2
 updates:
-  # Backend dependencies
   - package-ecosystem: "npm"
     directory: "/backend"
     schedule:
@@ -10,13 +9,7 @@ updates:
     labels:
       - "dependencies"
       - "backend"
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
 
-  # Frontend dependencies
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
@@ -26,13 +19,7 @@ updates:
     labels:
       - "dependencies"
       - "frontend"
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
 
-  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

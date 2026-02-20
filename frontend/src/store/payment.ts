@@ -16,7 +16,6 @@ interface Subscription {
     amount: number
     start_date?: string
     end_date?: string
-    [key: string]: any
 }
 
 interface Payment {
@@ -28,7 +27,6 @@ interface Payment {
     description?: string
     due_date?: string
     paid_at?: string
-    [key: string]: any
 }
 
 interface Invoice {
@@ -36,12 +34,13 @@ interface Invoice {
     amount: number
     status: string
     created_at: string
-    [key: string]: any
 }
 
 interface PaymentStats {
     totalRevenue: number
-    [key: string]: any
+    monthlyRevenue?: number
+    pendingCount?: number
+    overdueCount?: number
 }
 
 interface PaymentFilters {
@@ -134,8 +133,10 @@ export const usePaymentStore = defineStore('payment', () => {
             const response = await api.get('/payments/subscriptions', { params })
             subscriptions.value = response.data.data.subscriptions || []
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore caricamento abbonamenti'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore caricamento abbonamenti'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         } finally {
             loading.value = false
@@ -165,8 +166,10 @@ export const usePaymentStore = defineStore('payment', () => {
             }
 
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore caricamento pagamenti'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore caricamento pagamenti'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         } finally {
             loading.value = false
@@ -190,8 +193,10 @@ export const usePaymentStore = defineStore('payment', () => {
             const response = await api.post('/payments/subscriptions', data)
             await fetchSubscriptions()
             return { success: true, id: response.data.data.id }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore creazione abbonamento'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore creazione abbonamento'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         }
     }
@@ -202,8 +207,10 @@ export const usePaymentStore = defineStore('payment', () => {
             await api.put(`/payments/subscriptions/${subscriptionId}`, data)
             await fetchSubscriptions()
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore aggiornamento abbonamento'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiornamento abbonamento'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         }
     }
@@ -215,8 +222,10 @@ export const usePaymentStore = defineStore('payment', () => {
             await fetchPayments()
             await fetchStats()
             return { success: true, id: response.data.data.id }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore registrazione pagamento'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore registrazione pagamento'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         }
     }
@@ -228,8 +237,10 @@ export const usePaymentStore = defineStore('payment', () => {
             await fetchPayments()
             await fetchStats()
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore aggiornamento pagamento'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiornamento pagamento'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value }
         }
     }
@@ -245,8 +256,8 @@ export const usePaymentStore = defineStore('payment', () => {
         }
     }
 
-    const setFilter = (key: keyof PaymentFilters, value: any): void => {
-        filters.value[key] = value || null
+    const setFilter = (key: keyof PaymentFilters, value: string | number | null): void => {
+        (filters.value[key] as string | number | null) = value || null
         pagination.value.page = 1
         fetchPayments()
     }

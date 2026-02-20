@@ -89,8 +89,10 @@ export const useClientStore = defineStore('client', () => {
             pagination.value.page = page
 
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore nel caricamento clienti'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore nel caricamento clienti'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value as string }
         } finally {
             loading.value = false
@@ -108,8 +110,10 @@ export const useClientStore = defineStore('client', () => {
             const response = await api.get(`/clients/${clientId}`)
             currentClient.value = response.data.data.client || response.data.data
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore nel caricamento del cliente'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore nel caricamento del cliente'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             currentClient.value = null
             return { success: false, message: error.value as string }
         } finally {
@@ -127,8 +131,10 @@ export const useClientStore = defineStore('client', () => {
             const response = await api.post('/clients', data)
             await fetchClients()
             return { success: true, id: response.data.data.clientId || response.data.data.id }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore nella creazione del cliente'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore nella creazione del cliente'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value as string }
         }
     }
@@ -145,8 +151,10 @@ export const useClientStore = defineStore('client', () => {
                 await fetchClientById(clientId)
             }
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore nell\'aggiornamento del cliente'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore nell\'aggiornamento del cliente'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value as string }
         }
     }
@@ -161,8 +169,10 @@ export const useClientStore = defineStore('client', () => {
             await api.delete(`/clients/${clientId}`)
             await fetchClients()
             return { success: true }
-        } catch (err: any) {
-            error.value = err.response?.data?.message || 'Errore nell\'eliminazione del cliente'
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore nell\'eliminazione del cliente'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            error.value = axiosErr.response?.data?.message || message
             return { success: false, message: error.value as string }
         }
     }
@@ -182,8 +192,10 @@ export const useClientStore = defineStore('client', () => {
             const response = await api.post(`/clients/${clientId}/goals`, goalData)
             if (currentClient.value?.id === clientId) await fetchClientById(clientId)
             return { success: true, id: response.data.data.id }
-        } catch (err: any) {
-            return { success: false, message: err.response?.data?.message || 'Errore aggiunta obiettivo' }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiunta obiettivo'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            return { success: false, message: axiosErr.response?.data?.message || message }
         }
     }
 
@@ -192,8 +204,10 @@ export const useClientStore = defineStore('client', () => {
             await api.put(`/clients/${clientId}/goals/${goalId}`, data)
             if (currentClient.value?.id === clientId) await fetchClientById(clientId)
             return { success: true }
-        } catch (err: any) {
-            return { success: false, message: err.response?.data?.message || 'Errore aggiornamento obiettivo' }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiornamento obiettivo'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            return { success: false, message: axiosErr.response?.data?.message || message }
         }
     }
 
@@ -202,8 +216,10 @@ export const useClientStore = defineStore('client', () => {
             await api.delete(`/clients/${clientId}/goals/${goalId}`)
             if (currentClient.value?.id === clientId) await fetchClientById(clientId)
             return { success: true }
-        } catch (err: any) {
-            return { success: false, message: err.response?.data?.message || 'Errore eliminazione obiettivo' }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore eliminazione obiettivo'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            return { success: false, message: axiosErr.response?.data?.message || message }
         }
     }
 
@@ -215,8 +231,10 @@ export const useClientStore = defineStore('client', () => {
             const response = await api.post(`/clients/${clientId}/injuries`, injuryData)
             if (currentClient.value?.id === clientId) await fetchClientById(clientId)
             return { success: true, id: response.data.data.id }
-        } catch (err: any) {
-            return { success: false, message: err.response?.data?.message || 'Errore aggiunta infortunio' }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiunta infortunio'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            return { success: false, message: axiosErr.response?.data?.message || message }
         }
     }
 
@@ -225,8 +243,10 @@ export const useClientStore = defineStore('client', () => {
             await api.put(`/clients/${clientId}/injuries/${injuryId}`, data)
             if (currentClient.value?.id === clientId) await fetchClientById(clientId)
             return { success: true }
-        } catch (err: any) {
-            return { success: false, message: err.response?.data?.message || 'Errore aggiornamento infortunio' }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Errore aggiornamento infortunio'
+            const axiosErr = err as { response?: { data?: { message?: string } } }
+            return { success: false, message: axiosErr.response?.data?.message || message }
         }
     }
 

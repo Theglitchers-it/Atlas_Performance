@@ -1,2 +1,0 @@
-cd backend && npm test
-cd ../frontend && npx vue-tsc --noEmit

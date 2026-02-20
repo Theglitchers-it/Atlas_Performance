@@ -101,7 +101,7 @@ const requireApiPermission = (...requiredPermissions) => {
 const rateLimitStore = new Map();
 
 // Pulizia periodica ogni 10 min per evitare memory leak
-setInterval(() => {
+const _apiKeyCleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of rateLimitStore) {
         if ((now - entry.windowStart) > 60 * 60 * 1000) {
@@ -109,6 +109,7 @@ setInterval(() => {
         }
     }
 }, 10 * 60 * 1000);
+_apiKeyCleanup.unref();
 
 /**
  * Middleware per rate limiting basato su API key

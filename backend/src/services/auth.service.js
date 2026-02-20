@@ -25,6 +25,9 @@ class AuthService {
         if (!/[0-9]/.test(password)) {
             throw { status: 400, message: 'La password deve contenere almeno un numero' };
         }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            throw { status: 400, message: 'La password deve contenere almeno un carattere speciale (!@#$%^&*...)' };
+        }
     }
 
     /**
@@ -337,8 +340,9 @@ class AuthService {
      * Genera access e refresh token
      */
     generateTokens(userId, tenantId, role) {
+        const jti = uuidv4();
         const accessToken = jwt.sign(
-            { userId, tenantId, role },
+            { userId, tenantId, role, jti },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
         );
@@ -394,7 +398,41 @@ class AuthService {
             }
         }
 
+        // Password history check — prevent reuse of last 5 passwords
+        const oldHashes = await query(
+            'SELECT password_hash FROM password_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
+            [userId]
+        );
+        for (const row of oldHashes) {
+            const reused = await bcrypt.compare(newPassword, row.password_hash);
+            if (reused) {
+                throw { status: 400, message: 'La nuova password non può essere uguale alle ultime 5 password utilizzate' };
+            }
+        }
+        // Also check against current password hash (in case history table is empty)
+        if (users[0].password_hash) {
+            const sameAsCurrent = await bcrypt.compare(newPassword, users[0].password_hash);
+            if (sameAsCurrent) {
+                throw { status: 400, message: 'La nuova password non può essere uguale alla password attuale' };
+            }
+        }
+
         const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+        // Save old password hash to history before updating
+        if (users[0].password_hash) {
+            await query(
+                'INSERT INTO password_history (user_id, password_hash) VALUES (?, ?)',
+                [userId, users[0].password_hash]
+            );
+            // Keep only last 5 entries per user
+            await query(
+                `DELETE FROM password_history WHERE user_id = ? AND id NOT IN (
+                    SELECT id FROM (SELECT id FROM password_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 5) AS recent
+                )`,
+                [userId, userId]
+            );
+        }
 
         await query(
             'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?',

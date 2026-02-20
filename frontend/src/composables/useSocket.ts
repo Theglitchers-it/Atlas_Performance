@@ -68,18 +68,18 @@ export function useSocket(): UseSocketReturn {
         socketInstance.on('connect', () => {
             isConnected.value = true
             connectionError.value = null
-            console.log('[Socket] Connesso')
+            if (import.meta.env.DEV) console.log('[Socket] Connesso')
         })
 
         socketInstance.on('disconnect', (reason: string) => {
             isConnected.value = false
-            console.log('[Socket] Disconnesso:', reason)
+            if (import.meta.env.DEV) console.log('[Socket] Disconnesso:', reason)
         })
 
         socketInstance.on('connect_error', (error: Error) => {
             isConnected.value = false
             connectionError.value = error.message
-            console.error('[Socket] Errore connessione:', error.message)
+            if (import.meta.env.DEV) console.error('[Socket] Errore connessione:', error.message)
         })
 
         return socketInstance
@@ -179,14 +179,14 @@ export function useSocket(): UseSocketReturn {
      */
     const subscribePushNotifications = async (): Promise<boolean> => {
         if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
-            console.warn('[Push] Push notifications non supportate')
+            if (import.meta.env.DEV) console.warn('[Push] Push notifications non supportate')
             return false
         }
 
         try {
             const permission = await Notification.requestPermission()
             if (permission !== 'granted') {
-                console.log('[Push] Permesso negato')
+                if (import.meta.env.DEV) console.log('[Push] Permesso negato')
                 return false
             }
 
@@ -200,7 +200,7 @@ export function useSocket(): UseSocketReturn {
             const { data } = await response.json()
 
             if (!data?.publicKey) {
-                console.warn('[Push] VAPID key non configurata sul server')
+                if (import.meta.env.DEV) console.warn('[Push] VAPID key non configurata sul server')
                 return false
             }
 
@@ -234,10 +234,10 @@ export function useSocket(): UseSocketReturn {
                 })
             })
 
-            console.log('[Push] Subscription registrata')
+            if (import.meta.env.DEV) console.log('[Push] Subscription registrata')
             return true
         } catch (error) {
-            console.error('[Push] Errore subscription:', error)
+            if (import.meta.env.DEV) console.error('[Push] Errore subscription:', error)
             return false
         }
     }
@@ -264,10 +264,10 @@ export function useSocket(): UseSocketReturn {
                     })
                 })
 
-                console.log('[Push] Subscription rimossa')
+                if (import.meta.env.DEV) console.log('[Push] Subscription rimossa')
             }
         } catch (error) {
-            console.error('[Push] Errore unsubscribe:', error)
+            if (import.meta.env.DEV) console.error('[Push] Errore unsubscribe:', error)
         }
     }
 

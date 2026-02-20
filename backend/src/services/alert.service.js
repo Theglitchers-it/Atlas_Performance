@@ -55,7 +55,7 @@ class AlertService {
         if (avgRecent < 50) {
             return this.createAlert(tenantId, clientId, {
                 alertType: 'low_readiness',
-                severity: 'warning',
+                severity: 'medium',
                 title: 'Readiness basso persistente',
                 message: `Readiness medio degli ultimi 3 giorni: ${avgRecent.toFixed(1)}. Considera un adattamento del carico.`,
                 data: { avgReadiness: avgRecent, days: 3 }
@@ -94,7 +94,7 @@ class AlertService {
             if (maxDeviation < 0.05 && avg > 0) {
                 return this.createAlert(tenantId, clientId, {
                     alertType: 'volume_plateau',
-                    severity: 'info',
+                    severity: 'low',
                     title: `Plateau volume: ${row.name_it || row.name}`,
                     message: `Il volume per ${row.name_it || row.name} e stagnante da 3 settimane (media: ${Math.round(avg)} kg). Considera una progressione.`,
                     data: { muscleGroupId: row.muscle_group_id, avgVolume: Math.round(avg), weeks: 3 }
@@ -126,7 +126,7 @@ class AlertService {
         if (avgSoreness >= 7 && (avgSleepQuality < 5 || avgSleepHours < 6)) {
             return this.createAlert(tenantId, clientId, {
                 alertType: 'recovery_low',
-                severity: 'warning',
+                severity: 'medium',
                 title: 'Recovery insufficiente',
                 message: `Soreness elevata (${avgSoreness.toFixed(1)}/10) con qualita sonno bassa (${avgSleepQuality.toFixed(1)}/10, ${avgSleepHours.toFixed(1)}h). Il recupero e compromesso.`,
                 data: { avgSoreness, avgSleepQuality, avgSleepHours }
@@ -165,7 +165,7 @@ class AlertService {
         if (avgReadiness < 45 && avgSoreness > 7) {
             return this.createAlert(tenantId, clientId, {
                 alertType: 'overtraining_risk',
-                severity: 'critical',
+                severity: 'high',
                 title: 'Rischio overtraining',
                 message: `${sessionsLastWeek} sessioni in 7 giorni con readiness basso (${avgReadiness.toFixed(1)}) e soreness alta (${avgSoreness.toFixed(1)}). Rischio sovrallenamento elevato.`,
                 data: { sessionsLastWeek, avgReadiness, avgSoreness }
@@ -204,7 +204,7 @@ class AlertService {
             const drop = scores[0] - scores[scores.length - 1];
             return this.createAlert(tenantId, clientId, {
                 alertType: 'fatigue_accumulation',
-                severity: 'warning',
+                severity: 'medium',
                 title: 'Accumulo fatica progressivo',
                 message: `Readiness in calo costante da ${decliningDays + 1} giorni (da ${scores[0].toFixed(1)} a ${scores[scores.length - 1].toFixed(1)}). Valuta una riduzione del carico.`,
                 data: { decliningDays: decliningDays + 1, readinessDrop: drop }
@@ -244,7 +244,7 @@ class AlertService {
         if (highIntensityWeeks >= 4) {
             return this.createAlert(tenantId, clientId, {
                 alertType: 'deload_suggested',
-                severity: 'info',
+                severity: 'low',
                 title: 'Deload consigliato',
                 message: `${highIntensityWeeks} settimane consecutive ad alta intensita (RPE > 7.5). Una settimana di deload e consigliata per ottimizzare il recupero.`,
                 data: { highIntensityWeeks, avgRpe: weeks[0]?.weekly_avg_rpe }
@@ -267,7 +267,7 @@ class AlertService {
             SELECT id FROM training_alerts
             WHERE tenant_id = ? AND client_id = ? AND alert_type = ?
               AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-              AND is_dismissed = 0
+              AND is_resolved = 0
         `, [tenantId, clientId, alertType]);
 
         if (existing.length > 0) return null;
@@ -291,7 +291,7 @@ class AlertService {
             SELECT ta.*, c.first_name, c.last_name
             FROM training_alerts ta
             JOIN clients c ON ta.client_id = c.id AND c.tenant_id = ta.tenant_id
-            WHERE ta.tenant_id = ? AND ta.is_dismissed = ?
+            WHERE ta.tenant_id = ? AND ta.is_resolved = ?
         `;
         const params = [tenantId, dismissed ? 1 : 0];
 
@@ -304,7 +304,7 @@ class AlertService {
             params.push(severity);
         }
 
-        sql += ' ORDER BY FIELD(ta.severity, "critical", "warning", "info"), ta.created_at DESC LIMIT ?';
+        sql += ' ORDER BY FIELD(ta.severity, "high", "medium", "low"), ta.created_at DESC LIMIT ?';
         params.push(limit);
 
         const alerts = await query(sql, params);
@@ -319,7 +319,7 @@ class AlertService {
      */
     async dismissAlert(alertId, tenantId) {
         const result = await query(
-            'UPDATE training_alerts SET is_dismissed = 1 WHERE id = ? AND tenant_id = ?',
+            'UPDATE training_alerts SET is_resolved = 1 WHERE id = ? AND tenant_id = ?',
             [alertId, tenantId]
         );
         return result.affectedRows > 0;
@@ -330,7 +330,7 @@ class AlertService {
      */
     async dismissAllForClient(clientId, tenantId) {
         await query(
-            'UPDATE training_alerts SET is_dismissed = 1 WHERE client_id = ? AND tenant_id = ? AND is_dismissed = 0',
+            'UPDATE training_alerts SET is_resolved = 1 WHERE client_id = ? AND tenant_id = ? AND is_resolved = 0',
             [clientId, tenantId]
         );
         return { success: true };

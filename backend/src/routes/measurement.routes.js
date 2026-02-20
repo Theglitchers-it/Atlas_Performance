@@ -9,6 +9,7 @@ const router = express.Router();
 const mc = require("../controllers/measurement.controller");
 const { verifyToken, requireRole } = require("../middlewares/auth");
 const { validate } = require("../middlewares/validate");
+const { query } = require("../config/database");
 const {
   anthropometricSchema,
   bodyMeasurementSchema,
@@ -18,6 +19,36 @@ const {
 } = require("../validators/measurement.validator");
 
 const trainerRole = requireRole("tenant_owner", "staff", "super_admin");
+
+/**
+ * Middleware: trainer OR client posting to their own profile
+ * - Trainers/staff/owners/super_admin: full access
+ * - Client: only if :clientId matches their own client record
+ */
+const trainerOrSelfClient = async (req, res, next) => {
+  if (["tenant_owner", "staff", "super_admin"].includes(req.user.role)) {
+    return next();
+  }
+  if (req.user.role === "client") {
+    try {
+      const clients = await query(
+        "SELECT id FROM clients WHERE user_id = ? AND tenant_id = ? LIMIT 1",
+        [req.user.id, req.user.tenantId],
+      );
+      if (
+        clients.length > 0 &&
+        clients[0].id === parseInt(req.params.clientId)
+      ) {
+        return next();
+      }
+    } catch (err) {
+      /* fall through to 403 */
+    }
+  }
+  return res
+    .status(403)
+    .json({ success: false, message: "Non hai i permessi per questa azione" });
+};
 
 router.use(verifyToken);
 
@@ -62,7 +93,7 @@ router.get("/:clientId/body", mc.getBodyList);
 router.get("/:clientId/body/latest", mc.getLatestBody);
 router.post(
   "/:clientId/body",
-  trainerRole,
+  trainerOrSelfClient,
   validate(bodyMeasurementSchema),
   mc.createBody,
 );
@@ -82,7 +113,7 @@ router.get("/:clientId/circumferences", mc.getCircumferenceList);
 router.get("/:clientId/circumferences/latest", mc.getLatestCircumference);
 router.post(
   "/:clientId/circumferences",
-  trainerRole,
+  trainerOrSelfClient,
   validate(circumferenceSchema),
   mc.createCircumference,
 );

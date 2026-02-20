@@ -57,9 +57,11 @@ app.use(Toast, {
 
 // Global error handler — log + user notification
 app.config.errorHandler = (err, instance, info) => {
-    console.error('[Atlas] Unhandled error:', err)
-    console.error('[Atlas] Component:', instance)
-    console.error('[Atlas] Info:', info)
+    if (import.meta.env.DEV) {
+        console.error('[Atlas] Unhandled error:', err)
+        console.error('[Atlas] Component:', instance)
+        console.error('[Atlas] Info:', info)
+    }
     try {
         const toast = useToast()
         toast.error('Si e\' verificato un errore imprevisto. Riprova.', { timeout: 5000 })
@@ -78,10 +80,10 @@ import { registerSW } from 'virtual:pwa-register'
 
 registerSW({
     onRegisteredSW(swScriptUrl: string, _registration: ServiceWorkerRegistration | undefined) {
-        console.log('[SW] Registrato con successo, script:', swScriptUrl)
+        if (import.meta.env.DEV) console.log('[SW] Registrato con successo, script:', swScriptUrl)
     },
     onOfflineReady() {
-        console.log('[SW] App pronta per uso offline')
+        if (import.meta.env.DEV) console.log('[SW] App pronta per uso offline')
     }
 })
 

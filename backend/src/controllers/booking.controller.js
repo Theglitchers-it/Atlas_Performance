@@ -8,13 +8,24 @@ const bookingService = require('../services/booking.service');
 class BookingController {
     /**
      * GET /api/booking/appointments - Lista appuntamenti
+     * Client role: vede solo i propri appuntamenti
      */
     async getAppointments(req, res, next) {
         try {
             const { clientId, trainerId, status, startDate, endDate, limit, page } = req.query;
-            const result = await bookingService.getAppointments(req.user.tenantId, {
-                clientId, trainerId, status, startDate, endDate, limit, page
-            });
+            const options = { clientId, trainerId, status, startDate, endDate, limit, page };
+
+            // Client role: scope to own appointments only
+            if (req.user.role === 'client') {
+                const ownClientId = await bookingService.getClientIdByUserId(req.user.id, req.user.tenantId);
+                if (ownClientId) {
+                    options.clientId = ownClientId;
+                } else {
+                    return res.json({ success: true, data: { appointments: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } } });
+                }
+            }
+
+            const result = await bookingService.getAppointments(req.user.tenantId, options);
             res.json({ success: true, data: result });
         } catch (error) {
             next(error);
@@ -66,11 +77,28 @@ class BookingController {
 
     /**
      * PUT /api/booking/appointments/:id/status - Aggiorna stato
+     * Client role: puo solo confermare o annullare i propri appuntamenti
      */
     async updateStatus(req, res, next) {
         try {
             const { status } = req.body;
             if (!status) return res.status(400).json({ success: false, message: 'Stato richiesto' });
+
+            // Client role: limited status changes and ownership check
+            if (req.user.role === 'client') {
+                const allowedClientStatuses = ['confirmed', 'cancelled'];
+                if (!allowedClientStatuses.includes(status)) {
+                    return res.status(403).json({ success: false, message: 'Non puoi impostare questo stato' });
+                }
+                // Verify the appointment belongs to this client
+                const appointment = await bookingService.getAppointmentById(req.params.id, req.user.tenantId);
+                if (!appointment) return res.status(404).json({ success: false, message: 'Appuntamento non trovato' });
+                const ownClientId = await bookingService.getClientIdByUserId(req.user.id, req.user.tenantId);
+                if (appointment.client_id !== ownClientId) {
+                    return res.status(403).json({ success: false, message: 'Non puoi modificare questo appuntamento' });
+                }
+            }
+
             await bookingService.updateAppointmentStatus(req.params.id, req.user.tenantId, status);
             res.json({ success: true, message: 'Stato aggiornato' });
         } catch (error) {

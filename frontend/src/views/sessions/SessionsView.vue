@@ -8,6 +8,7 @@ import PullToRefresh from "@/components/mobile/PullToRefresh.vue";
 import FloatingActionButton from "@/components/mobile/FloatingActionButton.vue";
 import SwipeableCard from "@/components/mobile/SwipeableCard.vue";
 import SessionListSkeleton from "@/components/skeleton/SessionListSkeleton.vue";
+import { useSlowRequest } from "@/composables/useSlowRequest";
 import BottomSheet from "@/components/mobile/BottomSheet.vue";
 
 const router = useRouter();
@@ -40,6 +41,7 @@ const workoutTemplates = computed(() => sessionStore.workoutTemplates);
 const selectedClientId = computed(() => sessionStore.selectedClientId);
 const stats = computed(() => sessionStore.stats);
 const loading = computed(() => sessionStore.loading);
+const { isSlowRequest } = useSlowRequest(loading);
 const statsLoading = computed(() => sessionStore.statsLoading);
 const error = computed(() => sessionStore.error);
 const pagination = computed(() => sessionStore.pagination);
@@ -694,6 +696,9 @@ const getCategoryLabel = (category: any) => {
 
         <!-- Skeleton Loading (initial) -->
         <SessionListSkeleton v-if="!initialLoadDone && loading" />
+        <p v-if="isSlowRequest && !initialLoadDone" class="text-sm text-habit-text-subtle text-center mt-2">
+          La richiesta sta impiegando piu tempo del previsto...
+        </p>
 
         <!-- Loading State (subsequent) -->
         <div v-else-if="loading" class="space-y-3">
@@ -1115,9 +1120,9 @@ const getCategoryLabel = (category: any) => {
         <BottomSheet
           v-if="isMobile"
           :open="showStartModal"
-          @close="closeStartModal"
+          @update:open="(v: boolean) => { if (!v) closeStartModal() }"
           title="Avvia Sessione"
-          snap="half"
+          :snap-point="'half'"
         >
           <div class="space-y-4">
             <!-- Client Select -->
@@ -1316,9 +1321,9 @@ const getCategoryLabel = (category: any) => {
         <BottomSheet
           v-if="isMobile"
           :open="showSkipModal"
-          @close="closeSkipModal"
+          @update:open="(v: boolean) => { if (!v) closeSkipModal() }"
           title="Salta Sessione"
-          snap="half"
+          :snap-point="'half'"
         >
           <div class="space-y-4">
             <p class="text-habit-text-subtle text-sm">

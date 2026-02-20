@@ -5,10 +5,12 @@ import PrimaryButton from "@/components/ui/PrimaryButton.vue";
 import SecondaryButton from "@/components/ui/SecondaryButton.vue";
 import ChartWidget from "@/components/ui/ChartWidget.vue";
 import TrendBadge from "@/components/ui/TrendBadge.vue";
+import MeasurementFormCard from "@/components/measurements/MeasurementFormCard.vue";
 import api from "@/services/api";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 import { useNative } from "@/composables/useNative";
+import { useToast } from "vue-toastification";
 
 interface WeightChangeData {
   change?: number;
@@ -16,9 +18,12 @@ interface WeightChangeData {
 
 const router = useRouter();
 const auth = useAuthStore();
+const toast = useToast();
 const { isMobile } = useNative();
 const loading = ref(true);
 const error = ref<string | null>(null);
+const savingForm = ref<string | null>(null);
+const showForms = ref(false);
 
 // Data from API
 const bodyMeasurements = ref<Record<string, any>[]>([]);
@@ -159,7 +164,28 @@ const goalWeight = computed(() =>
 
 // Navigate to checkin
 const goToCheckin = () => router.push("/checkin");
-const goToMeasurements = () => router.push("/measurements");
+
+// Handle client measurement save
+const handleClientSave = async (
+  type: string,
+  data: Record<string, any>,
+) => {
+  if (!clientId.value) return;
+  savingForm.value = type;
+  try {
+    const endpoint =
+      type === "body"
+        ? `/measurements/${clientId.value}/body`
+        : `/measurements/${clientId.value}/circumferences`;
+    await api.post(endpoint, data);
+    toast.success("Misurazione salvata");
+    await loadProgress();
+  } catch (err: any) {
+    toast.error(err.response?.data?.message || "Errore nel salvataggio");
+  } finally {
+    savingForm.value = null;
+  }
+};
 
 // Days since last check-in
 const daysSinceLastCheckin = computed(() => {
@@ -571,30 +597,56 @@ onMounted(loadProgress);
         />
       </div>
 
-      <!-- Sezione Azioni -->
-      <HabitCard :hoverable="false" class="p-6">
-        <div
-          class="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-        >
-          <div>
-            <h3 class="text-xl font-bold text-habit-text mb-1">
-              Aggiorna le tue misure
-            </h3>
-            <p class="text-habit-text/60">
-              <template v-if="daysSinceLastCheckin !== null">
-                L'ultimo check-in risale a {{ daysSinceLastCheckin }} giorni fa
-              </template>
-              <template v-else>Nessun check-in registrato</template>
-            </p>
+      <!-- Sezione Inserisci Misurazioni -->
+      <div class="space-y-4">
+        <HabitCard :hoverable="false" class="p-4 sm:p-6">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          >
+            <div>
+              <h3 class="text-lg sm:text-xl font-bold text-habit-text mb-1">
+                Aggiorna le tue misure
+              </h3>
+              <p class="text-habit-text/60 text-sm sm:text-base">
+                <template v-if="daysSinceLastCheckin !== null">
+                  L'ultimo check-in risale a {{ daysSinceLastCheckin }} giorni fa
+                </template>
+                <template v-else>Nessun check-in registrato</template>
+              </p>
+            </div>
+            <div class="flex gap-3">
+              <SecondaryButton @click="showForms = !showForms">
+                {{ showForms ? "Chiudi form" : "Inserisci misurazioni" }}
+              </SecondaryButton>
+              <PrimaryButton @click="goToCheckin">Nuovo check-in</PrimaryButton>
+            </div>
           </div>
-          <div class="flex gap-3">
-            <SecondaryButton @click="goToMeasurements"
-              >Storico completo</SecondaryButton
-            >
-            <PrimaryButton @click="goToCheckin">Nuovo check-in</PrimaryButton>
+        </HabitCard>
+
+        <!-- Form cards (collapsable) -->
+        <transition name="slide-fade">
+          <div v-if="showForms" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <MeasurementFormCard
+              type="body"
+              title="Peso & Composizione"
+              accent-color="#06b6d4"
+              icon-emoji="⚖️"
+              :saving="savingForm === 'body'"
+              :editing-record="null"
+              @save="handleClientSave('body', $event)"
+            />
+            <MeasurementFormCard
+              type="circumferences"
+              title="Circonferenze"
+              accent-color="#22c55e"
+              icon-emoji="📏"
+              :saving="savingForm === 'circumferences'"
+              :editing-record="null"
+              @save="handleClientSave('circumferences', $event)"
+            />
           </div>
-        </div>
-      </HabitCard>
+        </transition>
+      </div>
 
       <!-- Griglia Statistiche Rapide -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
@@ -630,3 +682,20 @@ onMounted(loadProgress);
     </template>
   </div>
 </template>
+
+<style scoped>
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+.slide-fade-enter-from {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+</style>

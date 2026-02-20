@@ -13,6 +13,49 @@ const logger = createServiceLogger('SOCKET');
 const connectedUsers = new Map();
 
 /**
+ * Per-socket rate limiter — previene flood di eventi
+ * Limita a maxEvents per windowMs per socket
+ */
+const socketRateLimits = new Map(); // socketId -> { count, resetAt }
+const SOCKET_RATE_LIMIT = { maxEvents: 60, windowMs: 60000 }; // 60 eventi/min
+
+const checkSocketRateLimit = (socketId) => {
+    const now = Date.now();
+    let entry = socketRateLimits.get(socketId);
+    if (!entry || entry.resetAt < now) {
+        entry = { count: 0, resetAt: now + SOCKET_RATE_LIMIT.windowMs };
+        socketRateLimits.set(socketId, entry);
+    }
+    entry.count++;
+    return entry.count <= SOCKET_RATE_LIMIT.maxEvents;
+};
+
+// Cleanup rate limit entries ogni 5 minuti
+const rateLimitCleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, entry] of socketRateLimits) {
+        if (entry.resetAt < now) socketRateLimits.delete(id);
+    }
+}, 5 * 60 * 1000);
+rateLimitCleanupInterval.unref();
+
+/**
+ * Sanitizza e valida una stringa — previene XSS injection nei messaggi
+ */
+const sanitizeString = (str, maxLength = 5000) => {
+    if (typeof str !== 'string') return null;
+    return str.slice(0, maxLength).replace(/[<>]/g, '');
+};
+
+/**
+ * Valida un ID numerico positivo
+ */
+const isValidId = (val) => {
+    const n = Number(val);
+    return Number.isInteger(n) && n > 0;
+};
+
+/**
  * Inizializza gli handler Socket.io
  * @param {Server} io - Istanza Socket.io
  */
@@ -83,29 +126,52 @@ const initSocket = (io) => {
             userId: socket.user.id
         });
 
+        // Rate limit wrapper per tutti gli eventi
+        const rateLimitedHandler = (eventName, handler) => {
+            socket.on(eventName, (...args) => {
+                if (!checkSocketRateLimit(socket.id)) {
+                    logger.warn(`Socket rate limit exceeded: ${socket.user.email} on ${eventName}`);
+                    socket.emit('error', { message: 'Troppe richieste, rallenta' });
+                    return;
+                }
+                handler(...args);
+            });
+        };
+
         // === CHAT EVENTS ===
 
         // Join a una conversazione specifica
-        socket.on('join_conversation', (conversationId) => {
+        rateLimitedHandler('join_conversation', (conversationId) => {
+            if (!isValidId(conversationId)) return;
             socket.join(`conversation_${conversationId}`);
             logger.info(`${socket.user.email} joined conversation ${conversationId}`);
         });
 
         // Lascia una conversazione
-        socket.on('leave_conversation', (conversationId) => {
+        rateLimitedHandler('leave_conversation', (conversationId) => {
+            if (!isValidId(conversationId)) return;
             socket.leave(`conversation_${conversationId}`);
         });
 
         // Nuovo messaggio
-        socket.on('send_message', async (data) => {
+        rateLimitedHandler('send_message', async (data) => {
             try {
-                const { conversationId, content, attachments } = data;
+                if (!data || typeof data !== 'object') return;
+                const conversationId = Number(data.conversationId);
+                if (!isValidId(conversationId)) {
+                    return socket.emit('error', { message: 'conversationId non valido' });
+                }
+                const content = sanitizeString(data.content);
+                if (!content || content.trim().length === 0) {
+                    return socket.emit('error', { message: 'Contenuto messaggio vuoto' });
+                }
+                const attachments = Array.isArray(data.attachments) ? data.attachments.slice(0, 10) : [];
 
                 // Salva messaggio nel database
                 const result = await query(
                     `INSERT INTO messages (conversation_id, sender_id, content, attachments, created_at)
                      VALUES (?, ?, ?, ?, NOW())`,
-                    [conversationId, socket.user.id, content, JSON.stringify(attachments || [])]
+                    [conversationId, socket.user.id, content, JSON.stringify(attachments)]
                 );
 
                 const messageId = result.insertId;
@@ -138,14 +204,16 @@ const initSocket = (io) => {
         });
 
         // Typing indicator
-        socket.on('typing_start', (conversationId) => {
+        rateLimitedHandler('typing_start', (conversationId) => {
+            if (!isValidId(conversationId)) return;
             socket.to(`conversation_${conversationId}`).emit('user_typing', {
                 userId: socket.user.id,
                 conversationId
             });
         });
 
-        socket.on('typing_stop', (conversationId) => {
+        rateLimitedHandler('typing_stop', (conversationId) => {
+            if (!isValidId(conversationId)) return;
             socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
                 userId: socket.user.id,
                 conversationId
@@ -153,26 +221,33 @@ const initSocket = (io) => {
         });
 
         // Messaggio letto
-        socket.on('message_read', async (data) => {
-            const { conversationId, messageId } = data;
+        rateLimitedHandler('message_read', async (data) => {
+            try {
+                if (!data || typeof data !== 'object') return;
+                const conversationId = Number(data.conversationId);
+                const messageId = Number(data.messageId);
+                if (!isValidId(conversationId) || !isValidId(messageId)) return;
 
-            await query(
-                `UPDATE messages SET read_at = NOW()
-                 WHERE conversation_id = ? AND id <= ? AND sender_id != ?`,
-                [conversationId, messageId, socket.user.id]
-            );
+                await query(
+                    `UPDATE messages SET read_at = NOW()
+                     WHERE conversation_id = ? AND id <= ? AND sender_id != ?`,
+                    [conversationId, messageId, socket.user.id]
+                );
 
-            socket.to(`conversation_${conversationId}`).emit('messages_read', {
-                userId: socket.user.id,
-                conversationId,
-                upToMessageId: messageId
-            });
+                socket.to(`conversation_${conversationId}`).emit('messages_read', {
+                    userId: socket.user.id,
+                    conversationId,
+                    upToMessageId: messageId
+                });
+            } catch (error) {
+                logger.error('Errore message_read', { error: error.message });
+            }
         });
 
         // === NOTIFICATION EVENTS ===
 
         // Subscribe a notifiche
-        socket.on('subscribe_notifications', () => {
+        rateLimitedHandler('subscribe_notifications', () => {
             socket.join(`notifications_${socket.user.id}`);
         });
 
@@ -182,6 +257,7 @@ const initSocket = (io) => {
             logger.info(`Socket disconnesso: ${socket.user.email}`);
 
             connectedUsers.delete(socket.user.id);
+            socketRateLimits.delete(socket.id);
 
             // Notifica stato offline
             socket.to(`tenant_${socket.user.tenantId}`).emit('user_offline', {

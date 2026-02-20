@@ -7,13 +7,13 @@ const Joi = require('joi');
 const createAppointmentSchema = Joi.object({
     clientId: Joi.number().integer().required()
         .messages({ 'any.required': 'Cliente obbligatorio' }),
-    date: Joi.date().required()
-        .messages({ 'any.required': 'Data obbligatoria' }),
-    startTime: Joi.string().pattern(/^\d{2}:\d{2}$/).required()
-        .messages({ 'string.pattern.base': 'Orario inizio formato HH:MM', 'any.required': 'Orario inizio obbligatorio' }),
-    endTime: Joi.string().pattern(/^\d{2}:\d{2}$/).required()
-        .messages({ 'string.pattern.base': 'Orario fine formato HH:MM' }),
-    type: Joi.string().valid('personal_training', 'consultation', 'assessment', 'follow_up', 'other').default('personal_training'),
+    trainerId: Joi.number().integer().required()
+        .messages({ 'any.required': 'Trainer obbligatorio' }),
+    startDatetime: Joi.string().required()
+        .messages({ 'any.required': 'Data/ora inizio obbligatoria' }),
+    endDatetime: Joi.string().required()
+        .messages({ 'any.required': 'Data/ora fine obbligatoria' }),
+    appointmentType: Joi.string().valid('training', 'assessment', 'consultation', 'other', 'personal_training', 'follow_up').default('training'),
     location: Joi.string().max(255).allow('', null),
     notes: Joi.string().max(1000).allow('', null),
     isRecurring: Joi.boolean().default(false),
@@ -21,16 +21,15 @@ const createAppointmentSchema = Joi.object({
 });
 
 const updateAppointmentSchema = Joi.object({
-    date: Joi.date(),
-    startTime: Joi.string().pattern(/^\d{2}:\d{2}$/),
-    endTime: Joi.string().pattern(/^\d{2}:\d{2}$/),
-    type: Joi.string().valid('personal_training', 'consultation', 'assessment', 'follow_up', 'other'),
+    startDatetime: Joi.string().allow(null),
+    endDatetime: Joi.string().allow(null),
+    appointmentType: Joi.string().valid('training', 'assessment', 'consultation', 'other', 'personal_training', 'follow_up'),
     location: Joi.string().max(255).allow('', null),
     notes: Joi.string().max(1000).allow('', null)
 });
 
 const updateStatusSchema = Joi.object({
-    status: Joi.string().valid('confirmed', 'cancelled', 'completed', 'no_show').required()
+    status: Joi.string().valid('scheduled', 'confirmed', 'cancelled', 'completed', 'no_show').required()
 });
 
 const setAvailabilitySchema = Joi.object({

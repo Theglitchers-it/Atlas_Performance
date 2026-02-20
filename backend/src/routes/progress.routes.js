@@ -5,10 +5,21 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
 const progressController = require('../controllers/progress.controller');
 const { verifyToken } = require('../middlewares/auth');
 const { uploadProgress, handleUploadError } = require('../middlewares/upload');
+
+// Rate limit on photo upload (10 uploads / 1 min per IP)
+const photoUploadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: {
+        success: false,
+        message: 'Troppi upload foto, riprova tra un minuto'
+    }
+});
 
 router.use(verifyToken);
 
@@ -86,7 +97,7 @@ router.get('/:clientId/photos', progressController.getPhotos.bind(progressContro
  *       500:
  *         description: Errore server
  */
-router.post('/:clientId/photos', uploadProgress.array('photos', 5), handleUploadError, progressController.addPhoto.bind(progressController));
+router.post('/:clientId/photos', photoUploadLimiter, uploadProgress.array('photos', 5), handleUploadError, progressController.addPhoto.bind(progressController));
 
 /**
  * @swagger

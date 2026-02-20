@@ -54,7 +54,7 @@ const init = async (): Promise<void> => {
 
             return
         } catch (e) {
-            console.log('[NETWORK] Capacitor Network non disponibile, fallback a browser API')
+            if (import.meta.env.DEV) console.log('[NETWORK] Capacitor Network non disponibile, fallback a browser API')
         }
     }
 

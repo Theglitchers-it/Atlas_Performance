@@ -14,11 +14,21 @@ const isLoading = ref(false);
 const activeTab = ref("volume");
 const showPriorityModal = ref(false);
 const priorityForm = ref({
-  muscle_group_id: "",
-  priority_level: "medium",
+  muscleGroupId: "",
+  priority: "medium",
   notes: "",
 });
 const muscleGroups = ref<any[]>([]);
+
+/** Lunedi della settimana corrente (YYYY-MM-DD) */
+const getWeekStart = (): string => {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // lunedi
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diff);
+  return monday.toISOString().split("T")[0];
+};
 
 onMounted(async () => {
   try {
@@ -27,7 +37,6 @@ onMounted(async () => {
   } catch (e: any) {
     console.error("Error loading clients:", e);
   }
-  // Load muscle groups
   try {
     const res = await api.get("/exercises/muscle-groups");
     muscleGroups.value = res.data.data || [];
@@ -53,7 +62,7 @@ const loadClientVolume = async (clientId: any) => {
     if (priRes.status === "fulfilled")
       priorities.value = priRes.value.data.data || [];
     if (platRes.status === "fulfilled")
-      plateauAlerts.value = platRes.value.data.data || [];
+      plateauAlerts.value = platRes.value.data.data?.alerts || platRes.value.data.data || [];
   } catch (error: any) {
     console.error("Error loading volume:", error);
   } finally {
@@ -64,31 +73,31 @@ const loadClientVolume = async (clientId: any) => {
 const calculateWeekly = async () => {
   if (!selectedClientId.value) return;
   try {
-    await api.post(`/volume/${selectedClientId.value}/calculate`);
+    await api.post(`/volume/${selectedClientId.value}/calculate`, {
+      weekStart: getWeekStart(),
+    });
     toast.success("Volume settimanale calcolato!");
     await loadClientVolume(selectedClientId.value);
   } catch (error: any) {
-    toast.error("Errore nel calcolo");
+    const msg = error.response?.data?.message || "Errore nel calcolo del volume";
+    toast.error(msg);
   }
 };
 
 const addPriority = async () => {
-  if (!selectedClientId.value || !priorityForm.value.muscle_group_id) return;
+  if (!selectedClientId.value || !priorityForm.value.muscleGroupId) return;
   try {
-    await api.post(
-      `/volume/${selectedClientId.value}/priorities`,
-      priorityForm.value,
-    );
+    await api.post(`/volume/${selectedClientId.value}/priorities`, {
+      muscleGroupId: priorityForm.value.muscleGroupId,
+      priority: priorityForm.value.priority,
+      notes: priorityForm.value.notes,
+    });
     toast.success("Priorita aggiunta!");
     showPriorityModal.value = false;
-    priorityForm.value = {
-      muscle_group_id: "",
-      priority_level: "medium",
-      notes: "",
-    };
+    priorityForm.value = { muscleGroupId: "", priority: "medium", notes: "" };
     await loadClientVolume(selectedClientId.value);
   } catch (error: any) {
-    toast.error(error.response?.data?.message || "Errore");
+    toast.error(error.response?.data?.message || "Errore nell'aggiunta priorita");
   }
 };
 
@@ -101,7 +110,7 @@ const removePriority = async (muscleGroupId: any) => {
     toast.success("Priorita rimossa");
     await loadClientVolume(selectedClientId.value);
   } catch (error: any) {
-    toast.error("Errore nella rimozione");
+    toast.error(error.response?.data?.message || "Errore nella rimozione");
   }
 };
 
@@ -129,52 +138,49 @@ const priorityClassMap: Record<string, string> = {
 </script>
 
 <template>
-  <div class="min-h-screen bg-habit-bg space-y-4 sm:space-y-5">
-    <div
-      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-    >
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
+  <div class="min-h-screen bg-habit-bg space-y-3 sm:space-y-5">
+    <!-- Header -->
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <h1 class="text-lg sm:text-2xl font-bold text-habit-text truncate">
           Volume Analytics
         </h1>
-        <p class="text-habit-text-subtle mt-1">
-          Tracking volume per gruppo muscolare e mesociclo
+        <p class="text-[11px] sm:text-sm text-habit-text-subtle mt-0.5">
+          Tracking volume per gruppo muscolare
         </p>
       </div>
-    </div>
-
-    <!-- Client Selector -->
-    <div class="flex flex-col sm:flex-row gap-4">
-      <select
-        v-model="selectedClientId"
-        class="flex-1 px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
-      >
-        <option value="">Seleziona un cliente...</option>
-        <option v-for="c in clients" :key="c.id" :value="c.id">
-          {{ c.first_name }} {{ c.last_name }}
-        </option>
-      </select>
       <button
         v-if="selectedClientId"
         @click="calculateWeekly"
-        class="px-4 py-2 bg-habit-orange text-white rounded-habit hover:bg-habit-cyan transition-all"
+        class="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-habit-orange text-white rounded-xl sm:rounded-habit hover:bg-habit-cyan transition-all whitespace-nowrap"
       >
-        Calcola Volume Settimana
+        Calcola Settimana
       </button>
     </div>
 
+    <!-- Client Selector -->
+    <select
+      v-model="selectedClientId"
+      class="w-full px-3 py-2 sm:px-4 text-sm bg-habit-card border border-habit-border rounded-xl sm:rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
+    >
+      <option value="">Seleziona un cliente...</option>
+      <option v-for="c in clients" :key="c.id" :value="c.id">
+        {{ c.first_name }} {{ c.last_name }}
+      </option>
+    </select>
+
     <template v-if="selectedClientId">
       <!-- Tabs -->
-      <div class="flex gap-2 border-b border-habit-border">
+      <div class="flex gap-1 sm:gap-2 border-b border-habit-border overflow-x-auto">
         <button
           v-for="tab in [
-            { id: 'volume', label: 'Volume per Muscolo' },
-            { id: 'priorities', label: 'Carenze / Priorita' },
+            { id: 'volume', label: 'Volume' },
+            { id: 'priorities', label: 'Priorita' },
             { id: 'plateau', label: 'Plateau' },
           ]"
           :key="tab.id"
           @click="activeTab = tab.id"
-          class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
+          class="px-3 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
           :class="
             activeTab === tab.id
               ? 'border-habit-cyan text-habit-cyan'
@@ -184,52 +190,52 @@ const priorityClassMap: Record<string, string> = {
           {{ tab.label }}
           <span
             v-if="tab.id === 'plateau' && plateauAlerts.length"
-            class="ml-1 px-1.5 py-0.5 text-xs bg-habit-red/20 text-habit-red rounded-full"
+            class="ml-1 px-1.5 py-0.5 text-[10px] bg-habit-red/20 text-habit-red rounded-full"
             >{{ plateauAlerts.length }}</span
           >
         </button>
       </div>
 
       <!-- Loading -->
-      <div v-if="isLoading" class="space-y-4">
+      <div v-if="isLoading" class="space-y-3">
         <div
           v-for="i in 5"
           :key="i"
-          class="animate-pulse h-12 bg-habit-skeleton rounded"
+          class="animate-pulse h-10 sm:h-12 bg-habit-skeleton rounded-xl sm:rounded-habit"
         ></div>
       </div>
 
       <!-- Volume Tab -->
       <div
         v-else-if="activeTab === 'volume'"
-        class="bg-habit-bg border border-habit-border rounded-habit"
+        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit"
       >
         <div
           v-if="volumeData.length === 0"
-          class="p-12 text-center text-habit-text-subtle"
+          class="p-8 sm:p-12 text-center text-habit-text-subtle"
         >
-          <p>Nessun dato di volume disponibile</p>
-          <p class="text-sm mt-1">Calcola il volume settimanale per iniziare</p>
+          <p class="text-sm">Nessun dato di volume disponibile</p>
+          <p class="text-xs mt-1">Calcola il volume settimanale per iniziare</p>
         </div>
         <div v-else class="divide-y divide-habit-border">
           <div
             v-for="item in volumeData"
             :key="item.muscle_group || item.muscle_group_id"
-            class="p-4"
+            class="p-3 sm:p-4"
           >
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-medium text-habit-text">{{
+            <div class="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span class="text-xs sm:text-sm font-medium text-habit-text truncate mr-2">{{
                 item.muscle_group_name || item.muscle_group
               }}</span>
               <span
-                class="text-sm font-bold"
+                class="text-xs sm:text-sm font-bold flex-shrink-0"
                 :class="getVolumeColor(item.total_sets || item.sets)"
                 >{{ item.total_sets || item.sets || 0 }} serie</span
               >
             </div>
-            <div class="w-full bg-habit-skeleton rounded-full h-2">
+            <div class="w-full bg-habit-skeleton rounded-full h-1.5 sm:h-2">
               <div
-                class="h-2 rounded-full transition-all duration-500"
+                class="h-1.5 sm:h-2 rounded-full transition-all duration-500"
                 :class="
                   (item.total_sets || item.sets) >= 20
                     ? 'bg-habit-red'
@@ -247,49 +253,51 @@ const priorityClassMap: Record<string, string> = {
       </div>
 
       <!-- Priorities Tab -->
-      <div v-else-if="activeTab === 'priorities'" class="space-y-4">
+      <div v-else-if="activeTab === 'priorities'" class="space-y-3 sm:space-y-4">
         <div class="flex justify-end">
           <button
             @click="showPriorityModal = true"
-            class="px-4 py-2 text-sm bg-habit-cyan/20 text-habit-cyan rounded-habit hover:bg-habit-cyan/30 transition-colors"
+            class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-habit-cyan/20 text-habit-cyan rounded-xl sm:rounded-habit hover:bg-habit-cyan/30 transition-colors"
           >
             + Aggiungi Priorita
           </button>
         </div>
-        <div class="bg-habit-bg border border-habit-border rounded-habit">
+        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit">
           <div
             v-if="priorities.length === 0"
-            class="p-12 text-center text-habit-text-subtle"
+            class="p-8 sm:p-12 text-center text-habit-text-subtle"
           >
-            <p>Nessuna priorita muscolare impostata</p>
+            <p class="text-sm">Nessuna priorita muscolare impostata</p>
           </div>
           <div v-else class="divide-y divide-habit-border">
             <div
               v-for="p in priorities"
               :key="p.muscle_group_id"
-              class="p-4 flex items-center justify-between"
+              class="p-3 sm:p-4 flex items-center justify-between gap-2"
             >
-              <div>
-                <span class="text-sm font-medium text-habit-text">{{
-                  p.muscle_group_name || p.name
-                }}</span>
-                <span
-                  class="ml-2 px-2 py-0.5 text-xs rounded-full"
-                  :class="
-                    priorityClassMap[p.priority_level] ||
-                    'bg-habit-skeleton text-habit-text-subtle'
-                  "
-                  >{{
-                    priorityLabelMap[p.priority_level] || p.priority_level
-                  }}</span
-                >
-                <p v-if="p.notes" class="text-xs text-habit-text-subtle mt-1">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs sm:text-sm font-medium text-habit-text truncate">{{
+                    p.muscle_group_name || p.name
+                  }}</span>
+                  <span
+                    class="px-1.5 py-0.5 text-[10px] sm:text-xs rounded-full flex-shrink-0"
+                    :class="
+                      priorityClassMap[p.priority_level || p.priority] ||
+                      'bg-habit-skeleton text-habit-text-subtle'
+                    "
+                    >{{
+                      priorityLabelMap[p.priority_level || p.priority] || p.priority_level || p.priority
+                    }}</span
+                  >
+                </div>
+                <p v-if="p.notes" class="text-[10px] sm:text-xs text-habit-text-subtle mt-1 line-clamp-2">
                   {{ p.notes }}
                 </p>
               </div>
               <button
                 @click="removePriority(p.muscle_group_id)"
-                class="text-habit-text-subtle hover:text-habit-red transition-colors"
+                class="flex-shrink-0 text-habit-text-subtle hover:text-habit-red transition-colors p-1"
               >
                 <svg
                   class="w-4 h-4"
@@ -313,26 +321,26 @@ const priorityClassMap: Record<string, string> = {
       <!-- Plateau Tab -->
       <div
         v-else-if="activeTab === 'plateau'"
-        class="bg-habit-bg border border-habit-border rounded-habit"
+        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit"
       >
         <div
           v-if="plateauAlerts.length === 0"
-          class="p-12 text-center text-habit-text-subtle"
+          class="p-8 sm:p-12 text-center text-habit-text-subtle"
         >
-          <p>Nessun plateau rilevato - ottimo!</p>
+          <p class="text-sm">Nessun plateau rilevato - ottimo!</p>
         </div>
         <div v-else class="divide-y divide-habit-border">
           <div
             v-for="alert in plateauAlerts"
             :key="alert.id || alert.muscle_group"
-            class="p-4"
+            class="p-3 sm:p-4"
           >
-            <div class="flex items-start gap-3">
+            <div class="flex items-start gap-2.5 sm:gap-3">
               <div
-                class="w-8 h-8 bg-habit-orange/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                class="w-7 h-7 sm:w-8 sm:h-8 bg-habit-orange/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
               >
                 <svg
-                  class="w-4 h-4 text-habit-orange"
+                  class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-habit-orange"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -345,24 +353,24 @@ const priorityClassMap: Record<string, string> = {
                   />
                 </svg>
               </div>
-              <div>
-                <p class="text-sm font-medium text-habit-text">
+              <div class="min-w-0 flex-1">
+                <p class="text-xs sm:text-sm font-medium text-habit-text">
                   {{
                     alert.muscle_group_name ||
                     alert.muscle_group ||
                     "Gruppo muscolare"
                   }}
                 </p>
-                <p class="text-xs text-habit-text-subtle mt-1">
+                <p class="text-[10px] sm:text-xs text-habit-text-subtle mt-0.5 sm:mt-1 line-clamp-2">
                   {{
                     alert.message ||
                     alert.description ||
-                    "Plateau nella progressione rilevato. Considerare la modifica dei parametri di allenamento."
+                    "Plateau nella progressione rilevato."
                   }}
                 </p>
                 <p
                   v-if="alert.weeks_stagnant"
-                  class="text-xs text-habit-orange mt-1"
+                  class="text-[10px] sm:text-xs text-habit-orange mt-0.5"
                 >
                   Stagnante da {{ alert.weeks_stagnant }} settimane
                 </p>
@@ -373,12 +381,13 @@ const priorityClassMap: Record<string, string> = {
       </div>
     </template>
 
+    <!-- Empty State -->
     <div
       v-else
-      class="bg-habit-bg border border-habit-border rounded-habit p-12 text-center text-habit-text-subtle"
+      class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-8 sm:p-12 text-center text-habit-text-subtle"
     >
       <svg
-        class="w-12 h-12 mx-auto mb-4"
+        class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -390,34 +399,34 @@ const priorityClassMap: Record<string, string> = {
           d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
         />
       </svg>
-      <p>Seleziona un cliente per visualizzare le analytics di volume</p>
+      <p class="text-sm">Seleziona un cliente per visualizzare le analytics</p>
     </div>
 
     <!-- Priority Modal -->
     <Teleport to="body">
       <div
         v-if="showPriorityModal"
-        class="fixed inset-0 z-50 flex items-center justify-center"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       >
         <div
           class="fixed inset-0 bg-black/60"
           @click="showPriorityModal = false"
         ></div>
         <div
-          class="relative bg-habit-bg border border-habit-border rounded-2xl w-full max-w-md mx-4 p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+          class="relative bg-habit-bg border border-habit-border rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md sm:mx-4 p-5 sm:p-6 space-y-4 max-h-[85vh] overflow-y-auto"
         >
-          <h3 class="text-lg font-bold text-habit-text">
+          <h3 class="text-base sm:text-lg font-bold text-habit-text">
             Aggiungi Priorita Muscolare
           </h3>
           <div class="space-y-3">
             <div>
               <label
-                class="block text-sm font-medium text-habit-text-muted mb-1"
+                class="block text-xs sm:text-sm font-medium text-habit-text-muted mb-1"
                 >Gruppo Muscolare</label
               >
               <select
-                v-model="priorityForm.muscle_group_id"
-                class="w-full px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
+                v-model="priorityForm.muscleGroupId"
+                class="w-full px-3 py-2 sm:px-4 text-sm bg-habit-card border border-habit-border rounded-xl sm:rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
               >
                 <option value="">Seleziona...</option>
                 <option v-for="mg in muscleGroups" :key="mg.id" :value="mg.id">
@@ -427,12 +436,12 @@ const priorityClassMap: Record<string, string> = {
             </div>
             <div>
               <label
-                class="block text-sm font-medium text-habit-text-muted mb-1"
+                class="block text-xs sm:text-sm font-medium text-habit-text-muted mb-1"
                 >Livello Priorita</label
               >
               <select
-                v-model="priorityForm.priority_level"
-                class="w-full px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
+                v-model="priorityForm.priority"
+                class="w-full px-3 py-2 sm:px-4 text-sm bg-habit-card border border-habit-border rounded-xl sm:rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
               >
                 <option value="high">Alta</option>
                 <option value="medium">Media</option>
@@ -441,13 +450,13 @@ const priorityClassMap: Record<string, string> = {
             </div>
             <div>
               <label
-                class="block text-sm font-medium text-habit-text-muted mb-1"
+                class="block text-xs sm:text-sm font-medium text-habit-text-muted mb-1"
                 >Note</label
               >
               <textarea
                 v-model="priorityForm.notes"
                 rows="2"
-                class="w-full px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan resize-none"
+                class="w-full px-3 py-2 sm:px-4 text-sm bg-habit-card border border-habit-border rounded-xl sm:rounded-habit text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan resize-none"
                 placeholder="Note sulla carenza..."
               ></textarea>
             </div>
@@ -455,14 +464,14 @@ const priorityClassMap: Record<string, string> = {
           <div class="flex gap-3 justify-end">
             <button
               @click="showPriorityModal = false"
-              class="px-4 py-2 text-sm text-habit-text-muted"
+              class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-habit-text-muted"
             >
               Annulla
             </button>
             <button
               @click="addPriority"
-              :disabled="!priorityForm.muscle_group_id"
-              class="px-4 py-2 text-sm bg-habit-orange text-white rounded-habit hover:bg-habit-cyan transition-all disabled:opacity-50"
+              :disabled="!priorityForm.muscleGroupId"
+              class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-habit-orange text-white rounded-xl sm:rounded-habit hover:bg-habit-cyan transition-all disabled:opacity-50"
             >
               Salva
             </button>

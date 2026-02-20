@@ -9,6 +9,49 @@ const { query } = require('../config/database');
 const { createServiceLogger } = require('../config/logger');
 const logger = createServiceLogger('WEBHOOK');
 
+/**
+ * SSRF Protection: validate webhook URLs to prevent Server-Side Request Forgery.
+ * Blocks private/internal IPs, loopback, link-local, and non-HTTP protocols.
+ */
+function validateWebhookUrl(urlString) {
+    let parsed;
+    try {
+        parsed = new URL(urlString);
+    } catch {
+        throw { status: 400, message: 'URL webhook non valido' };
+    }
+
+    // Only allow HTTP/HTTPS
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw { status: 400, message: 'Solo protocolli HTTP/HTTPS sono consentiti per i webhook' };
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Block loopback
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') {
+        throw { status: 400, message: 'URL loopback non consentiti per i webhook' };
+    }
+
+    // Block private and reserved IP ranges
+    const ipPatterns = [
+        /^10\./,                          // 10.0.0.0/8
+        /^172\.(1[6-9]|2\d|3[01])\./,    // 172.16.0.0/12
+        /^192\.168\./,                     // 192.168.0.0/16
+        /^169\.254\./,                     // Link-local (AWS metadata: 169.254.169.254)
+        /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, // 100.64.0.0/10 (CGNAT)
+        /^0\./,                            // 0.0.0.0/8
+        /^fc00:/i,                         // IPv6 ULA
+        /^fe80:/i,                         // IPv6 Link-local
+    ];
+
+    if (ipPatterns.some(p => p.test(hostname))) {
+        throw { status: 400, message: 'Indirizzi IP privati o riservati non consentiti per i webhook' };
+    }
+
+    return parsed;
+}
+
 class WebhookService {
     /**
      * Eventi supportati
@@ -27,6 +70,9 @@ class WebhookService {
      */
     async create(tenantId, data) {
         const { url, events } = data;
+
+        // SSRF protection: validate URL before storing
+        validateWebhookUrl(url);
 
         // Genera secret per firma HMAC
         const secret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
@@ -57,6 +103,10 @@ class WebhookService {
      */
     async update(webhookId, tenantId, data) {
         const { url, events, isActive } = data;
+
+        // SSRF protection: validate new URL if provided
+        if (url) validateWebhookUrl(url);
+
         await query(
             'UPDATE webhooks SET url = COALESCE(?, url), events = COALESCE(?, events), is_active = COALESCE(?, is_active) WHERE id = ? AND tenant_id = ?',
             [url || null, events ? JSON.stringify(events) : null, isActive !== undefined ? isActive : null, webhookId, tenantId]
@@ -101,6 +151,14 @@ class WebhookService {
      * Consegna webhook (HTTP POST)
      */
     async _deliver(webhook, eventType, payload) {
+        // SSRF protection: re-validate URL at delivery time (URL could have been updated)
+        try {
+            validateWebhookUrl(webhook.url);
+        } catch (err) {
+            logger.warn(`Webhook ${webhook.id} blocked: ${err.message}`, { url: webhook.url });
+            return;
+        }
+
         const body = JSON.stringify({
             event: eventType,
             timestamp: new Date().toISOString(),

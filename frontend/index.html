@@ -5,17 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#3B82F6" />
-    <meta name="description" content="Atlas - Piattaforma per Personal Trainer. Gestisci clienti, allenamenti, piani alimentari e molto altro." />
+    <meta name="description" content="Atlas Performance - Piattaforma per Personal Trainer. Gestisci clienti, allenamenti, piani alimentari e molto altro." />
 
     <!-- PWA — manifest iniettato automaticamente da vite-plugin-pwa -->
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- Fonts (Google Fonts non supporta SRI per via del CSS dinamico per browser) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" referrerpolicy="no-referrer">
 
-    <title>Atlas - Piattaforma Personal Trainer</title>
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' wss: ws: https://accounts.google.com https://github.com https://discord.com; frame-src 'none'; object-src 'none'; base-uri 'self'">
+
+    <title>Atlas Performance - Piattaforma Personal Trainer</title>
   </head>
   <body class="antialiased">
     <div id="app"></div>

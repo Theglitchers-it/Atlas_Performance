@@ -32,23 +32,30 @@
     }
 
     .dark {
-        /* Dark mode colors — grigio-blu scuro con profondità */
-        --color-habit-bg: 24 26 30;
-        --color-habit-bg-light: 32 34 40;
-        --color-habit-card: 38 40 48;
-        --color-habit-card-hover: 48 50 58;
-        --color-habit-text: 240 242 248;
-        --color-habit-skeleton: 55 58 70;
-        --color-habit-border: rgba(255, 255, 255, 0.12);
-        --color-habit-border-light: rgba(255, 255, 255, 0.18);
-        --color-habit-text-muted: rgba(240, 242, 248, 0.7);
-        --color-habit-text-subtle: rgba(240, 242, 248, 0.5);
-        /* Dark mode shadows */
-        --shadow-habit: 0 4px 24px rgba(0, 0, 0, 0.35);
-        --shadow-habit-lg: 0 8px 40px rgba(0, 0, 0, 0.45);
-        --shadow-habit-card: 0 2px 16px rgba(0, 0, 0, 0.25);
-        --shadow-habit-card-hover: 0 8px 32px rgba(0, 0, 0, 0.35);
+        /* Dark mode colors — nero puro OLED con contrasto moderato */
+        --color-habit-bg: 0 0 0;
+        --color-habit-bg-light: 10 10 10;
+        --color-habit-card: 18 18 18;
+        --color-habit-card-hover: 28 28 28;
+        --color-habit-text: 240 240 240;
+        --color-habit-skeleton: 35 35 35;
+        --color-habit-border: rgba(255, 255, 255, 0.10);
+        --color-habit-border-light: rgba(255, 255, 255, 0.15);
+        --color-habit-text-muted: rgba(240, 240, 240, 0.7);
+        --color-habit-text-subtle: rgba(240, 240, 240, 0.5);
+        /* Dark mode shadows — rinforzate per nero puro */
+        --shadow-habit: 0 4px 24px rgba(0, 0, 0, 0.5);
+        --shadow-habit-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
+        --shadow-habit-card: 0 2px 16px rgba(0, 0, 0, 0.4);
+        --shadow-habit-card-hover: 0 8px 32px rgba(0, 0, 0, 0.5);
         color-scheme: dark;
+    }
+
+    /* Dark mode: native select/option elements */
+    .dark select,
+    .dark option {
+        background-color: rgb(var(--color-habit-card));
+        color: rgb(var(--color-habit-text));
     }
 
     html {
@@ -334,19 +341,21 @@
        Habitline Stats
        =================================== */
     .stat-card {
-        @apply card-dark p-3 sm:p-4 md:p-6;
+        @apply card-dark p-6;
     }
 
     .stat-value {
-        @apply text-2xl sm:text-3xl md:text-4xl font-bold text-habit-text;
+        @apply text-4xl font-bold text-habit-text;
     }
 
     .stat-label {
-        @apply text-xs sm:text-sm text-habit-text-muted mt-0.5 sm:mt-1;
+        @apply text-sm text-habit-text-muted mt-1;
+        overflow-wrap: break-word;
+        word-break: break-word;
     }
 
     .stat-change {
-        @apply text-xs sm:text-sm font-semibold mt-1 sm:mt-2 flex items-center gap-1;
+        @apply text-sm font-semibold mt-2 flex items-center gap-1;
     }
 
     .stat-change-positive {
@@ -817,19 +826,12 @@
 @keyframes auth-card-enter {
     0% {
         opacity: 0;
-        transform: translateY(30px) scale(0.96);
-        filter: blur(4px);
+        transform: translateY(20px) scale(0.98);
     }
     100% {
         opacity: 1;
         transform: translateY(0) scale(1);
-        filter: blur(0);
     }
-}
-
-@keyframes auth-glow-pulse {
-    0%, 100% { box-shadow: 0 0 15px rgba(255, 76, 0, 0.2); }
-    50% { box-shadow: 0 0 25px rgba(255, 76, 0, 0.35); }
 }
 
 @keyframes auth-shake {
@@ -864,34 +866,42 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden;
-    /* Arancione brand scuro — caldo e accogliente */
+    /* Light mode: grigio chiaro come il resto dell'app */
+    background: linear-gradient(160deg, #f8fafc 0%, #f1f5f9 40%, #e8ecf1 70%, #f8fafc 100%);
+    transition: background 0.3s ease;
+}
+
+.dark .auth-gradient-bg {
+    /* Dark mode: gradiente marrone scuro originale */
     background: linear-gradient(160deg, #1a0e08 0%, #2d1810 40%, #1f1410 70%, #15100c 100%);
 }
 
 .auth-glass-card {
-    background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.12) 0%,
-        rgba(255, 255, 255, 0.06) 50%,
-        rgba(255, 255, 255, 0.10) 100%
-    );
+    /* Light mode: card bianca solida */
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 1.5rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
     animation: auth-card-enter 0.7s ease-out both;
-    transition: border-color 0.4s ease, box-shadow 0.4s ease;
+    transition: border-color 0.4s ease, box-shadow 0.4s ease, background 0.3s ease;
 }
 
 .auth-glass-card:hover {
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    border-color: rgba(0, 0, 0, 0.12);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
-.auth-logo-glow {
-    animation: auth-glow-pulse 3s ease-in-out infinite;
+.dark .auth-glass-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.10) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.dark .auth-glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
 .auth-input-group {
@@ -899,20 +909,36 @@
 }
 
 .auth-input-group input {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    /* Light mode */
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.12);
     border-radius: 0.875rem;
-    color: #fff;
+    color: rgb(var(--color-habit-text));
     transition: all 0.3s ease;
 }
 
 .auth-input-group input::placeholder {
-    color: rgba(255, 255, 255, 0.25);
+    color: rgba(0, 0, 0, 0.3);
 }
 
 .auth-input-group input:focus {
     outline: none;
-    border-color: rgba(255, 76, 0, 0.5);
+    border-color: rgba(255, 76, 0, 0.4);
+    background: rgba(0, 0, 0, 0.01);
+    box-shadow: 0 0 0 3px rgba(255, 76, 0, 0.08);
+}
+
+.dark .auth-input-group input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.dark .auth-input-group input::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.dark .auth-input-group input:focus {
     background: rgba(255, 255, 255, 0.08);
     box-shadow: 0 0 0 3px rgba(255, 76, 0, 0.12);
 }
@@ -922,11 +948,15 @@
     left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(0, 0, 0, 0.35);
     transition: color 0.3s ease;
     pointer-events: none;
     width: 18px;
     height: 18px;
+}
+
+.dark .auth-input-icon {
+    color: rgba(255, 255, 255, 0.35);
 }
 
 .auth-input-group:focus-within .auth-input-icon {
@@ -947,8 +977,8 @@
 
 .auth-btn-gradient:hover {
     background-position: 100% 0;
-    transform: translateY(-1px) scale(1.01);
-    box-shadow: 0 8px 30px rgba(255, 76, 0, 0.35), 0 0 40px -10px rgba(255, 76, 0, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(255, 76, 0, 0.25);
 }
 
 .auth-btn-gradient:active {
@@ -976,10 +1006,11 @@
     justify-content: center;
     gap: 0.625rem;
     padding: 0.65rem 1rem;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    /* Light mode */
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 0.875rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: rgb(var(--color-habit-text));
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -987,31 +1018,33 @@
 }
 
 .auth-social-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.06);
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.auth-social-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.dark .auth-social-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.dark .auth-social-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.auth-social-google:hover {
-    border-color: rgba(66, 133, 244, 0.4);
-    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.1);
-}
-
-.auth-social-github:hover {
-    border-color: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
-}
-
-.auth-social-discord:hover {
-    border-color: rgba(88, 101, 242, 0.4);
-    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.1);
-}
+/* Social hover brand highlights are defined in the brand section below */
 
 .auth-divider {
     display: flex;
     align-items: center;
     gap: 1rem;
-    color: rgba(255, 255, 255, 0.25);
+    color: rgba(0, 0, 0, 0.25);
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -1022,7 +1055,16 @@
     content: '';
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
+}
+
+.dark .auth-divider {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.dark .auth-divider::before,
+.dark .auth-divider::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
 .auth-shake {
@@ -1044,9 +1086,13 @@
 .auth-strength-bar {
     height: 4px;
     border-radius: 2px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.06);
     overflow: hidden;
     transition: all 0.3s ease;
+}
+
+.dark .auth-strength-bar {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .auth-strength-fill {
@@ -1081,21 +1127,37 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.625rem 0.875rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 0.75rem;
     cursor: pointer;
     transition: all 0.25s ease;
 }
 
 .auth-demo-card:hover {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.04);
     border-color: rgba(255, 76, 0, 0.25);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(255, 76, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(255, 76, 0, 0.06);
 }
 
 .auth-demo-card.active {
+    background: rgba(255, 76, 0, 0.06);
+    border-color: rgba(255, 76, 0, 0.3);
+}
+
+.dark .auth-demo-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .auth-demo-card:hover {
+    background: rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 76, 0, 0.25);
+    box-shadow: 0 4px 12px rgba(255, 76, 0, 0.08);
+}
+
+.dark .auth-demo-card.active {
     background: rgba(255, 76, 0, 0.1);
     border-color: rgba(255, 76, 0, 0.4);
 }
@@ -1113,8 +1175,8 @@
 }
 
 .auth-stat-card {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 1rem;
     padding: 1rem;
     text-align: center;
@@ -1123,8 +1185,17 @@
 }
 
 .auth-stat-card:hover {
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
+}
+
+.dark .auth-stat-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .auth-stat-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
 }
 
 .auth-stat-card:nth-child(1) { animation-delay: 0.8s; }
@@ -1147,8 +1218,8 @@
 }
 
 .auth-testimonial-card {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 1rem;
     padding: 1.25rem;
     transition: all 0.3s ease;
@@ -1158,13 +1229,22 @@
     border-color: rgba(255, 76, 0, 0.15);
 }
 
+.dark .auth-testimonial-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
 .auth-testimonial-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
     cursor: pointer;
+}
+
+.dark .auth-testimonial-dot {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .auth-testimonial-dot.active {
@@ -1353,32 +1433,58 @@
    Auth Social Buttons — Brand Colors
    =================================== */
 
+/* Google — Light */
 .auth-social-google {
+    background: rgba(0, 0, 0, 0.02) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+.auth-social-google:hover {
+    background: rgba(66, 133, 244, 0.06) !important;
+    border-color: rgba(66, 133, 244, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.08) !important;
+}
+.dark .auth-social-google {
     background: rgba(255, 255, 255, 0.08) !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
-
-.auth-social-google:hover {
+.dark .auth-social-google:hover {
     background: rgba(255, 255, 255, 0.15) !important;
     border-color: rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.1) !important;
 }
 
+/* GitHub — Light */
 .auth-social-github {
+    background: rgba(36, 41, 47, 0.06) !important;
+    border: 1px solid rgba(36, 41, 47, 0.15) !important;
+}
+.auth-social-github:hover {
+    background: rgba(36, 41, 47, 0.12) !important;
+    border-color: rgba(36, 41, 47, 0.25) !important;
+}
+.dark .auth-social-github {
     background: rgba(36, 41, 47, 0.6) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
-
-.auth-social-github:hover {
+.dark .auth-social-github:hover {
     background: rgba(36, 41, 47, 0.8) !important;
     border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
+/* Discord — Light */
 .auth-social-discord {
+    background: rgba(88, 101, 242, 0.06) !important;
+    border: 1px solid rgba(88, 101, 242, 0.2) !important;
+}
+.auth-social-discord:hover {
+    background: rgba(88, 101, 242, 0.12) !important;
+    border-color: rgba(88, 101, 242, 0.35) !important;
+}
+.dark .auth-social-discord {
     background: rgba(88, 101, 242, 0.3) !important;
     border: 1px solid rgba(88, 101, 242, 0.4) !important;
 }
-
-.auth-social-discord:hover {
+.dark .auth-social-discord:hover {
     background: rgba(88, 101, 242, 0.5) !important;
     border-color: rgba(88, 101, 242, 0.6) !important;
 }
@@ -1777,12 +1883,45 @@ html {
 }
 
 /* ===================================
-   MOBILE COMPACT OVERRIDES (< 475px)
+   MOBILE COMPACT OVERRIDES (pure CSS)
+   Uses max-width media queries outside
+   @layer so they always win specificity
    =================================== */
-@media (max-width: 474px) {
+
+/* ---- Tablets and below (< 768px) ---- */
+@media (max-width: 767px) {
+    .stat-card {
+        padding: 0.875rem;
+        border-radius: 1rem;
+    }
+
+    .stat-value {
+        font-size: 1.75rem;
+        line-height: 2.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        line-height: 1rem;
+        margin-top: 0.125rem;
+    }
+
+    .stat-change {
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+}
+
+/* ---- Phones (< 640px) ---- */
+@media (max-width: 639px) {
+    .card,
+    .card-dark {
+        border-radius: 0.875rem;
+    }
+
     .stat-card {
         padding: 0.75rem;
-        border-radius: 1rem;
+        border-radius: 0.875rem;
     }
 
     .stat-value {
@@ -1791,8 +1930,18 @@ html {
     }
 
     .stat-label {
-        font-size: 0.75rem;
-        line-height: 1rem;
+        font-size: 0.6875rem;
+        line-height: 0.9375rem;
+        margin-top: 0.125rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .stat-change {
+        font-size: 0.6875rem;
+        margin-top: 0.25rem;
     }
 
     .input {
@@ -1803,5 +1952,39 @@ html {
 
     .label {
         margin-bottom: 0.25rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* ---- Small phones (< 475px) ---- */
+@media (max-width: 474px) {
+    .card,
+    .card-dark {
+        border-radius: 0.75rem;
+    }
+
+    .stat-card {
+        padding: 0.5rem;
+        border-radius: 0.75rem;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+        line-height: 1.75rem;
+    }
+
+    .stat-label {
+        font-size: 0.625rem;
+        line-height: 0.8125rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .input {
+        padding: 0.375rem 0.625rem;
+        font-size: 0.8125rem;
+        border-radius: 0.5rem;
     }
 }

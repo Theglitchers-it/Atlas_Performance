@@ -3,12 +3,14 @@ import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useChatStore } from "@/store/chat";
 import { useAuthStore } from "@/store/auth";
+import { useNative } from "@/composables/useNative";
 import { useToast } from "vue-toastification";
 
 const route = useRoute();
 const router = useRouter();
 const chat = useChatStore();
 const auth = useAuthStore();
+const { isMobile } = useNative();
 const toast = useToast();
 
 const currentUserId = computed(() => auth.user?.id);
@@ -248,7 +250,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-[calc(100dvh-64px)] overflow-hidden">
+  <div
+    class="flex overflow-hidden"
+    :class="isMobile ? 'fixed inset-x-0 top-16 bottom-20 z-30' : 'h-[calc(100dvh-64px)]'"
+  >
     <!-- Sidebar conversazioni -->
     <div
       :class="[

@@ -4,18 +4,19 @@
  * Layout: Stats > Grafici > Confronto > Form inline > Storico
  * Stile: Apple Health inspired, Minimal/Clean
  */
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, toRef } from "vue";
 import { useMeasurementStore } from "@/store/measurement";
 import { useToast } from "vue-toastification";
-import StatsCard from "@/components/ui/StatsCard.vue";
 import BodyCompositionChart from "@/components/measurements/BodyCompositionChart.vue";
 import MeasurementFormCard from "@/components/measurements/MeasurementFormCard.vue";
 import MeasurementComparison from "@/components/measurements/MeasurementComparison.vue";
 import MeasurementHistory from "@/components/measurements/MeasurementHistory.vue";
 import type { MeasurementType } from "@/types";
+import { useSlowRequest } from "@/composables/useSlowRequest";
 
 const toast = useToast();
 const store = useMeasurementStore();
+const { isSlowRequest } = useSlowRequest(toRef(store, 'overviewLoading'));
 
 // Local state
 const saving = ref<string | null>(null);
@@ -65,7 +66,7 @@ const statsCards = computed(() => {
       value: o?.body?.weight_kg ?? o?.anthropometric?.weight_kg ?? 0,
       suffix: "kg",
       iconEmoji: "\u2696\uFE0F",
-      iconColor: "blue" as const,
+      iconBg: "bg-blue-500/20",
       trend: wc?.percentage ?? null,
     },
     {
@@ -77,7 +78,7 @@ const statsCards = computed(() => {
         0,
       suffix: "%",
       iconEmoji: "\uD83D\uDD25",
-      iconColor: "orange" as const,
+      iconBg: "bg-orange-500/20",
       trend: null,
     },
     {
@@ -85,7 +86,7 @@ const statsCards = computed(() => {
       value: o?.bia?.lean_mass_kg ?? o?.body?.muscle_mass_kg ?? 0,
       suffix: "kg",
       iconEmoji: "\uD83D\uDCAA",
-      iconColor: "green" as const,
+      iconBg: "bg-emerald-500/20",
       trend: null,
     },
     {
@@ -93,7 +94,7 @@ const statsCards = computed(() => {
       value: o?.circumference?.waist_cm ?? 0,
       suffix: "cm",
       iconEmoji: "\uD83D\uDCCF",
-      iconColor: "purple" as const,
+      iconBg: "bg-purple-500/20",
       trend: null,
     },
     {
@@ -101,7 +102,7 @@ const statsCards = computed(() => {
       value: o?.bia?.basal_metabolic_rate ?? 0,
       suffix: "kcal",
       iconEmoji: "\u26A1",
-      iconColor: "red" as const,
+      iconBg: "bg-red-500/20",
       trend: null,
     },
   ];
@@ -312,34 +313,82 @@ onMounted(async () => {
 
     <!-- Dashboard content (only if client selected) -->
     <template v-if="store.selectedClientId">
-      <!-- 3. Stats Summary -->
-      <div>
+      <!-- 3. Stats Summary (ultra-compact on mobile) -->
+      <div
+        v-if="store.overviewLoading"
+        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 xs:gap-2 sm:gap-3"
+      >
         <div
-          v-if="store.overviewLoading"
-          class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 xs:gap-3 sm:gap-4 min-w-0"
+          v-for="i in 5"
+          :key="i"
+          class="bg-habit-bg border border-habit-border rounded-xl sm:rounded-2xl md:rounded-habit p-1.5 xs:p-2 sm:p-3 md:p-4"
+          :class="{ 'col-span-2 sm:col-span-1': i === 5 }"
         >
-          <div
-            v-for="i in 5"
-            :key="i"
-            class="h-20 xs:h-24 bg-habit-skeleton rounded-xl animate-pulse"
-          />
+          <div class="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
+            <div
+              class="w-7 h-7 xs:w-8 xs:h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-habit-skeleton rounded-lg xs:rounded-xl animate-pulse flex-shrink-0"
+            />
+            <div class="flex-1 space-y-1">
+              <div
+                class="h-4 xs:h-5 bg-habit-skeleton rounded w-12 xs:w-16 animate-pulse"
+              />
+              <div
+                class="h-2.5 xs:h-3 bg-habit-skeleton rounded w-10 xs:w-12 animate-pulse"
+              />
+            </div>
+          </div>
         </div>
+      </div>
+      <p v-if="isSlowRequest" class="text-sm text-habit-text-subtle text-center mt-2">
+        La richiesta sta impiegando piu tempo del previsto...
+      </p>
+      <div
+        v-else
+        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 xs:gap-2 sm:gap-3"
+      >
         <div
-          v-else
-          class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 xs:gap-3 sm:gap-4 min-w-0"
+          v-for="(stat, index) in statsCards"
+          :key="stat.label"
+          class="bg-habit-bg border border-habit-border rounded-xl sm:rounded-2xl md:rounded-habit p-1.5 xs:p-2 sm:p-3 md:p-4"
+          :class="{
+            'col-span-2 sm:col-span-1':
+              index === statsCards.length - 1 && statsCards.length % 2 !== 0,
+          }"
         >
-          <StatsCard
-            v-for="(stat, idx) in statsCards"
-            :key="stat.label"
-            :value="stat.value"
-            :label="stat.label"
-            :suffix="stat.suffix"
-            :icon-emoji="stat.iconEmoji"
-            :icon-color="stat.iconColor"
-            :trend="stat.trend"
-            :animate="true"
-            :delay="idx * 0.1"
-          />
+          <div class="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
+            <div
+              class="w-7 h-7 xs:w-8 xs:h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg xs:rounded-xl flex items-center justify-center flex-shrink-0"
+              :class="stat.iconBg"
+            >
+              <span class="text-sm xs:text-base">{{ stat.iconEmoji }}</span>
+            </div>
+            <div class="min-w-0">
+              <p
+                class="text-base xs:text-lg sm:text-xl md:text-2xl font-bold text-habit-text leading-tight"
+              >
+                {{ stat.value }}
+                <span
+                  class="text-[10px] xs:text-xs font-normal text-habit-text-muted"
+                  >{{ stat.suffix }}</span
+                >
+              </p>
+              <div class="flex items-center gap-1">
+                <span
+                  class="text-[10px] xs:text-[11px] sm:text-xs text-habit-text-subtle leading-tight"
+                  >{{ stat.label }}</span
+                >
+                <span
+                  v-if="stat.trend !== null"
+                  class="text-[9px] xs:text-[10px] font-medium"
+                  :class="
+                    stat.trend > 0 ? 'text-red-400' : 'text-emerald-400'
+                  "
+                >
+                  {{ stat.trend > 0 ? "+" : "" }}{{ stat.trend }}%
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -46,11 +46,11 @@ export function useAppLifecycle(): UseAppLifecycleReturn {
 
                 if (isActive) {
                     // App tornata in foreground: sync dati, refresh notifiche
-                    console.log('[LIFECYCLE] App tornata in foreground')
+                    if (import.meta.env.DEV) console.log('[LIFECYCLE] App tornata in foreground')
                     if (options.onResume) options.onResume()
                 } else {
                     // App andata in background
-                    console.log('[LIFECYCLE] App andata in background')
+                    if (import.meta.env.DEV) console.log('[LIFECYCLE] App andata in background')
                     if (options.onPause) options.onPause()
                 }
             })
@@ -68,7 +68,7 @@ export function useAppLifecycle(): UseAppLifecycleReturn {
 
             // Deep links (atlas://workout/123)
             const urlListener = await App.addListener('appUrlOpen', ({ url }: { url: string }) => {
-                console.log('[LIFECYCLE] Deep link:', url)
+                if (import.meta.env.DEV) console.log('[LIFECYCLE] Deep link:', url)
                 try {
                     const urlObj = new URL(url)
                     const path = urlObj.pathname || urlObj.hash?.replace('#', '') || '/'
@@ -76,13 +76,13 @@ export function useAppLifecycle(): UseAppLifecycleReturn {
                         router.push(path)
                     }
                 } catch (e) {
-                    console.error('[LIFECYCLE] Errore parsing deep link:', e)
+                    if (import.meta.env.DEV) console.error('[LIFECYCLE] Errore parsing deep link:', e)
                 }
             })
             listeners.push(urlListener)
 
         } catch (error) {
-            console.log('[LIFECYCLE] Plugin App non disponibile:', (error as Error).message)
+            if (import.meta.env.DEV) console.log('[LIFECYCLE] Plugin App non disponibile:', (error as Error).message)
         }
     }
 

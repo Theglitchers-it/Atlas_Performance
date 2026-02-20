@@ -10,6 +10,7 @@ import {
   ClipboardDocumentListIcon,
   ChatBubbleLeftRightIcon,
   TrophyIcon,
+  HeartIcon,
   UserIcon,
 } from "@heroicons/vue/24/outline";
 import {
@@ -17,6 +18,7 @@ import {
   ClipboardDocumentListIcon as ClipboardSolid,
   ChatBubbleLeftRightIcon as ChatSolid,
   TrophyIcon as TrophySolid,
+  HeartIcon as HeartSolid,
   UserIcon as UserSolid,
 } from "@heroicons/vue/24/solid";
 
@@ -33,7 +35,7 @@ const authStore = useAuthStore();
 const chatStore = useChatStore();
 const { hapticTap } = useNative();
 
-const isTrainer = computed<boolean>(() => authStore.isTrainer);
+const isClient = computed<boolean>(() => authStore.isClient);
 const unreadCount = computed<number>(() => chatStore.totalUnread || 0);
 
 // Bottom nav items per trainer
@@ -70,10 +72,10 @@ const clientNav: NavItem[] = [
     iconActive: HomeIconSolid,
   },
   {
-    name: "Workout",
-    path: "/my-workout",
-    icon: ClipboardDocumentListIcon,
-    iconActive: ClipboardSolid,
+    name: "Check-in",
+    path: "/checkin",
+    icon: HeartIcon,
+    iconActive: HeartSolid,
   },
   {
     name: "Chat",
@@ -83,16 +85,16 @@ const clientNav: NavItem[] = [
     isCenter: true,
   },
   {
-    name: "Badge",
-    path: "/gamification",
-    icon: TrophyIcon,
-    iconActive: TrophySolid,
+    name: "Workout",
+    path: "/my-workout",
+    icon: ClipboardDocumentListIcon,
+    iconActive: ClipboardSolid,
   },
   { name: "Profilo", path: "/profile", icon: UserIcon, iconActive: UserSolid },
 ];
 
 const navItems = computed<NavItem[]>(() =>
-  isTrainer.value ? trainerNav : clientNav,
+  isClient.value ? clientNav : trainerNav,
 );
 
 const isActive = (path: string): boolean => {

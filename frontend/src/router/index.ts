@@ -74,9 +74,6 @@ const AnalyticsView = () => import('@/views/analytics/AnalyticsView.vue')
 // Readiness
 const ReadinessView = () => import('@/views/readiness/ReadinessView.vue')
 
-// Measurements
-const MeasurementsView = () => import('@/views/measurements/MeasurementsView.vue')
-
 // Settings
 const SettingsView = () => import('@/views/settings/SettingsView.vue')
 const ProfileView = () => import('@/views/settings/ProfileView.vue')
@@ -324,14 +321,6 @@ const routes: RouteRecordRaw[] = [
         name: 'Readiness',
         component: ReadinessView,
         meta: { requiresAuth: true, title: 'Readiness - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Readiness' }] }
-    },
-
-    // Misurazioni
-    {
-        path: '/measurements',
-        name: 'Measurements',
-        component: MeasurementsView,
-        meta: { requiresAuth: true, title: 'Misurazioni - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Misurazioni' }] }
     },
 
     // Impostazioni

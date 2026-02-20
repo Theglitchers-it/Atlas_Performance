@@ -4,6 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
 const paymentController = require('../controllers/payment.controller');
 const stripeService = require('../services/stripe.service');
@@ -12,6 +13,16 @@ const logger = createServiceLogger('PAYMENT_ROUTES');
 const { verifyToken, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { createPaymentSchema, updatePaymentStatusSchema, createSubscriptionSchema, stripeCheckoutSchema } = require('../validators/payment.validator');
+
+// Strict rate limit on checkout endpoints (2 req / 1 min per IP)
+const checkoutLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 2,
+    message: {
+        success: false,
+        message: 'Troppe richieste di checkout, riprova tra un minuto'
+    }
+});
 
 // ============================================
 // STRIPE WEBHOOK (deve essere PRIMA di verifyToken, body raw)
@@ -395,7 +406,7 @@ router.put('/:id/status', requireRole('tenant_owner', 'staff'), validate(updateP
  *       400:
  *         description: Piano non valido
  */
-router.post('/stripe/plan-upgrade', requireRole('tenant_owner', 'client'), async (req, res) => {
+router.post('/stripe/plan-upgrade', checkoutLimiter, requireRole('tenant_owner', 'client'), async (req, res) => {
     try {
         const { plan, billingCycle, successUrl, cancelUrl } = req.body;
         const validPlans = ['starter', 'professional', 'enterprise'];
@@ -446,7 +457,7 @@ router.post('/stripe/plan-upgrade', requireRole('tenant_owner', 'client'), async
  *       400:
  *         description: Dati non validi
  */
-router.post('/stripe/checkout', async (req, res) => {
+router.post('/stripe/checkout', checkoutLimiter, async (req, res) => {
     try {
         const { error } = stripeCheckoutSchema.validate(req.body);
         if (error) return res.status(400).json({ success: false, message: error.details[0].message });

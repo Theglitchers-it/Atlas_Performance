@@ -5,12 +5,23 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
 const userController = require('../controllers/user.controller');
 const { validate } = require('../middlewares/validate');
 const { verifyToken, requireRole, requireTenantOwner } = require('../middlewares/auth');
 const { createUserSchema, updateUserSchema } = require('../validators/user.validator');
 const { uploadAvatar, handleUploadError } = require('../middlewares/upload');
+
+// Rate limit on file upload (5 uploads / 1 min per IP)
+const uploadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    message: {
+        success: false,
+        message: 'Troppi upload, riprova tra un minuto'
+    }
+});
 
 // Tutte le route richiedono autenticazione
 router.use(verifyToken);
@@ -39,7 +50,7 @@ router.use(verifyToken);
  *       200:
  *         description: Avatar aggiornato
  */
-router.post('/me/avatar', uploadAvatar.single('avatar'), handleUploadError, userController.uploadMyAvatar);
+router.post('/me/avatar', uploadLimiter, uploadAvatar.single('avatar'), handleUploadError, userController.uploadMyAvatar);
 
 /**
  * @swagger

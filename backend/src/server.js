@@ -148,8 +148,7 @@ app.use(
         objectSrc: ["'none'"],
         frameSrc: ["'none'"],
         baseUri: ["'self'"],
-        upgradeInsecureRequests:
-          process.env.NODE_ENV === "production" ? [] : null,
+        upgradeInsecureRequests: [],
       },
     },
     hsts: {
@@ -157,12 +156,14 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   }),
 );
 app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
+    maxAge: 86400, // Cache preflight OPTIONS per 24h
   }),
 );
 app.use(cookieParser());
@@ -253,8 +254,20 @@ app.use("/api/webhooks", webhookLimiter);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
-// Static files (uploads)
-app.use("/uploads", express.static("uploads"));
+// Static files (uploads) — protetti da autenticazione e isolamento tenant
+app.use("/uploads", verifyToken, (req, res, next) => {
+  const tenantId = String(req.user.tenantId);
+  // Super admin puo accedere a tutti i file
+  if (req.user.role === "super_admin") return next();
+  // Verifica che il path contenga il tenant_id dell'utente
+  if (!req.path.includes(`/${tenantId}/`)) {
+    return res.status(403).json({
+      success: false,
+      message: "Accesso negato a questa risorsa",
+    });
+  }
+  next();
+}, express.static("uploads"));
 
 // Swagger API Documentation (disabled in production for security)
 if (process.env.NODE_ENV !== "production") {
@@ -383,6 +396,36 @@ const startServer = async () => {
       "ALTER TABLE tenants ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'active'",
     );
 
+    // Password history table (prevents password reuse)
+    await dbQuery(`
+            CREATE TABLE IF NOT EXISTS password_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_created (user_id, created_at),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
+
+    // Audit logs table (admin accountability)
+    await dbQuery(`
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                action VARCHAR(100) NOT NULL,
+                resource_type VARCHAR(50),
+                resource_id VARCHAR(100),
+                details JSON,
+                ip_address VARCHAR(45),
+                user_agent VARCHAR(255),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_action (action),
+                INDEX idx_created (created_at),
+                INDEX idx_user (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `);
+
     // Start listening
     server.listen(PORT, () => {
       logger.info(
@@ -423,6 +466,18 @@ const startServer = async () => {
       runWithLock("cron_alerts", checkAllAlerts);
     });
 
+    // Pulizia refresh tokens scaduti (ogni notte alle 3)
+    cron.schedule("0 3 * * *", () => {
+      runWithLock("cron_token_cleanup", async () => {
+        const result = await dbQuery(
+          "DELETE FROM refresh_tokens WHERE expires_at < NOW()",
+        );
+        logger.info(
+          `Refresh tokens scaduti eliminati: ${result.affectedRows || 0}`,
+        );
+      });
+    });
+
     logger.info("Cron jobs registrati");
   } catch (error) {
     logger.error("Errore avvio server", { error: error.message });
@@ -432,13 +487,47 @@ const startServer = async () => {
 
 startServer();
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM ricevuto. Chiusura graceful...");
-  server.close(() => {
-    logger.info("Server chiuso");
-    process.exit(0);
+// Global error handlers — prevent silent crashes
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled Rejection", {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
   });
 });
+
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught Exception - shutting down", {
+    error: error.message,
+    stack: error.stack,
+  });
+  server.close(() => process.exit(1));
+  // Forza chiusura se il server non risponde entro 5 secondi
+  setTimeout(() => process.exit(1), 5000).unref();
+});
+
+// Graceful shutdown — chiude server, Socket.io, e database pool
+const { closePool } = require("./config/database");
+
+const gracefulShutdown = (signal) => {
+  logger.info(`${signal} ricevuto. Chiusura graceful...`);
+  server.close(async () => {
+    try {
+      io.close();
+      await closePool();
+      logger.info("Server chiuso correttamente (HTTP + Socket.io + DB pool)");
+    } catch (err) {
+      logger.error("Errore durante shutdown", { error: err.message });
+    }
+    process.exit(0);
+  });
+  // Forza chiusura dopo 10 secondi se il server non risponde
+  setTimeout(() => {
+    logger.error("Shutdown forzato dopo timeout 10s");
+    process.exit(1);
+  }, 10000).unref();
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 module.exports = { app, server, io };

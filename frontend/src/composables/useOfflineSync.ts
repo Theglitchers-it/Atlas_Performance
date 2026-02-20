@@ -79,7 +79,7 @@ export function useOfflineSync(): UseOfflineSyncReturn {
                 pendingActions.value = stored ? JSON.parse(stored) : []
             }
         } catch (e) {
-            console.error('[OFFLINE] Errore caricamento queue:', e)
+            if (import.meta.env.DEV) console.error('[OFFLINE] Errore caricamento queue:', e)
             pendingActions.value = []
         }
     }
@@ -97,7 +97,7 @@ export function useOfflineSync(): UseOfflineSyncReturn {
                 localStorage.setItem(STORAGE_KEY, data)
             }
         } catch (e) {
-            console.error('[OFFLINE] Errore salvataggio queue:', e)
+            if (import.meta.env.DEV) console.error('[OFFLINE] Errore salvataggio queue:', e)
         }
     }
 
@@ -117,9 +117,14 @@ export function useOfflineSync(): UseOfflineSyncReturn {
             timestamp: new Date().toISOString(),
             retries: 0
         }
+        // Limite massimo coda offline per prevenire memory leak
+        const MAX_QUEUE_SIZE = 100
+        if (pendingActions.value.length >= MAX_QUEUE_SIZE) {
+            pendingActions.value.shift() // Rimuovi la piu vecchia
+        }
         pendingActions.value.push(entry)
         await persistQueue()
-        console.log(`[OFFLINE] Azione in coda: ${action.type} -> ${action.endpoint}`)
+        if (import.meta.env.DEV) console.log(`[OFFLINE] Azione in coda: ${action.type} -> ${action.endpoint}`)
         return entry
     }
 
@@ -130,7 +135,7 @@ export function useOfflineSync(): UseOfflineSyncReturn {
         if (isSyncing.value || pendingActions.value.length === 0) return
         isSyncing.value = true
 
-        console.log(`[OFFLINE] Sync avviato: ${pendingActions.value.length} azioni in coda`)
+        if (import.meta.env.DEV) console.log(`[OFFLINE] Sync avviato: ${pendingActions.value.length} azioni in coda`)
 
         const toProcess = [...pendingActions.value]
         const completed: string[] = []
@@ -170,7 +175,7 @@ export function useOfflineSync(): UseOfflineSyncReturn {
         await persistQueue()
 
         isSyncing.value = false
-        console.log(`[OFFLINE] Sync completato. Rimanenti: ${pendingActions.value.length}`)
+        if (import.meta.env.DEV) console.log(`[OFFLINE] Sync completato. Rimanenti: ${pendingActions.value.length}`)
     }
 
     /**

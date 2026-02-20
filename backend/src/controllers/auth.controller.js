@@ -3,8 +3,10 @@
  * Gestione richieste HTTP autenticazione
  */
 
+const jwt = require('jsonwebtoken');
 const authService = require('../services/auth.service');
 const { setAuthCookies, clearAuthCookies } = require('../utils/cookies');
+const { blacklistToken, extractToken } = require('../middlewares/auth');
 
 class AuthController {
     /**
@@ -96,6 +98,17 @@ class AuthController {
      */
     async logout(req, res, next) {
         try {
+            // Blacklist the current access token so it can't be reused
+            const accessToken = extractToken(req);
+            if (accessToken) {
+                try {
+                    const decoded = jwt.decode(accessToken);
+                    if (decoded && decoded.jti && decoded.exp) {
+                        blacklistToken(decoded.jti, decoded.exp * 1000);
+                    }
+                } catch { /* ignore decode errors */ }
+            }
+
             // Leggi refresh token dal cookie, fallback al body
             const token = req.cookies?.refresh_token || req.body?.refreshToken;
 
@@ -121,6 +134,17 @@ class AuthController {
      */
     async logoutAll(req, res, next) {
         try {
+            // Blacklist current access token
+            const accessToken = extractToken(req);
+            if (accessToken) {
+                try {
+                    const decoded = jwt.decode(accessToken);
+                    if (decoded && decoded.jti && decoded.exp) {
+                        blacklistToken(decoded.jti, decoded.exp * 1000);
+                    }
+                } catch { /* ignore decode errors */ }
+            }
+
             await authService.logoutAll(req.user.id);
 
             // Clear httpOnly cookies

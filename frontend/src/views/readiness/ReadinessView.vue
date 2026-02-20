@@ -33,7 +33,7 @@ const fetchAiRecommendation = async () => {
       sleepHours: parseFloat(checkin.value.sleep_hours),
       energyLevel: checkin.value.energy_level,
       stressLevel: checkin.value.stress_level,
-      sorenessLevel: checkin.value.soreness_level,
+      muscleSoreness: checkin.value.soreness_level,
       mood: checkin.value.mood,
     });
     aiRecommendation.value = res.data.data?.suggestion || "";
@@ -165,34 +165,34 @@ const tabs = [
 const filterStartDate = ref("");
 const filterEndDate = ref("");
 
-// Check-in form
+// Check-in form (scala 1-5 allineata al backend validator)
 const checkinForm = ref({
-  sleepQuality: 5,
+  sleepQuality: 3,
   sleepHours: 7.0,
-  energyLevel: 5,
-  stressLevel: 5,
-  sorenessLevel: 5,
-  motivationLevel: 5,
-  mood: "neutral",
+  energyLevel: 3,
+  stressLevel: 3,
+  muscleSoreness: 3,
+  motivation: 3,
+  mood: 3 as number,
   notes: "",
 });
 
-// Mood options
+// Mood options (integer 1-5 matching backend validator)
 const moodOptions = [
-  { value: "terrible", label: "Terribile", emoji: "\u{1F62B}" },
-  { value: "bad", label: "Male", emoji: "\u{1F61E}" },
-  { value: "neutral", label: "Neutrale", emoji: "\u{1F610}" },
-  { value: "good", label: "Bene", emoji: "\u{1F60A}" },
-  { value: "great", label: "Ottimo", emoji: "\u{1F929}" },
+  { value: 1, label: "Terribile", emoji: "\u{1F62B}" },
+  { value: 2, label: "Male", emoji: "\u{1F61E}" },
+  { value: 3, label: "Neutrale", emoji: "\u{1F610}" },
+  { value: 4, label: "Bene", emoji: "\u{1F60A}" },
+  { value: 5, label: "Ottimo", emoji: "\u{1F929}" },
 ];
 
-// Slider emoji maps
+// Slider emoji maps (5 values for scale 1-5)
 const sliderEmojis: Record<string, string[]> = {
-  sleepQuality: ["😫", "😫", "😩", "😔", "😐", "🙂", "😊", "😴", "😴", "💤"],
-  energyLevel: ["🪫", "🪫", "😮‍💨", "😪", "😐", "🙂", "💪", "⚡", "🔥", "🚀"],
-  stressLevel: ["😌", "😌", "🙂", "😐", "😟", "😰", "😤", "🤯", "💥", "🆘"],
-  sorenessLevel: ["✨", "✨", "🙂", "😐", "😣", "😖", "🤕", "😵", "🩹", "🏥"],
-  motivationLevel: ["😴", "😴", "😒", "😐", "🙂", "😊", "💪", "🔥", "⭐", "🏆"],
+  sleepQuality: ["😫", "😔", "😐", "😊", "💤"],
+  energyLevel: ["🪫", "😪", "😐", "💪", "🚀"],
+  stressLevel: ["😌", "🙂", "😐", "😰", "🆘"],
+  muscleSoreness: ["✨", "🙂", "😐", "😖", "🏥"],
+  motivation: ["😴", "😒", "😐", "💪", "🏆"],
 };
 
 const getSliderEmoji = (field: any, value: any) => {
@@ -281,13 +281,18 @@ const scoreBgClass = (score: any) => {
   return "bg-emerald-500/10";
 };
 
+const moodStringToInt: Record<string, number> = {
+  terrible: 1, bad: 2, neutral: 3, good: 4, great: 5,
+};
+
 const moodEmoji = (mood: any) => {
-  const found = moodOptions.find((m) => m.value === mood);
+  const val = typeof mood === "number" ? mood : (moodStringToInt[mood] || 3);
+  const found = moodOptions.find((m) => m.value === val);
   return found ? found.emoji : "";
 };
 
-// Progress bar percent
-const barPercent = (val: any, max = 10) => {
+// Progress bar percent (scale 1-5, sleep hours use custom max)
+const barPercent = (val: any, max = 5) => {
   if (!val) return 0;
   return Math.min((parseFloat(val) / max) * 100, 100);
 };
@@ -295,12 +300,12 @@ const barPercent = (val: any, max = 10) => {
 const barColor = (val: any, invert = false) => {
   const v = parseFloat(val);
   if (invert) {
-    if (v <= 3) return "bg-emerald-400";
-    if (v <= 6) return "bg-yellow-400";
+    if (v <= 2) return "bg-emerald-400";
+    if (v <= 3) return "bg-yellow-400";
     return "bg-red-400";
   }
-  if (v >= 7) return "bg-emerald-400";
-  if (v >= 4) return "bg-yellow-400";
+  if (v >= 4) return "bg-emerald-400";
+  if (v >= 3) return "bg-yellow-400";
   return "bg-red-400";
 };
 
@@ -309,24 +314,24 @@ const resetForm = () => {
   if (checkin.value && editing.value) {
     const c = checkin.value;
     checkinForm.value = {
-      sleepQuality: c.sleep_quality || 5,
+      sleepQuality: c.sleep_quality || 3,
       sleepHours: parseFloat(c.sleep_hours) || 7.0,
-      energyLevel: c.energy_level || 5,
-      stressLevel: c.stress_level || 5,
-      sorenessLevel: c.soreness_level || 5,
-      motivationLevel: c.motivation_level || 5,
-      mood: c.mood || "neutral",
+      energyLevel: c.energy_level || 3,
+      stressLevel: c.stress_level || 3,
+      muscleSoreness: c.soreness_level || 3,
+      motivation: c.motivation_level || 3,
+      mood: typeof c.mood === 'number' ? c.mood : (moodStringToInt[c.mood] || 3),
       notes: c.notes || "",
     };
   } else {
     checkinForm.value = {
-      sleepQuality: 5,
+      sleepQuality: 3,
       sleepHours: 7.0,
-      energyLevel: 5,
-      stressLevel: 5,
-      sorenessLevel: 5,
-      motivationLevel: 5,
-      mood: "neutral",
+      energyLevel: 3,
+      stressLevel: 3,
+      muscleSoreness: 3,
+      motivation: 3,
+      mood: 3,
       notes: "",
     };
   }
@@ -673,7 +678,7 @@ onMounted(() => {
                 <p class="text-3xl font-bold text-blue-400">
                   {{ formatNum(avgs.avg_sleep)
                   }}<span class="text-sm font-normal text-habit-text-subtle"
-                    >/10</span
+                    >/5</span
                   >
                 </p>
                 <div
@@ -708,7 +713,7 @@ onMounted(() => {
                 <p class="text-3xl font-bold text-emerald-400">
                   {{ formatNum(avgs.avg_energy)
                   }}<span class="text-sm font-normal text-habit-text-subtle"
-                    >/10</span
+                    >/5</span
                   >
                 </p>
                 <div
@@ -743,7 +748,7 @@ onMounted(() => {
                 <p class="text-3xl font-bold text-orange-400">
                   {{ formatNum(avgs.avg_stress)
                   }}<span class="text-sm font-normal text-habit-text-subtle"
-                    >/10</span
+                    >/5</span
                   >
                 </p>
                 <div
@@ -862,7 +867,7 @@ onMounted(() => {
                   <p class="text-habit-text font-bold text-lg mb-1.5">
                     {{ checkin.sleep_quality
                     }}<span class="text-xs font-normal text-habit-text-subtle"
-                      >/10</span
+                      >/5</span
                     >
                   </p>
                   <div
@@ -920,7 +925,7 @@ onMounted(() => {
                   <p class="text-habit-text font-bold text-lg mb-1.5">
                     {{ checkin.energy_level
                     }}<span class="text-xs font-normal text-habit-text-subtle"
-                      >/10</span
+                      >/5</span
                     >
                   </p>
                   <div
@@ -947,7 +952,7 @@ onMounted(() => {
                   <p class="text-habit-text font-bold text-lg mb-1.5">
                     {{ checkin.stress_level
                     }}<span class="text-xs font-normal text-habit-text-subtle"
-                      >/10</span
+                      >/5</span
                     >
                   </p>
                   <div
@@ -974,7 +979,7 @@ onMounted(() => {
                   <p class="text-habit-text font-bold text-lg mb-1.5">
                     {{ checkin.soreness_level
                     }}<span class="text-xs font-normal text-habit-text-subtle"
-                      >/10</span
+                      >/5</span
                     >
                   </p>
                   <div
@@ -1003,7 +1008,7 @@ onMounted(() => {
                   <p class="text-habit-text font-bold text-lg mb-1.5">
                     {{ checkin.motivation_level
                     }}<span class="text-xs font-normal text-habit-text-subtle"
-                      >/10</span
+                      >/5</span
                     >
                   </p>
                   <div
@@ -1188,7 +1193,7 @@ onMounted(() => {
                   <input
                     type="range"
                     min="1"
-                    max="10"
+                    max="5"
                     step="1"
                     v-model.number="checkinForm.sleepQuality"
                     class="w-full h-2 bg-habit-skeleton rounded-lg appearance-none cursor-pointer accent-[#0283a7]"
@@ -1236,7 +1241,7 @@ onMounted(() => {
                   <input
                     type="range"
                     min="1"
-                    max="10"
+                    max="5"
                     step="1"
                     v-model.number="checkinForm.energyLevel"
                     class="w-full h-2 bg-habit-skeleton rounded-lg appearance-none cursor-pointer accent-[#0283a7]"
@@ -1266,7 +1271,7 @@ onMounted(() => {
                   <input
                     type="range"
                     min="1"
-                    max="10"
+                    max="5"
                     step="1"
                     v-model.number="checkinForm.stressLevel"
                     class="w-full h-2 bg-habit-skeleton rounded-lg appearance-none cursor-pointer accent-[#f59e0b]"
@@ -1289,19 +1294,19 @@ onMounted(() => {
                     <span class="text-habit-orange font-bold text-lg"
                       >{{
                         getSliderEmoji(
-                          "sorenessLevel",
-                          checkinForm.sorenessLevel,
+                          "muscleSoreness",
+                          checkinForm.muscleSoreness,
                         )
                       }}
-                      {{ checkinForm.sorenessLevel }}</span
+                      {{ checkinForm.muscleSoreness }}</span
                     >
                   </div>
                   <input
                     type="range"
                     min="1"
-                    max="10"
+                    max="5"
                     step="1"
-                    v-model.number="checkinForm.sorenessLevel"
+                    v-model.number="checkinForm.muscleSoreness"
                     class="w-full h-2 bg-habit-skeleton rounded-lg appearance-none cursor-pointer accent-[#f59e0b]"
                   />
                   <div
@@ -1322,19 +1327,19 @@ onMounted(() => {
                     <span class="text-habit-cyan font-bold text-lg"
                       >{{
                         getSliderEmoji(
-                          "motivationLevel",
-                          checkinForm.motivationLevel,
+                          "motivation",
+                          checkinForm.motivation,
                         )
                       }}
-                      {{ checkinForm.motivationLevel }}</span
+                      {{ checkinForm.motivation }}</span
                     >
                   </div>
                   <input
                     type="range"
                     min="1"
-                    max="10"
+                    max="5"
                     step="1"
-                    v-model.number="checkinForm.motivationLevel"
+                    v-model.number="checkinForm.motivation"
                     class="w-full h-2 bg-habit-skeleton rounded-lg appearance-none cursor-pointer accent-[#0283a7]"
                   />
                   <div

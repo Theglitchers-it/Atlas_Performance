@@ -311,7 +311,7 @@ describe('Auth Input Validation', () => {
         const xssPayload = '<script>alert("xss")</script>';
         const { error, value } = registerSchema.validate({
             email: 'test@test.com',
-            password: 'Password1',
+            password: 'Password1!',
             firstName: xssPayload,
             lastName: 'Test',
             businessName: 'Test'

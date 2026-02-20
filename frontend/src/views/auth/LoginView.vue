@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 import { useToast } from "vue-toastification";
+import AuthThemeToggle from "@/components/auth/AuthThemeToggle.vue";
 
 interface DemoAccount {
   role: string;
@@ -144,7 +145,7 @@ const testimonials: Testimonial[] = [
   {
     name: "Marco R.",
     role: "Personal Trainer, Roma",
-    text: "Atlas ha rivoluzionato il modo in cui gestisco i miei 30+ clienti. Risparmo ore ogni settimana!",
+    text: "Atlas Performance ha rivoluzionato il modo in cui gestisco i miei 30+ clienti. Risparmo ore ogni settimana!",
     rating: 5,
     avatar: "MR",
   },
@@ -252,10 +253,13 @@ const handleSubmit = async () => {
     showSuccess.value = true;
     await new Promise((resolve) => setTimeout(resolve, 600));
     const rd = route.query.redirect;
-    const safeRedirect =
-      rd && typeof rd === "string" && rd.startsWith("/") && !rd.startsWith("//")
-        ? rd
-        : "/";
+    const safeRedirect = (() => {
+      if (!rd || typeof rd !== "string") return "/";
+      try {
+        const url = new URL(rd, window.location.origin);
+        return url.origin === window.location.origin ? url.pathname + url.search : "/";
+      } catch { return "/"; }
+    })();
     router.push(safeRedirect);
   } else {
     errorMessage.value = result.message || "";
@@ -269,10 +273,13 @@ const socialLogin = async (provider: string) => {
     showSuccess.value = true;
     await new Promise((resolve) => setTimeout(resolve, 600));
     const rd = route.query.redirect;
-    const safeRedirect =
-      rd && typeof rd === "string" && rd.startsWith("/") && !rd.startsWith("//")
-        ? rd
-        : "/";
+    const safeRedirect = (() => {
+      if (!rd || typeof rd !== "string") return "/";
+      try {
+        const url = new URL(rd, window.location.origin);
+        return url.origin === window.location.origin ? url.pathname + url.search : "/";
+      } catch { return "/"; }
+    })();
     router.push(safeRedirect);
   } else if (result.message !== "Login annullato") {
     errorMessage.value = result.message || "";
@@ -283,33 +290,18 @@ const socialLogin = async (provider: string) => {
 
 <template>
   <div class="auth-gradient-bg py-8 px-4 sm:px-6 lg:px-8">
+    <AuthThemeToggle />
     <div class="max-w-md w-full relative z-10">
       <!-- Logo & Title -->
       <div class="text-center mb-6">
-        <div
-          class="auth-logo-glow mx-auto h-16 w-16 bg-gradient-to-br from-[#ff4c00] to-[#ff8c00] rounded-2xl flex items-center justify-center mb-5 shadow-lg"
-        >
-          <svg
-            class="h-9 w-9 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-        </div>
-        <h1 class="text-2xl sm:text-3xl font-bold">
-          <span class="text-white">Atlas</span>
+        <h1 class="text-3xl sm:text-4xl font-display font-bold">
+          <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
         </h1>
+        <p class="text-sm font-medium text-habit-text/40 tracking-[0.2em] uppercase mt-1">Performance</p>
 
         <!-- Typing Animation -->
         <div class="mt-3 h-6 flex items-center justify-center">
-          <p class="text-white/50 text-sm">
+          <p class="text-habit-text/50 text-sm">
             {{ currentPhrase }}<span class="auth-typing-cursor"></span>
           </p>
         </div>
@@ -340,7 +332,7 @@ const socialLogin = async (provider: string) => {
               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <p class="text-sm text-[#ff4c00]/90">
+          <p class="text-sm text-[#ff4c00]">
             La tua sessione e' scaduta. Effettua nuovamente l'accesso.
           </p>
         </div>
@@ -372,7 +364,7 @@ const socialLogin = async (provider: string) => {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <p class="text-sm text-red-400">{{ errorMessage }}</p>
+            <p class="text-sm text-red-500 dark:text-red-400">{{ errorMessage }}</p>
           </div>
         </Transition>
 
@@ -381,7 +373,7 @@ const socialLogin = async (provider: string) => {
           <button
             type="button"
             @click="showDemoAccounts = !showDemoAccounts"
-            class="w-full flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#ff4c00]/10 to-[#0283a7]/10 border border-[#ff4c00]/20 rounded-xl text-sm text-white/70 hover:text-white hover:border-[#ff4c00]/40 transition-all duration-200"
+            class="w-full flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#ff4c00]/10 to-[#0283a7]/10 border border-[#ff4c00]/20 rounded-xl text-sm text-habit-text/70 hover:text-habit-text hover:border-[#ff4c00]/40 transition-all duration-200"
           >
             <span class="flex items-center gap-2">
               <svg
@@ -434,18 +426,18 @@ const socialLogin = async (provider: string) => {
               >
                 <span class="text-xl flex-shrink-0">{{ account.icon }}</span>
                 <div class="min-w-0 flex-1">
-                  <p class="text-xs font-semibold text-white/90 truncate">
+                  <p class="text-xs font-semibold text-habit-text/90 truncate">
                     {{ account.label }}
                   </p>
-                  <p class="text-[10px] text-white/40 truncate">
+                  <p class="text-[10px] text-habit-text/40 truncate">
                     {{ account.desc }}
                   </p>
                 </div>
               </div>
               <div class="col-span-2 text-center">
-                <p class="text-[10px] text-white/30 mt-1">
+                <p class="text-[10px] text-habit-text/30 mt-1">
                   Password:
-                  <span class="text-white/50 font-mono">demo1234</span>
+                  <span class="text-habit-text/50 font-mono">demo1234</span>
                 </p>
               </div>
             </div>
@@ -457,7 +449,7 @@ const socialLogin = async (provider: string) => {
           <div class="auth-input-group">
             <label
               for="email"
-              class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+              class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
               >Email</label
             >
             <div class="relative">
@@ -492,7 +484,7 @@ const socialLogin = async (provider: string) => {
           <div class="auth-input-group">
             <label
               for="password"
-              class="block text-xs font-medium text-white/50 uppercase tracking-wider mb-2"
+              class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
               >Password</label
             >
             <div class="relative">
@@ -526,7 +518,7 @@ const socialLogin = async (provider: string) => {
                 :aria-label="
                   showPassword ? 'Nascondi password' : 'Mostra password'
                 "
-                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
+                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-habit-text/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
               >
                 <svg
                   v-if="!showPassword"
@@ -572,10 +564,10 @@ const socialLogin = async (provider: string) => {
               <input
                 v-model="rememberMe"
                 type="checkbox"
-                class="h-4 w-4 rounded bg-white/5 border-white/15 text-[#0283a7] focus:ring-[#0283a7]/30 focus:ring-offset-0 transition-colors"
+                class="h-4 w-4 rounded bg-habit-text/5 border-habit-text/15 text-[#0283a7] focus:ring-[#0283a7]/30 focus:ring-offset-0 transition-colors"
               />
               <span
-                class="ml-2.5 text-sm text-white/45 group-hover:text-white/60 transition-colors"
+                class="ml-2.5 text-sm text-habit-text/45 group-hover:text-habit-text/60 transition-colors"
                 >Ricordami</span
               >
             </label>
@@ -678,7 +670,7 @@ const socialLogin = async (provider: string) => {
 
         <!-- Register Link -->
         <div class="mt-6 text-center">
-          <p class="text-sm text-white/40">
+          <p class="text-sm text-habit-text/40">
             Non hai un account?
             <router-link
               to="/register"
@@ -704,7 +696,7 @@ const socialLogin = async (provider: string) => {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-semibold text-white/90">{{
+                <span class="text-sm font-semibold text-habit-text/90">{{
                   testimonials[currentTestimonial].name
                 }}</span>
                 <div class="flex gap-0.5">
@@ -721,10 +713,10 @@ const socialLogin = async (provider: string) => {
                   </svg>
                 </div>
               </div>
-              <p class="text-xs text-white/40">
+              <p class="text-xs text-habit-text/40">
                 {{ testimonials[currentTestimonial].role }}
               </p>
-              <p class="text-sm text-white/60 mt-2 leading-relaxed italic">
+              <p class="text-sm text-habit-text/60 mt-2 leading-relaxed italic">
                 "{{ testimonials[currentTestimonial].text }}"
               </p>
             </div>
@@ -755,13 +747,13 @@ const socialLogin = async (provider: string) => {
                 : formatNumber(animatedValues[idx])
             }}{{ stat.suffix }}
           </div>
-          <div class="text-[11px] text-white/40 mt-1">{{ stat.label }}</div>
+          <div class="text-[11px] text-habit-text/40 mt-1">{{ stat.label }}</div>
         </div>
       </div>
 
       <!-- Footer -->
-      <p class="mt-6 text-center text-xs text-white/25">
-        &copy; 2025 Atlas. Tutti i diritti riservati.
+      <p class="mt-6 text-center text-xs text-habit-text/25">
+        &copy; 2025 Atlas Performance. Tutti i diritti riservati.
       </p>
     </div>
   </div>

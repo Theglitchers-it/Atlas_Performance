@@ -67,6 +67,17 @@ class BookingService {
     }
 
     /**
+     * Ottieni client_id dal user_id (per utenti con ruolo client)
+     */
+    async getClientIdByUserId(userId, tenantId) {
+        const rows = await query(
+            'SELECT id FROM clients WHERE user_id = ? AND tenant_id = ? LIMIT 1',
+            [userId, tenantId]
+        );
+        return rows[0]?.id || null;
+    }
+
+    /**
      * Ottieni singolo appuntamento
      */
     async getAppointmentById(appointmentId, tenantId) {

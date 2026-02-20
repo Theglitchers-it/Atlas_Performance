@@ -38,7 +38,7 @@ describe('AlertService.checkLowReadiness', () => {
 
         expect(result).not.toBeNull();
         expect(result.alertType).toBe('low_readiness');
-        expect(result.severity).toBe('warning');
+        expect(result.severity).toBe('medium');
 
         // Verify tenant_id in readiness query
         const readinessCall = mockQuery.mock.calls[0];
@@ -93,7 +93,7 @@ describe('AlertService.checkVolumePlateau', () => {
 
         expect(result).not.toBeNull();
         expect(result.alertType).toBe('volume_plateau');
-        expect(result.severity).toBe('info');
+        expect(result.severity).toBe('low');
 
         // Verify tenant_id scoping
         expect(mockQuery.mock.calls[0][0]).toContain('wva.tenant_id = ?');
@@ -144,7 +144,7 @@ describe('AlertService.checkRecoveryLow', () => {
 
         expect(result).not.toBeNull();
         expect(result.alertType).toBe('recovery_low');
-        expect(result.severity).toBe('warning');
+        expect(result.severity).toBe('medium');
 
         // Verify tenant_id
         expect(mockQuery.mock.calls[0][0]).toContain('tenant_id = ?');
@@ -197,7 +197,7 @@ describe('AlertService.checkOvertrainingRisk', () => {
 
         expect(result).not.toBeNull();
         expect(result.alertType).toBe('overtraining_risk');
-        expect(result.severity).toBe('critical');
+        expect(result.severity).toBe('high');
 
         // Verify tenant_id in session count query
         expect(mockQuery.mock.calls[0][0]).toContain('tenant_id = ?');
@@ -257,7 +257,7 @@ describe('AlertService.checkFatigueAccumulation', () => {
 
         expect(result).not.toBeNull();
         expect(result.alertType).toBe('fatigue_accumulation');
-        expect(result.severity).toBe('warning');
+        expect(result.severity).toBe('medium');
 
         // Verify tenant_id
         expect(mockQuery.mock.calls[0][0]).toContain('tenant_id = ?');
@@ -310,7 +310,7 @@ describe('AlertService.checkDeloadSuggested', () => {
 
         expect(result).not.toBeNull();
         expect(result.alertType).toBe('deload_suggested');
-        expect(result.severity).toBe('info');
+        expect(result.severity).toBe('low');
 
         // Verify tenant_id
         expect(mockQuery.mock.calls[0][0]).toContain('wva.tenant_id = ?');
@@ -427,13 +427,13 @@ describe('AlertService.getAlerts', () => {
     test('filters by clientId and severity', async () => {
         mockQuery.mockResolvedValueOnce([]);
 
-        await alertService.getAlerts('tenant-1', { clientId: 5, severity: 'critical' });
+        await alertService.getAlerts('tenant-1', { clientId: 5, severity: 'high' });
 
         const call = mockQuery.mock.calls[0];
         expect(call[0]).toContain('ta.client_id = ?');
         expect(call[0]).toContain('ta.severity = ?');
         expect(call[1]).toContain(5);
-        expect(call[1]).toContain('critical');
+        expect(call[1]).toContain('high');
     });
 
     test('returns dismissed alerts when dismissed option is true', async () => {
@@ -442,7 +442,7 @@ describe('AlertService.getAlerts', () => {
         await alertService.getAlerts('tenant-1', { dismissed: true });
 
         const call = mockQuery.mock.calls[0];
-        expect(call[0]).toContain('ta.is_dismissed = ?');
+        expect(call[0]).toContain('ta.is_resolved = ?');
         expect(call[1]).toContain(1); // dismissed = true => 1
     });
 });
@@ -496,11 +496,11 @@ describe('AlertService.runAllChecks', () => {
     test('runs all 6 checks and collects results', async () => {
         // We spy on the individual check methods and mock their returns
         jest.spyOn(alertService, 'checkLowReadiness').mockResolvedValue({
-            alertType: 'low_readiness', severity: 'warning', title: 'LR', message: 'msg', data: {}
+            alertType: 'low_readiness', severity: 'medium', title: 'LR', message: 'msg', data: {}
         });
         jest.spyOn(alertService, 'checkVolumePlateau').mockResolvedValue(null);
         jest.spyOn(alertService, 'checkRecoveryLow').mockResolvedValue({
-            alertType: 'recovery_low', severity: 'warning', title: 'RL', message: 'msg', data: {}
+            alertType: 'recovery_low', severity: 'medium', title: 'RL', message: 'msg', data: {}
         });
         jest.spyOn(alertService, 'checkOvertrainingRisk').mockResolvedValue(null);
         jest.spyOn(alertService, 'checkFatigueAccumulation').mockResolvedValue(null);
@@ -521,7 +521,7 @@ describe('AlertService.runAllChecks', () => {
         jest.spyOn(alertService, 'checkLowReadiness').mockRejectedValue(new Error('DB error'));
         jest.spyOn(alertService, 'checkVolumePlateau').mockResolvedValue(null);
         jest.spyOn(alertService, 'checkRecoveryLow').mockResolvedValue({
-            alertType: 'recovery_low', severity: 'warning', title: 'RL', message: 'msg', data: {}
+            alertType: 'recovery_low', severity: 'medium', title: 'RL', message: 'msg', data: {}
         });
         jest.spyOn(alertService, 'checkOvertrainingRisk').mockRejectedValue(new Error('DB error'));
         jest.spyOn(alertService, 'checkFatigueAccumulation').mockResolvedValue(null);

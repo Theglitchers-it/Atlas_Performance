@@ -241,7 +241,7 @@ router.put('/appointments/:id', requireRole('tenant_owner', 'staff', 'super_admi
  *       404:
  *         description: Appuntamento non trovato
  */
-router.put('/appointments/:id/status', requireRole('tenant_owner', 'staff', 'super_admin'), validate(updateStatusSchema), bookingController.updateStatus);
+router.put('/appointments/:id/status', requireRole('tenant_owner', 'staff', 'super_admin', 'client'), validate(updateStatusSchema), bookingController.updateStatus);
 
 /**
  * @swagger

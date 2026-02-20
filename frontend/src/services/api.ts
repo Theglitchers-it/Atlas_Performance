@@ -141,13 +141,51 @@ api.interceptors.response.use(
             }
         }
 
-        // Generic 401 - redirect to login
+        // Generic 401 - redirect to login (only if not already on login page)
         if (error.response?.status === 401) {
-            router.push({ name: 'Login' })
+            if (router.currentRoute.value.name !== 'Login') {
+                router.push({ name: 'Login' })
+            }
+        }
+
+        // Retry logic con exponential backoff per errori server/rete
+        const RETRY_STATUS_CODES = [408, 500, 502, 503, 504]
+        const isRetryableMethod = ['get', 'put', 'delete', 'patch'].includes(
+            (originalRequest.method || 'get').toLowerCase()
+        )
+        if (
+            isRetryableMethod &&
+            !originalRequest._retry &&
+            (RETRY_STATUS_CODES.includes(error.response?.status) || !error.response)
+        ) {
+            const retryCount = originalRequest._retryCount || 0
+            if (retryCount < 3) {
+                originalRequest._retryCount = retryCount + 1
+                const delay = Math.pow(2, retryCount) * 1000
+                await new Promise(resolve => setTimeout(resolve, delay))
+                return api(originalRequest)
+            }
         }
 
         return Promise.reject(error)
     }
 )
+
+/**
+ * Crea un AbortController per richieste cancellabili.
+ * Usare nei componenti Vue con onUnmounted per cancellare richieste in corso.
+ *
+ * @example
+ * const { signal, cancel } = createCancelToken()
+ * api.get('/data', { signal })
+ * onUnmounted(() => cancel())
+ */
+export const createCancelToken = () => {
+    const controller = new AbortController()
+    return {
+        signal: controller.signal,
+        cancel: () => controller.abort()
+    }
+}
 
 export default api

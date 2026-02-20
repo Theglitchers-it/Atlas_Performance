@@ -5,12 +5,23 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
 const videoController = require('../controllers/video.controller');
 const { verifyToken, requireRole } = require('../middlewares/auth');
 const { uploadVideo, handleUploadError } = require('../middlewares/upload');
 const { validate } = require('../middlewares/validate');
 const { createCourseSchema, updateCourseSchema, createVideoSchema, updateVideoSchema } = require('../validators/video.validator');
+
+// Rate limit on video upload (3 uploads / 5 min per IP)
+const videoUploadLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 3,
+    message: {
+        success: false,
+        message: 'Troppi upload video, riprova tra qualche minuto'
+    }
+});
 
 router.use(verifyToken);
 
@@ -533,6 +544,6 @@ router.post('/:id/view', requireRole('tenant_owner', 'staff', 'client', 'super_a
  *       500:
  *         description: Errore server
  */
-router.post('/upload', requireRole('tenant_owner', 'staff', 'super_admin'), uploadVideo.single('video'), handleUploadError, videoController.uploadFile);
+router.post('/upload', videoUploadLimiter, requireRole('tenant_owner', 'staff', 'super_admin'), uploadVideo.single('video'), handleUploadError, videoController.uploadFile);
 
 module.exports = router;

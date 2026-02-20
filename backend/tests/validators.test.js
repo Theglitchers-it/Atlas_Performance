@@ -15,7 +15,7 @@ describe('Auth Validators', () => {
     describe('registerSchema', () => {
         const validData = {
             email: 'test@example.com',
-            password: 'Password1',
+            password: 'Password1!',
             firstName: 'Mario',
             lastName: 'Rossi',
             phone: '+39 333 1234567',
@@ -60,6 +60,11 @@ describe('Auth Validators', () => {
 
         test('password requires number', () => {
             const { error } = registerSchema.validate({ ...validData, password: 'PasswordABC' });
+            expect(error).toBeDefined();
+        });
+
+        test('password requires special character', () => {
+            const { error } = registerSchema.validate({ ...validData, password: 'Password1' });
             expect(error).toBeDefined();
         });
 
@@ -176,13 +181,13 @@ describe('Auth Validators', () => {
         test('valid data passes', () => {
             const { error } = resetPasswordSchema.validate({
                 token: 'abc123',
-                password: 'NewPass1'
+                password: 'NewPass1!'
             });
             expect(error).toBeUndefined();
         });
 
         test('token is required', () => {
-            const { error } = resetPasswordSchema.validate({ password: 'NewPass1' });
+            const { error } = resetPasswordSchema.validate({ password: 'NewPass1!' });
             expect(error).toBeDefined();
         });
 

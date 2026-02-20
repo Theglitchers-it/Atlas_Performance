@@ -53,7 +53,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             // Richiedi permesso all'utente
             const permission = await PushNotifications.requestPermissions()
             if (permission.receive !== 'granted') {
-                console.log('[PUSH] Permesso negato dall\'utente')
+                if (import.meta.env.DEV) console.log('[PUSH] Permesso negato dall\'utente')
                 return false
             }
             permissionGranted.value = true
@@ -63,7 +63,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
             // Ascolta il token di registrazione
             PushNotifications.addListener('registration', async (token: { value: string }) => {
-                console.log('[PUSH] Token registrato:', token.value.substring(0, 20) + '...')
+                if (import.meta.env.DEV) console.log('[PUSH] Token registrato:', token.value.substring(0, 20) + '...')
                 fcmToken.value = token.value
 
                 // Invia il token al backend per salvarlo nel database
@@ -76,20 +76,20 @@ export function usePushNotifications(): UsePushNotificationsReturn {
                             timestamp: new Date().toISOString()
                         })
                     })
-                    console.log('[PUSH] Token inviato al backend')
+                    if (import.meta.env.DEV) console.log('[PUSH] Token inviato al backend')
                 } catch (err) {
-                    console.error('[PUSH] Errore invio token al backend:', (err as Error).message)
+                    if (import.meta.env.DEV) console.error('[PUSH] Errore invio token al backend:', (err as Error).message)
                 }
             })
 
             // Errore durante la registrazione
             PushNotifications.addListener('registrationError', (error: any) => {
-                console.error('[PUSH] Errore registrazione:', error)
+                if (import.meta.env.DEV) console.error('[PUSH] Errore registrazione:', error)
             })
 
             // Notifica ricevuta mentre l'app e in foreground
             PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
-                console.log('[PUSH] Notifica ricevuta in foreground:', notification.title)
+                if (import.meta.env.DEV) console.log('[PUSH] Notifica ricevuta in foreground:', notification.title)
                 // Dispatch evento per aggiornare il badge notifiche in-app
                 window.dispatchEvent(new CustomEvent('push-notification-received', {
                     detail: notification
@@ -98,7 +98,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
             // Utente ha tappato su una notifica push
             PushNotifications.addListener('pushNotificationActionPerformed', (action: any) => {
-                console.log('[PUSH] Azione su notifica:', action)
+                if (import.meta.env.DEV) console.log('[PUSH] Azione su notifica:', action)
                 const url: string | undefined = action.notification.data?.url
                 if (url && url !== '/' && typeof url === 'string' && url.startsWith('/') && !url.includes('//')) {
                     router.push(url)
@@ -107,7 +107,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
             return true
         } catch (error) {
-            console.error('[PUSH] Errore inizializzazione push:', error)
+            if (import.meta.env.DEV) console.error('[PUSH] Errore inizializzazione push:', error)
             return false
         }
     }
@@ -131,7 +131,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             fcmToken.value = null
             permissionGranted.value = false
         } catch (error) {
-            console.error('[PUSH] Errore unregister:', error)
+            if (import.meta.env.DEV) console.error('[PUSH] Errore unregister:', error)
         }
     }
 
