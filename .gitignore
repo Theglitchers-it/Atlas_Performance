@@ -49,3 +49,10 @@ coverage/
 
 # Process ID
 *.pid
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.db
+migrations/
