@@ -35,3 +35,17 @@ coverage/
 
 # Temp
 *.tmp
+
+# TypeScript
+*.tsbuildinfo
+
+# Linter cache
+.eslintcache
+
+# Certificates
+*.pem
+*.key
+*.cert
+
+# Process ID
+*.pid

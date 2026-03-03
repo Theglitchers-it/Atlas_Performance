@@ -1,0 +1,89 @@
+# =============================================================================
+# Atlas Platform — Deploy Automatico in Produzione
+# =============================================================================
+# Si attiva dopo push su main (solo se i test CI passano).
+# Deploya via SSH sul server di produzione.
+#
+# GitHub Secrets richiesti:
+#   DEPLOY_HOST       — IP o dominio del server (es. 123.456.789.0)
+#   DEPLOY_USER       — Utente SSH (es. atlas)
+#   DEPLOY_SSH_KEY    — Chiave privata SSH (contenuto di ~/.ssh/id_ed25519)
+#   DEPLOY_PATH       — Percorso installazione (es. /var/www/atlas)
+# =============================================================================
+
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+# Evita deploy paralleli
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------
+  # Prima: esegui i test (riusa il workflow CI)
+  # ---------------------------------------------------------------
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  # ---------------------------------------------------------------
+  # Poi: deploya solo se i test passano
+  # ---------------------------------------------------------------
+  deploy:
+    name: Deploy to Production
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            echo "=== Deploy Atlas Platform ==="
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "1. Pull latest code..."
+            git pull origin main
+
+            echo "2. Install dependencies..."
+            npm run install:all
+
+            echo "3. Run database migrations..."
+            cd backend && npm run migrate && cd ..
+
+            echo "4. Build frontend..."
+            npm run build
+
+            echo "5. Reload backend (zero-downtime)..."
+            cd backend && pm2 reload pm2.config.js --env production && cd ..
+
+            echo "6. Health check..."
+            sleep 3
+            HEALTH=$(curl -sf http://localhost:3000/health || echo '{"status":"error"}')
+            echo "Health: $HEALTH"
+
+            if echo "$HEALTH" | grep -q '"status":"ok"'; then
+              echo "=== Deploy completato con successo ==="
+            else
+              echo "=== ATTENZIONE: Health check fallito! ==="
+              pm2 logs atlas-api --lines 20 --nostream
+              exit 1
+            fi
+
+      - name: Notify deploy success
+        if: success()
+        run: echo "Deploy completato su ${{ secrets.DEPLOY_HOST }}"
+
+      - name: Notify deploy failure
+        if: failure()
+        run: echo "::error::Deploy fallito! Controllare i log del server."

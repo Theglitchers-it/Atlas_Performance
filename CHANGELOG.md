@@ -1,7 +1,69 @@
 # CHANGELOG - Atlas Platform
 
 > Questo file traccia tutte le azioni di sviluppo del progetto.
-> Ultimo aggiornamento: 2026-02-16
+> Ultimo aggiornamento: 2026-02-24
+
+---
+
+## [2026-02-24] - Organizzazione Commit + Miglioramenti Backend/Frontend
+
+### 1. CI/CD Pipeline e Configurazione DevOps
+- **`.github/workflows/ci.yml`** — Aggiornata pipeline GitHub Actions (backend tests con MySQL 8.0, frontend build con type-check, timeout configurati)
+- **`.github/dependabot.yml`** — Rimossa configurazione Dependabot
+- **`backend/pm2.config.js`** — Aggiunto file di configurazione PM2 per gestione processi in produzione
+- **`.husky/pre-push`** — Rimosso hook pre-push (mantenuti pre-commit e commit-msg)
+- **`frontend/vite.config.js`** — Aggiornata configurazione Vite build
+- **`frontend/index.html`** — Aggiornato entry point HTML
+
+### 2. Backend Security Hardening e Infrastruttura Server
+- **`backend/src/middlewares/auth.js`** — Migliorata validazione token JWT e controlli ruolo
+- **`backend/src/middlewares/apiKeyAuth.js`** — Rafforzata autenticazione API key
+- **`backend/src/middlewares/upload.js`** — Migliorato filtraggio file con validazione più restrittiva
+- **`backend/src/validators/auth.validator.js`** — Input validation potenziata
+- **`backend/src/validators/booking.validator.js`** — Validazione prenotazioni migliorata
+- **`backend/src/validators/payment.validator.js`** — Validazione pagamenti aggiornata
+- **`backend/src/server.js`** — Configurazione server aggiornata (109 righe modificate)
+- **`backend/src/socket/socketHandler.js`** — Refactor socket handler per stabilità (116 righe modificate)
+- **`backend/src/config/database.js`** — Aggiornate impostazioni connessione DB
+- **`backend/.env.example`** — Aggiornato template variabili ambiente
+
+### 3. Backend Controllers, Services e Routes
+- **Controllers (6 file):** `admin`, `alert`, `analytics`, `auth`, `booking`, `class` — Migliorato error handling, aggiunti endpoint analytics, ottimizzato admin controller
+- **Services (6 file):** `alert`, `analytics`, `auth`, `booking`, `readiness`, `webhook` — Nuovi metodi analytics, miglioramenti webhook e booking service
+- **Routes (10 file):** `admin`, `analytics`, `booking`, `community`, `location`, `measurement`, `payment`, `progress`, `user`, `video` — Aggiornate definizioni route con middleware chain e validazione corretti
+
+### 4. Backend Tests Aggiornati
+- **`tests/alert.service.test.js`** — Aggiornati test alert service
+- **`tests/auth.controller.test.js`** — Aggiunti test per nuovi endpoint auth
+- **`tests/auth.service.test.js`** — Aggiornati test auth service (48 righe modificate)
+- **`tests/class.controller.test.js`** — Allineati test class controller
+- **`tests/security.test.js`** — Aggiornati test sicurezza
+- **`tests/validators.test.js`** — Aggiornati test validatori
+
+### 5. Frontend Auth, Core Services e Composables
+- **Views Auth (3 file):** `LoginView`, `RegisterView`, `ForgotPasswordView` — UX migliorata, validazione form potenziata
+- **Stores (5 file):** `auth`, `booking`, `client`, `payment`, `readiness` — Migliorato error handling e gestione stato
+- **Composables (5 file):** `useAppLifecycle`, `useNetwork`, `useOfflineSync`, `usePushNotifications`, `useSocket` — Aggiornamenti stabilità
+- **`frontend/src/composables/useSlowRequest.ts`** — Nuovo composable per gestione richieste lente
+- **`frontend/src/components/auth/AuthThemeToggle.vue`** — Nuovo componente toggle tema nelle view auth
+- **`frontend/src/services/api.ts`** — Aggiornato API client con interceptor migliorati
+- **`frontend/src/router/index.ts`** — Rimossi route non necessari
+- **`frontend/src/main.ts`** — Aggiornata inizializzazione app
+- **`frontend/src/types/index.ts`** — Aggiornate definizioni TypeScript
+
+### 6. Frontend Views, UI Components e Styling
+- **Views (12 file):** `DashboardView` (+320 righe, nuovi widget), `CalendarView` (+249 righe, booking migliorato), `ClientDetailView` (797 righe refactored), `ClientCheckinView` (+592 righe), `ClientProgressView`, `AnalyticsView`, `ReadinessView`, `VolumeAnalyticsView`, `ChatView`, `SessionsView`, `LandingPage`
+- **Measurements (4 componenti):** `BodyCompositionChart`, `MeasurementComparison`, `MeasurementFormCard`, `MeasurementHistory` — Rebuild completo sezione misurazioni
+- **Layout (2 file):** `AppHeader`, `AppSidebar` — Aggiornamenti navigazione
+- **Mobile:** `BottomNavigation` — Migliorata navigazione mobile
+- **UI Components:** `ChartWidget`, `StatsCard` — Aggiornamenti widget
+- **`frontend/src/assets/main.css`** — +361 righe CSS responsive mobile-first
+
+### Riepilogo Numerico
+- **87 file modificati** in 6 commit organizzati
+- **~3583 righe aggiunte**, **~2128 righe rimosse**
+- **0 file con secret esposti** — `.env` correttamente in `.gitignore`
+- File `nul` (0 KB, artefatto Windows) eliminato dalla root
 
 ---
 
