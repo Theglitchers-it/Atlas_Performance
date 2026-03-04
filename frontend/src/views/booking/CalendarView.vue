@@ -144,6 +144,9 @@ const renderEventContent = (arg: any) => {
   };
 };
 
+// --- Stable format objects (hoisted to avoid triggering FullCalendar resetOptions) ---
+const timeFormat = { hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
+
 // --- FullCalendar options ---
 const calendarOptions = computed((): any => ({
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -151,7 +154,7 @@ const calendarOptions = computed((): any => ({
   locale: "it",
   headerToolbar: false,
   slotMinTime: "07:00:00",
-  slotMaxTime: "21:00:00",
+  slotMaxTime: "22:00:00",
   slotDuration: "00:30:00",
   allDaySlot: false,
   editable: isTrainer.value,
@@ -160,10 +163,10 @@ const calendarOptions = computed((): any => ({
   dayMaxEvents: true,
   weekends: true,
   nowIndicator: true,
-  height: "auto",
+  height: isMobile.value ? "auto" : "calc(100vh - 200px)",
   firstDay: 1,
-  eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
-  slotLabelFormat: { hour: "2-digit", minute: "2-digit", hour12: false },
+  eventTimeFormat: timeFormat,
+  slotLabelFormat: timeFormat,
   events: calendarEvents.value,
   eventContent: renderEventContent,
   select: handleDateSelect,
@@ -206,8 +209,8 @@ const setCalendarView = (view: "day" | "week" | "month") => {
   };
   const api = calendarRef.value?.getApi();
   if (api) {
+    // changeView triggers handleDatesSet which syncs store and fetches appointments
     api.changeView(viewMap[view] || view);
-    activeView.value = view;
     updateTitle();
   }
 };
@@ -337,16 +340,31 @@ const handleEventResize = async (resizeInfo: any) => {
 
 /**
  * Triggered when the visible date range changes (navigation, view switch).
- * Syncs the store currentDate and updates the toolbar title.
+ * Syncs the store currentDate and fetches appointments for the new range.
  */
 const handleDatesSet = (dateInfo: any) => {
   calendarTitle.value = dateInfo.view.title;
+
+  // Sync view type from FullCalendar to store
+  const viewType = dateInfo.view.type;
+  const viewMapReverse: Record<string, "day" | "week" | "month"> = {
+    timeGridDay: "day",
+    timeGridWeek: "week",
+    dayGridMonth: "month",
+  };
+  const mappedView = viewMapReverse[viewType];
+  if (mappedView) {
+    store.currentView = mappedView;
+    activeView.value = mappedView;
+  }
+
   // Sync store currentDate to the middle of the visible range
   const mid = new Date((dateInfo.start.getTime() + dateInfo.end.getTime()) / 2);
   const midStr = mid.toISOString().substring(0, 10);
-  if (store.currentDate !== midStr) {
-    store.currentDate = midStr;
-  }
+  store.currentDate = midStr;
+
+  // Always fetch for the current view/date range
+  store.fetchAppointments();
 };
 
 // --- Helpers ---
@@ -753,15 +771,16 @@ onMounted(() => {
     </div>
 
     <!-- Loading Skeleton -->
-    <CalendarSkeleton v-if="loading && appointments.length === 0" />
-    <p v-if="isSlowRequest && appointments.length === 0" class="text-sm text-habit-text-subtle text-center mt-2">
-      La richiesta sta impiegando piu tempo del previsto...
-    </p>
+    <template v-if="loading && appointments.length === 0">
+      <CalendarSkeleton />
+      <p v-if="isSlowRequest" class="text-sm text-habit-text-subtle text-center mt-2">
+        La richiesta sta impiegando piu tempo del previsto...
+      </p>
+    </template>
 
     <!-- FullCalendar wrapped with PullToRefresh and swipe -->
     <PullToRefresh v-else @refresh="handlePullRefresh">
       <div
-        class="overflow-hidden"
         @touchstart.passive="onCalTouchStart"
         @touchend="onCalTouchEnd"
       >
@@ -1135,6 +1154,23 @@ onMounted(() => {
   --fc-neutral-bg-color: transparent;
   font-family: "Inter", sans-serif;
 }
+/* Restore FullCalendar internal scrollbars hidden by global scrollbar-width: none */
+:deep(.fc .fc-scroller) {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+:deep(.fc .fc-scroller)::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+  height: 6px;
+}
+:deep(.fc .fc-scroller)::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+:deep(.fc .fc-scroller)::-webkit-scrollbar-track {
+  background: transparent;
+}
 :deep(.fc .fc-timegrid-slot) {
   height: 3rem;
 }
@@ -1183,17 +1219,7 @@ onMounted(() => {
   font-weight: 700;
 }
 
-/* Event overflow containment — keep events inside their cells */
-:deep(.fc .fc-timegrid-event) {
-  overflow: hidden;
-  max-width: 100%;
-}
-:deep(.fc .fc-timegrid-event-harness) {
-  overflow: hidden;
-}
-:deep(.fc .fc-timegrid-col-events) {
-  overflow: hidden;
-}
+/* Event text overflow — keep text inside their cells */
 :deep(.fc .fc-event-main) {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1247,12 +1273,8 @@ onMounted(() => {
   :deep(.fc .fc-timegrid-col) {
     min-width: 0;
   }
-  /* Ensure event harness respects column boundaries */
   :deep(.fc .fc-timegrid-col-events) {
     margin: 0 1px;
-  }
-  :deep(.fc .fc-timegrid-event-harness) {
-    overflow: hidden;
   }
 }
 

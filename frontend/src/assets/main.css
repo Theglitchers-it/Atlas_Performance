@@ -69,14 +69,14 @@
     }
 
     /* Scrollbar hidden but functional - Desktop only */
-    /* Exclude .sidebar-scroll so the sidebar can scroll with a thin custom scrollbar */
+    /* Exclude .sidebar-scroll and FullCalendar internal scrollers */
     @media (min-width: 1024px) {
-        *:not(.sidebar-scroll) {
+        *:not(.sidebar-scroll):not(.fc-scroller):not(.fc-scroller-liquid):not(.fc-scroller-liquid-absolute) {
             scrollbar-width: none; /* Firefox */
             -ms-overflow-style: none; /* IE/Edge */
         }
 
-        *:not(.sidebar-scroll)::-webkit-scrollbar {
+        *:not(.sidebar-scroll):not(.fc-scroller):not(.fc-scroller-liquid):not(.fc-scroller-liquid-absolute)::-webkit-scrollbar {
             display: none; /* Chrome/Safari/Opera */
         }
     }

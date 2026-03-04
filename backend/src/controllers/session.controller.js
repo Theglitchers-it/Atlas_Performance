@@ -58,6 +58,33 @@ class SessionController {
         }
     }
 
+    async updateSet(req, res, next) {
+        try {
+            await sessionService.updateSet(
+                parseInt(req.params.id),
+                req.user.tenantId,
+                parseInt(req.params.setId),
+                req.body
+            );
+            res.json({ success: true, message: 'Set aggiornato' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async deleteSet(req, res, next) {
+        try {
+            await sessionService.deleteSet(
+                parseInt(req.params.id),
+                req.user.tenantId,
+                parseInt(req.params.setId)
+            );
+            res.json({ success: true, message: 'Set eliminato' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async complete(req, res, next) {
         try {
             const session = await sessionService.complete(

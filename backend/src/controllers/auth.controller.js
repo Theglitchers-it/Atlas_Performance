@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const authService = require('../services/auth.service');
 const { setAuthCookies, clearAuthCookies } = require('../utils/cookies');
 const { blacklistToken, extractToken } = require('../middlewares/auth');
+const audit = require('../services/audit.service');
 
 class AuthController {
     /**
@@ -28,6 +29,9 @@ class AuthController {
 
             // Set httpOnly cookies
             setAuthCookies(res, result.accessToken, result.refreshToken);
+
+            // req.user is not yet set after registration — pass IDs explicitly
+            audit.log({ req, action: audit.AUDIT_ACTIONS.REGISTER, resourceId: result.user.id, userId: result.user.id, tenantId: result.user.tenantId, details: { email } });
 
             res.status(201).json({
                 success: true,
@@ -52,12 +56,18 @@ class AuthController {
             // Set httpOnly cookies
             setAuthCookies(res, result.accessToken, result.refreshToken);
 
+            // req.user is not yet set after login — pass IDs explicitly
+            audit.log({ req, action: audit.AUDIT_ACTIONS.LOGIN_SUCCESS, resourceId: result.user.id, userId: result.user.id, tenantId: result.user.tenantId, details: { email } });
+
             res.json({
                 success: true,
                 message: 'Login effettuato con successo',
                 data: { user: result.user }
             });
         } catch (error) {
+            if (error.status === 401 || error.status === 429) {
+                audit.log({ req, action: audit.AUDIT_ACTIONS.LOGIN_FAILED, details: { email: req.body?.email, reason: error.message } });
+            }
             next(error);
         }
     }
@@ -118,6 +128,8 @@ class AuthController {
 
             // Clear httpOnly cookies
             clearAuthCookies(res);
+
+            audit.log({ req, action: audit.AUDIT_ACTIONS.LOGOUT, resourceId: req.user?.id });
 
             res.json({
                 success: true,
@@ -185,6 +197,8 @@ class AuthController {
             const { currentPassword, newPassword } = req.body;
 
             await authService.changePassword(req.user.id, currentPassword, newPassword);
+
+            audit.log({ req, action: audit.AUDIT_ACTIONS.PASSWORD_CHANGE, resourceId: req.user.id });
 
             // Clear cookies — forza re-login
             clearAuthCookies(res);

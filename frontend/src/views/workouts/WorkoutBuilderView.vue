@@ -272,7 +272,55 @@ const validateForm = () => {
     errors.value.exercises = "Aggiungi almeno un esercizio alla scheda";
   }
 
+  // Validate each exercise's parameters
+  const exerciseErrors: Record<string, Record<string, string>> = {};
+  workoutExercises.value.forEach((ex, index) => {
+    const errs: Record<string, string> = {};
+
+    const sets = parseInt(ex.sets);
+    if (!ex.sets || isNaN(sets) || sets < 1 || sets > 20) {
+      errs.sets = "Serie obbligatorio (1-20)";
+    }
+
+    const repsMin = parseInt(ex.repsMin);
+    if (!ex.repsMin || isNaN(repsMin) || repsMin < 1 || repsMin > 100) {
+      errs.repsMin = "Rep Min obbligatorio (1-100)";
+    }
+
+    const repsMax = parseInt(ex.repsMax);
+    if (!ex.repsMax || isNaN(repsMax) || repsMax < 1 || repsMax > 100) {
+      errs.repsMax = "Rep Max obbligatorio (1-100)";
+    } else if (!isNaN(repsMin) && repsMax < repsMin) {
+      errs.repsMax = "Rep Max deve essere >= Rep Min";
+    }
+
+    if (ex.weightType !== "bodyweight") {
+      const wv = parseFloat(ex.weightValue);
+      if (ex.weightValue === null || ex.weightValue === "" || isNaN(wv) || wv < 0) {
+        errs.weightValue = "Peso obbligatorio";
+      }
+    }
+
+    const rest = parseInt(ex.restSeconds);
+    if (ex.restSeconds === null || ex.restSeconds === "" || isNaN(rest) || rest < 0 || rest > 600) {
+      errs.restSeconds = "Recupero obbligatorio (0-600)";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      exerciseErrors[index] = errs;
+    }
+  });
+
+  if (Object.keys(exerciseErrors).length > 0) {
+    errors.value.exerciseErrors = exerciseErrors;
+  }
+
   return Object.keys(errors.value).length === 0;
+};
+
+// Helper to get exercise field error
+const getExError = (index: number, field: string): string | undefined => {
+  return errors.value.exerciseErrors?.[index]?.[field];
 };
 
 // Save
@@ -676,43 +724,52 @@ const handleCancel = () => {
                 <!-- Sets -->
                 <div>
                   <label class="block text-xs text-habit-text-subtle mb-1"
-                    >Serie</label
+                    >Serie *</label
                   >
                   <input
                     v-model="exercise.sets"
                     type="number"
                     min="1"
                     max="20"
-                    class="w-full px-3 py-1.5 text-sm border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+                    required
+                    class="w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+                    :class="getExError(index, 'sets') ? 'border-red-500' : 'border-habit-border'"
                   />
+                  <p v-if="getExError(index, 'sets')" class="text-red-500 text-xs mt-0.5">{{ getExError(index, 'sets') }}</p>
                 </div>
                 <!-- Reps Min -->
                 <div>
                   <label class="block text-xs text-habit-text-subtle mb-1"
-                    >Rep Min</label
+                    >Rep Min *</label
                   >
                   <input
                     v-model="exercise.repsMin"
                     type="number"
                     min="1"
                     max="100"
+                    required
                     placeholder="-"
-                    class="w-full px-3 py-1.5 text-sm border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+                    class="w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+                    :class="getExError(index, 'repsMin') ? 'border-red-500' : 'border-habit-border'"
                   />
+                  <p v-if="getExError(index, 'repsMin')" class="text-red-500 text-xs mt-0.5">{{ getExError(index, 'repsMin') }}</p>
                 </div>
                 <!-- Reps Max -->
                 <div>
                   <label class="block text-xs text-habit-text-subtle mb-1"
-                    >Rep Max</label
+                    >Rep Max *</label
                   >
                   <input
                     v-model="exercise.repsMax"
                     type="number"
                     min="1"
                     max="100"
+                    required
                     placeholder="-"
-                    class="w-full px-3 py-1.5 text-sm border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+                    class="w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+                    :class="getExError(index, 'repsMax') ? 'border-red-500' : 'border-habit-border'"
                   />
+                  <p v-if="getExError(index, 'repsMax')" class="text-red-500 text-xs mt-0.5">{{ getExError(index, 'repsMax') }}</p>
                 </div>
                 <!-- Weight Type -->
                 <div>
@@ -742,20 +799,23 @@ const handleCancel = () => {
                 <div v-if="exercise.weightType !== 'bodyweight'">
                   <label class="block text-xs text-habit-text-subtle mb-1">{{
                     getWeightLabel(exercise.weightType)
-                  }}</label>
+                  }} *</label>
                   <input
                     v-model="exercise.weightValue"
                     type="number"
                     min="0"
                     step="0.5"
+                    required
                     :placeholder="getWeightPlaceholder(exercise.weightType)"
-                    class="w-full px-3 py-1.5 text-sm border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+                    class="w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+                    :class="getExError(index, 'weightValue') ? 'border-red-500' : 'border-habit-border'"
                   />
+                  <p v-if="getExError(index, 'weightValue')" class="text-red-500 text-xs mt-0.5">{{ getExError(index, 'weightValue') }}</p>
                 </div>
                 <!-- Rest -->
                 <div>
                   <label class="block text-xs text-habit-text-subtle mb-1"
-                    >Recupero (s)</label
+                    >Recupero (s) *</label
                   >
                   <input
                     v-model="exercise.restSeconds"
@@ -763,8 +823,11 @@ const handleCancel = () => {
                     min="0"
                     max="600"
                     step="15"
-                    class="w-full px-3 py-1.5 text-sm border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+                    required
+                    class="w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+                    :class="getExError(index, 'restSeconds') ? 'border-red-500' : 'border-habit-border'"
                   />
+                  <p v-if="getExError(index, 'restSeconds')" class="text-red-500 text-xs mt-0.5">{{ getExError(index, 'restSeconds') }}</p>
                 </div>
               </div>
 

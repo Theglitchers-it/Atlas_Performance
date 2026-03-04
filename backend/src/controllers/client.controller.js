@@ -5,6 +5,7 @@
 
 const clientService = require('../services/client.service');
 const { query } = require('../config/database');
+const audit = require('../services/audit.service');
 
 class ClientController {
     /**
@@ -85,6 +86,8 @@ class ClientController {
 
             const client = await clientService.getById(result.clientId, req.user.tenantId);
 
+            audit.log({ req, action: audit.AUDIT_ACTIONS.CLIENT_CREATE, resourceId: result.clientId, details: { email: req.body.email, firstName: req.body.firstName, lastName: req.body.lastName } });
+
             res.status(201).json({
                 success: true,
                 message: 'Cliente creato con successo',
@@ -106,6 +109,8 @@ class ClientController {
                 req.body
             );
 
+            audit.log({ req, action: audit.AUDIT_ACTIONS.CLIENT_UPDATE, resourceId: req.params.id, details: { fields: Object.keys(req.body) } });
+
             res.json({
                 success: true,
                 message: 'Cliente aggiornato con successo',
@@ -125,6 +130,8 @@ class ClientController {
                 parseInt(req.params.id),
                 req.user.tenantId
             );
+
+            audit.log({ req, action: audit.AUDIT_ACTIONS.CLIENT_DELETE, resourceId: req.params.id });
 
             res.json({
                 success: true,

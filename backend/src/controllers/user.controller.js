@@ -5,6 +5,7 @@
 
 const userService = require('../services/user.service');
 const { getFileUrl } = require('../middlewares/upload');
+const audit = require('../services/audit.service');
 
 class UserController {
     /**
@@ -57,6 +58,8 @@ class UserController {
         try {
             const user = await userService.create(req.user.tenantId, req.body);
 
+            audit.log({ req, action: audit.AUDIT_ACTIONS.USER_CREATE, resourceId: user.id, details: { email: req.body.email, role: req.body.role } });
+
             res.status(201).json({
                 success: true,
                 message: 'Utente creato con successo',
@@ -78,6 +81,8 @@ class UserController {
                 req.body
             );
 
+            audit.log({ req, action: audit.AUDIT_ACTIONS.USER_UPDATE, resourceId: req.params.id, details: { fields: Object.keys(req.body) } });
+
             res.json({
                 success: true,
                 message: 'Utente aggiornato con successo',
@@ -98,6 +103,8 @@ class UserController {
                 req.user.tenantId,
                 req.user.id
             );
+
+            audit.log({ req, action: audit.AUDIT_ACTIONS.USER_DELETE, resourceId: req.params.id });
 
             res.json({
                 success: true,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useNutritionStore } from "@/store/nutrition";
 import { useToast } from "vue-toastification";
@@ -107,6 +107,7 @@ const handleArchive = async (e: any, planId: any) => {
 
 // Create modal
 const openCreateModal = () => {
+  createFormError.value = "";
   newPlan.value = {
     clientId: filters.value.clientId || null,
     name: "",
@@ -125,8 +126,45 @@ const closeCreateModal = () => {
   showCreateModal.value = false;
 };
 
+const createFormError = ref("");
+
+const todayStr = computed(() => new Date().toLocaleDateString('en-CA'));
+
+// Resetta endDate se startDate la supera
+watch(() => newPlan.value.startDate, (newStart) => {
+  if (newStart && newPlan.value.endDate && newPlan.value.endDate < newStart) {
+    newPlan.value.endDate = "";
+  }
+});
+
 const handleCreatePlan = async () => {
-  if (!newPlan.value.clientId || !newPlan.value.name.trim()) return;
+  createFormError.value = "";
+
+  if (!newPlan.value.clientId) {
+    createFormError.value = "Seleziona un cliente";
+    return;
+  }
+  if (!newPlan.value.name.trim()) {
+    createFormError.value = "Il nome del piano è obbligatorio";
+    return;
+  }
+  if (newPlan.value.name.trim().length < 2) {
+    createFormError.value = "Il nome del piano deve avere almeno 2 caratteri";
+    return;
+  }
+  const today = todayStr.value;
+  if (newPlan.value.startDate && newPlan.value.startDate < today) {
+    createFormError.value = "La data di inizio non può essere nel passato";
+    return;
+  }
+  if (newPlan.value.endDate && newPlan.value.endDate < today) {
+    createFormError.value = "La data di fine non può essere nel passato";
+    return;
+  }
+  if (newPlan.value.startDate && newPlan.value.endDate && newPlan.value.endDate < newPlan.value.startDate) {
+    createFormError.value = "La data di fine deve essere uguale o successiva alla data di inizio";
+    return;
+  }
 
   createLoading.value = true;
   const payload = {
@@ -156,7 +194,7 @@ const handleCreatePlan = async () => {
     toast.success("Piano alimentare creato con successo");
     closeCreateModal();
   } else {
-    toast.error(result.error || "Errore durante la creazione del piano");
+    createFormError.value = result.error || "Errore durante la creazione del piano";
   }
 };
 
@@ -927,6 +965,14 @@ const getStatusClasses = (status: any) => {
             </button>
           </div>
 
+          <!-- Error message -->
+          <div
+            v-if="createFormError"
+            class="bg-red-500/10 border border-red-500/30 rounded-xl p-3"
+          >
+            <p class="text-red-400 text-sm">{{ createFormError }}</p>
+          </div>
+
           <!-- Cliente -->
           <div>
             <label
@@ -972,6 +1018,7 @@ const getStatusClasses = (status: any) => {
               <input
                 v-model="newPlan.startDate"
                 type="date"
+                :min="todayStr"
                 class="w-full px-4 py-2.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text focus:outline-none focus:border-habit-cyan transition-colors"
               />
             </div>
@@ -983,6 +1030,7 @@ const getStatusClasses = (status: any) => {
               <input
                 v-model="newPlan.endDate"
                 type="date"
+                :min="newPlan.startDate || todayStr"
                 class="w-full px-4 py-2.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text focus:outline-none focus:border-habit-cyan transition-colors"
               />
             </div>

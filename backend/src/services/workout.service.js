@@ -117,11 +117,11 @@ class WorkoutService {
                          weight_type, weight_value, rest_seconds, tempo, notes, superset_group, is_warmup)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `, [
-                        templateId, ex.exerciseId, i + 1, ex.sets || 3,
-                        ex.repsMin || null, ex.repsMax || null,
-                        ex.weightType || 'fixed', ex.weightValue || null,
-                        ex.restSeconds || 90, ex.tempo || null, ex.notes || null,
-                        ex.supersetGroup || null, ex.isWarmup || false
+                        templateId, ex.exerciseId, i + 1, ex.sets ?? 3,
+                        ex.repsMin ?? null, ex.repsMax ?? null,
+                        ex.weightType ?? 'fixed', ex.weightValue ?? null,
+                        ex.restSeconds ?? 90, ex.tempo || null, ex.notes || null,
+                        ex.supersetGroup || null, ex.isWarmup ?? false
                     ]);
                 }
             }
@@ -153,7 +153,7 @@ class WorkoutService {
                     updated_at = NOW()
                 WHERE id = ? AND tenant_id = ?
             `, [
-                name, description, category, difficulty, estimatedDurationMin,
+                name ?? null, description ?? null, category ?? null, difficulty ?? null, estimatedDurationMin ?? null,
                 targetMuscles ? JSON.stringify(targetMuscles) : null, id, tenantId
             ]);
 
@@ -169,11 +169,11 @@ class WorkoutService {
                          weight_type, weight_value, rest_seconds, tempo, notes, superset_group, is_warmup)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `, [
-                        id, ex.exerciseId, i + 1, ex.sets || 3,
-                        ex.repsMin || null, ex.repsMax || null,
-                        ex.weightType || 'fixed', ex.weightValue || null,
-                        ex.restSeconds || 90, ex.tempo || null, ex.notes || null,
-                        ex.supersetGroup || null, ex.isWarmup || false
+                        id, ex.exerciseId, i + 1, ex.sets ?? 3,
+                        ex.repsMin ?? null, ex.repsMax ?? null,
+                        ex.weightType ?? 'fixed', ex.weightValue ?? null,
+                        ex.restSeconds ?? 90, ex.tempo || null, ex.notes || null,
+                        ex.supersetGroup || null, ex.isWarmup ?? false
                     ]);
                 }
             }

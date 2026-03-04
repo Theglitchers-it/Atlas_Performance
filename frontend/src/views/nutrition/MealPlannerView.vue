@@ -116,8 +116,8 @@ const startEditPlanInfo = () => {
   if (!plan.value) return;
   planInfoForm.value = {
     name: plan.value.name || "",
-    startDate: plan.value.start_date ? plan.value.start_date.split("T")[0] : "",
-    endDate: plan.value.end_date ? plan.value.end_date.split("T")[0] : "",
+    startDate: plan.value.start_date ? new Date(plan.value.start_date).toLocaleDateString('en-CA') : "",
+    endDate: plan.value.end_date ? new Date(plan.value.end_date).toLocaleDateString('en-CA') : "",
     targetCalories: plan.value.target_calories || null,
     targetProteinG: plan.value.target_protein_g || null,
     targetCarbsG: plan.value.target_carbs_g || null,

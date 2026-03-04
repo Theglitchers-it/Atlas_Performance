@@ -24,6 +24,10 @@ const showCompleteModal = ref(false);
 const showSkipModal = ref(false);
 const saving = ref(false);
 
+// Edit set state
+const editingSetId = ref<number | null>(null);
+const editSetForm = ref<any>({});
+
 // Complete form
 const completeForm = ref({
   overallFeeling: "",
@@ -183,6 +187,68 @@ const formatPrescription = (exercise: any) => {
   if (exercise.prescribed_weight)
     parts.push(`@ ${exercise.prescribed_weight} kg`);
   return parts.join(" ") || "-";
+};
+
+// Check if exercise can accept more sets
+const canAddSet = (exercise: any) => {
+  const prescribed = exercise.prescribed_sets || 0;
+  const logged = exercise.sets?.length || 0;
+  return prescribed === 0 || logged < prescribed;
+};
+
+// Edit set helpers
+const startEditSet = (set: any) => {
+  editingSetId.value = set.id;
+  editSetForm.value = {
+    repsCompleted: set.reps_completed,
+    weightUsed: set.weight_used,
+    rpe: set.rpe,
+    isWarmup: set.is_warmup || false,
+    isFailure: set.is_failure || false,
+    notes: set.notes || "",
+  };
+};
+
+const cancelEditSet = () => {
+  editingSetId.value = null;
+  editSetForm.value = {};
+};
+
+const handleUpdateSet = async (setId: number) => {
+  if (!editSetForm.value.repsCompleted && editSetForm.value.repsCompleted !== 0) return;
+  saving.value = true;
+  const result = await store.updateSet(
+    route.params.id as any,
+    setId,
+    {
+      repsCompleted: parseInt(editSetForm.value.repsCompleted),
+      weightUsed: editSetForm.value.weightUsed ? parseFloat(editSetForm.value.weightUsed) : null,
+      rpe: editSetForm.value.rpe ? parseFloat(editSetForm.value.rpe) : null,
+      isWarmup: editSetForm.value.isWarmup || false,
+      isFailure: editSetForm.value.isFailure || false,
+      notes: editSetForm.value.notes || null,
+    }
+  );
+  if (result.success) {
+    cancelEditSet();
+    _toast.success("Set aggiornato");
+  } else {
+    _toast.error(result.message || "Errore nell'aggiornamento");
+  }
+  saving.value = false;
+};
+
+const handleDeleteSet = async (setId: number) => {
+  saving.value = true;
+  const result = await store.deleteSet(route.params.id as any, setId);
+  if (result.success) {
+    _toast.success("Set eliminato");
+    // Reset forms to recalculate set numbers
+    setForms.value = {};
+  } else {
+    _toast.error(result.message || "Errore nell'eliminazione");
+  }
+  saving.value = false;
 };
 
 // Actions
@@ -639,69 +705,92 @@ onUnmounted(() => {
               :key="set.id"
               class="bg-habit-bg-light/30 border border-habit-border/40 rounded-lg p-3"
             >
-              <div class="flex items-center justify-between mb-1.5">
-                <span class="text-habit-text-subtle font-medium text-xs"
-                  >Set #{{ set.set_number }}</span
-                >
-                <div class="flex items-center gap-2">
-                  <span v-if="set.is_warmup" class="text-yellow-400 text-xs"
-                    >🔥 Warm</span
+              <!-- View mode -->
+              <template v-if="editingSetId !== set.id">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-habit-text-subtle font-medium text-xs"
+                    >Set #{{ set.set_number }}</span
                   >
-                  <span v-if="set.is_failure" class="text-red-400 text-xs"
-                    >⚠ Fail</span
-                  >
+                  <div class="flex items-center gap-2">
+                    <span v-if="set.is_warmup" class="text-yellow-400 text-xs"
+                      >🔥 Warm</span
+                    >
+                    <span v-if="set.is_failure" class="text-red-400 text-xs"
+                      >⚠ Fail</span
+                    >
+                    <template v-if="isInProgress">
+                      <button
+                        @click="startEditSet(set)"
+                        class="p-1 text-habit-text-subtle hover:text-habit-cyan transition-colors"
+                        title="Modifica"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button
+                        @click="handleDeleteSet(set.id)"
+                        :disabled="saving"
+                        class="p-1 text-habit-text-subtle hover:text-red-400 transition-colors"
+                        title="Elimina"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </template>
+                  </div>
                 </div>
-              </div>
-              <div class="grid grid-cols-3 gap-3 text-sm">
-                <div>
-                  <span
-                    class="block text-habit-text-subtle text-[10px] uppercase"
-                    >Reps</span
-                  >
-                  <span class="font-medium text-habit-text">{{
-                    set.reps_completed
-                  }}</span>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span class="block text-habit-text-subtle text-[10px] uppercase">Reps</span>
+                    <span class="font-medium text-habit-text">{{ set.reps_completed }}</span>
+                  </div>
+                  <div>
+                    <span class="block text-habit-text-subtle text-[10px] uppercase">Peso</span>
+                    <span class="text-habit-text-muted">{{ set.weight_used ? `${set.weight_used}kg` : "-" }}</span>
+                  </div>
+                  <div>
+                    <span class="block text-habit-text-subtle text-[10px] uppercase">RPE</span>
+                    <span
+                      v-if="set.rpe"
+                      :class="['font-medium', set.rpe >= 9 ? 'text-red-400' : set.rpe >= 7 ? 'text-yellow-400' : 'text-emerald-400']"
+                    >{{ set.rpe }}</span>
+                    <span v-else class="text-habit-text-subtle">-</span>
+                  </div>
                 </div>
-                <div>
-                  <span
-                    class="block text-habit-text-subtle text-[10px] uppercase"
-                    >Peso</span
-                  >
-                  <span class="text-habit-text-muted">{{
-                    set.weight_used ? `${set.weight_used}kg` : "-"
-                  }}</span>
+                <p v-if="set.notes" class="text-habit-text-subtle text-xs mt-1.5 truncate">{{ set.notes }}</p>
+              </template>
+
+              <!-- Edit mode (mobile) -->
+              <template v-else>
+                <div class="space-y-2">
+                  <span class="text-habit-cyan font-medium text-xs">Modifica Set #{{ set.set_number }}</span>
+                  <div class="grid grid-cols-3 gap-2">
+                    <input v-model.number="editSetForm.repsCompleted" type="number" min="0" placeholder="Reps" class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1.5 text-center text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    <input v-model.number="editSetForm.weightUsed" type="number" min="0" step="0.5" placeholder="kg" class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1.5 text-center text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    <input v-model.number="editSetForm.rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE" class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1.5 text-center text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-1.5 text-xs text-habit-text-muted">
+                      <input v-model="editSetForm.isWarmup" type="checkbox" class="w-4 h-4 rounded border-habit-border bg-habit-bg-light text-yellow-400" /> 🔥 Warmup
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs text-habit-text-muted">
+                      <input v-model="editSetForm.isFailure" type="checkbox" class="w-4 h-4 rounded border-habit-border bg-habit-bg-light text-red-400" /> ⚠ Failure
+                    </label>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input v-model="editSetForm.notes" type="text" placeholder="Note..." class="flex-1 bg-habit-bg-light border border-habit-border rounded px-2 py-1.5 text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    <button @click="cancelEditSet" class="px-3 py-1.5 border border-habit-border text-habit-text-muted rounded text-xs hover:bg-habit-bg-light transition-colors">Annulla</button>
+                    <button @click="handleUpdateSet(set.id)" :disabled="saving" class="px-3 py-1.5 bg-habit-cyan text-white rounded text-xs font-medium hover:bg-cyan-500 disabled:opacity-40 transition-colors">Salva</button>
+                  </div>
                 </div>
-                <div>
-                  <span
-                    class="block text-habit-text-subtle text-[10px] uppercase"
-                    >RPE</span
-                  >
-                  <span
-                    v-if="set.rpe"
-                    :class="[
-                      'font-medium',
-                      set.rpe >= 9
-                        ? 'text-red-400'
-                        : set.rpe >= 7
-                          ? 'text-yellow-400'
-                          : 'text-emerald-400',
-                    ]"
-                    >{{ set.rpe }}</span
-                  >
-                  <span v-else class="text-habit-text-subtle">-</span>
-                </div>
-              </div>
-              <p
-                v-if="set.notes"
-                class="text-habit-text-subtle text-xs mt-1.5 truncate"
-              >
-                {{ set.notes }}
-              </p>
+              </template>
             </div>
 
             <!-- Form inline per nuovo set (mobile) -->
             <div
-              v-if="isInProgress"
+              v-if="isInProgress && canAddSet(exercise) && editingSetId === null"
               class="bg-habit-cyan/5 border border-habit-cyan/20 rounded-lg p-3 space-y-2"
             >
               <span class="text-habit-cyan font-medium text-xs"
@@ -772,6 +861,14 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- Set completi -->
+            <div
+              v-if="isInProgress && !canAddSet(exercise) && editingSetId === null"
+              class="py-3 text-center text-emerald-400 text-xs font-medium"
+            >
+              Tutti i set prescritti completati
+            </div>
+
             <!-- Vuoto -->
             <div
               v-if="
@@ -797,61 +894,85 @@ onUnmounted(() => {
                   <th class="px-4 py-2 text-center font-medium w-16">Warm</th>
                   <th class="px-4 py-2 text-center font-medium w-16">Fail</th>
                   <th class="px-4 py-2 text-left font-medium">Note</th>
+                  <th v-if="isInProgress" class="px-4 py-2 text-center font-medium w-20">Azioni</th>
                 </tr>
               </thead>
               <tbody>
-                <tr
+                <template
                   v-for="set in exercise.sets"
                   :key="set.id"
-                  class="border-t border-habit-border/50 text-habit-text-muted"
                 >
-                  <td class="px-4 py-2 text-left">
-                    <span class="text-habit-text-subtle font-medium"
-                      >#{{ set.set_number }}</span
-                    >
-                  </td>
-                  <td class="px-4 py-2 text-center font-medium text-habit-text">
-                    {{ set.reps_completed }}
-                  </td>
-                  <td class="px-4 py-2 text-center">
-                    {{ set.weight_used ? `${set.weight_used}` : "-" }}
-                  </td>
-                  <td class="px-4 py-2 text-center">
-                    <span
-                      v-if="set.rpe"
-                      :class="[
-                        'font-medium',
-                        set.rpe >= 9
-                          ? 'text-red-400'
-                          : set.rpe >= 7
-                            ? 'text-yellow-400'
-                            : 'text-emerald-400',
-                      ]"
-                      >{{ set.rpe }}</span
-                    >
-                    <span v-else class="text-habit-text-subtle">-</span>
-                  </td>
-                  <td class="px-4 py-2 text-center">
-                    <span v-if="set.is_warmup" class="text-yellow-400 text-xs"
-                      >🔥</span
-                    >
-                    <span v-else class="text-habit-text-subtle">-</span>
-                  </td>
-                  <td class="px-4 py-2 text-center">
-                    <span v-if="set.is_failure" class="text-red-400 text-xs"
-                      >⚠</span
-                    >
-                    <span v-else class="text-habit-text-subtle">-</span>
-                  </td>
-                  <td
-                    class="px-4 py-2 text-left text-habit-text-subtle text-xs truncate max-w-[120px]"
-                  >
-                    {{ set.notes || "" }}
-                  </td>
-                </tr>
+                  <!-- View mode -->
+                  <tr v-if="editingSetId !== set.id" class="border-t border-habit-border/50 text-habit-text-muted">
+                    <td class="px-4 py-2 text-left">
+                      <span class="text-habit-text-subtle font-medium">#{{ set.set_number }}</span>
+                    </td>
+                    <td class="px-4 py-2 text-center font-medium text-habit-text">{{ set.reps_completed }}</td>
+                    <td class="px-4 py-2 text-center">{{ set.weight_used ? `${set.weight_used}` : "-" }}</td>
+                    <td class="px-4 py-2 text-center">
+                      <span v-if="set.rpe" :class="['font-medium', set.rpe >= 9 ? 'text-red-400' : set.rpe >= 7 ? 'text-yellow-400' : 'text-emerald-400']">{{ set.rpe }}</span>
+                      <span v-else class="text-habit-text-subtle">-</span>
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <span v-if="set.is_warmup" class="text-yellow-400 text-xs">🔥</span>
+                      <span v-else class="text-habit-text-subtle">-</span>
+                    </td>
+                    <td class="px-4 py-2 text-center">
+                      <span v-if="set.is_failure" class="text-red-400 text-xs">⚠</span>
+                      <span v-else class="text-habit-text-subtle">-</span>
+                    </td>
+                    <td class="px-4 py-2 text-left text-habit-text-subtle text-xs truncate max-w-[120px]">{{ set.notes || "" }}</td>
+                    <td v-if="isInProgress" class="px-4 py-2 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button @click="startEditSet(set)" class="p-1 text-habit-text-subtle hover:text-habit-cyan transition-colors" title="Modifica">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                        <button @click="handleDeleteSet(set.id)" :disabled="saving" class="p-1 text-habit-text-subtle hover:text-red-400 transition-colors" title="Elimina">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
 
+                  <!-- Edit mode (desktop) -->
+                  <tr v-else class="border-t border-habit-cyan/20 bg-yellow-500/5">
+                    <td class="px-4 py-2 text-left">
+                      <span class="text-habit-cyan font-medium text-xs">#{{ set.set_number }}</span>
+                    </td>
+                    <td class="px-2 py-2">
+                      <input v-model.number="editSetForm.repsCompleted" type="number" min="0" placeholder="Reps" class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1 text-center text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    </td>
+                    <td class="px-2 py-2">
+                      <input v-model.number="editSetForm.weightUsed" type="number" min="0" step="0.5" placeholder="kg" class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1 text-center text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    </td>
+                    <td class="px-2 py-2">
+                      <input v-model.number="editSetForm.rpe" type="number" min="0" max="10" step="0.5" placeholder="RPE" class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1 text-center text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    </td>
+                    <td class="px-2 py-2 text-center">
+                      <input v-model="editSetForm.isWarmup" type="checkbox" class="w-4 h-4 rounded border-habit-border bg-habit-bg-light text-yellow-400" />
+                    </td>
+                    <td class="px-2 py-2 text-center">
+                      <input v-model="editSetForm.isFailure" type="checkbox" class="w-4 h-4 rounded border-habit-border bg-habit-bg-light text-red-400" />
+                    </td>
+                    <td class="px-2 py-2">
+                      <input v-model="editSetForm.notes" type="text" placeholder="Note..." class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1 text-habit-text text-sm focus:border-habit-cyan outline-none" />
+                    </td>
+                    <td class="px-2 py-2 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button @click="cancelEditSet" class="p-1 text-habit-text-subtle hover:text-habit-text transition-colors" title="Annulla">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <button @click="handleUpdateSet(set.id)" :disabled="saving" class="p-1 text-habit-cyan hover:text-cyan-300 disabled:opacity-40 transition-colors" title="Salva">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+
+                <!-- New set form row -->
                 <tr
-                  v-if="isInProgress"
+                  v-if="isInProgress && canAddSet(exercise) && editingSetId === null"
                   class="border-t border-habit-cyan/20 bg-habit-cyan/5"
                 >
                   <td class="px-4 py-2 text-left">
@@ -904,23 +1025,36 @@ onUnmounted(() => {
                     />
                   </td>
                   <td class="px-2 py-2">
-                    <div class="flex items-center gap-1">
-                      <input
-                        v-model="getSetForm(exercise.id).notes"
-                        type="text"
-                        placeholder="Note..."
-                        class="flex-1 bg-habit-bg-light border border-habit-border rounded px-2 py-1 text-habit-text text-sm min-w-[60px] focus:border-habit-cyan focus:ring-1 focus:ring-habit-cyan/50 outline-none"
-                      />
-                      <button
-                        @click="handleLogSet(exercise.id)"
-                        :disabled="
-                          !getSetForm(exercise.id).repsCompleted || saving
-                        "
-                        class="px-3 py-1 bg-habit-cyan text-white rounded text-xs font-medium hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                      >
-                        {{ saving ? "..." : "Salva" }}
-                      </button>
-                    </div>
+                    <input
+                      v-model="getSetForm(exercise.id).notes"
+                      type="text"
+                      placeholder="Note..."
+                      class="w-full bg-habit-bg-light border border-habit-border rounded px-2 py-1 text-habit-text text-sm focus:border-habit-cyan focus:ring-1 focus:ring-habit-cyan/50 outline-none"
+                    />
+                  </td>
+                  <td class="px-2 py-2 text-center">
+                    <button
+                      @click="handleLogSet(exercise.id)"
+                      :disabled="
+                        !getSetForm(exercise.id).repsCompleted || saving
+                      "
+                      class="px-3 py-1 bg-habit-cyan text-white rounded text-xs font-medium hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {{ saving ? "..." : "Salva" }}
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- All sets complete message -->
+                <tr
+                  v-if="isInProgress && !canAddSet(exercise) && editingSetId === null"
+                  class="border-t border-habit-border/50"
+                >
+                  <td
+                    :colspan="isInProgress ? 8 : 7"
+                    class="px-4 py-3 text-center text-emerald-400 text-xs font-medium"
+                  >
+                    Tutti i set prescritti completati
                   </td>
                 </tr>
 

@@ -123,7 +123,7 @@ const startEdit = () => {
     name: program.value.name || "",
     description: program.value.description || "",
     startDate: program.value.start_date
-      ? program.value.start_date.substring(0, 10)
+      ? new Date(program.value.start_date).toLocaleDateString('en-CA')
       : "",
     weeks: program.value.weeks || 4,
     daysPerWeek: program.value.days_per_week || 3,
@@ -676,13 +676,18 @@ watch(
                   class="block text-habit-text-subtle text-xs uppercase tracking-wide mb-1"
                   >Settimana</label
                 >
-                <input
+                <select
                   v-model.number="workoutForm.weekNumber"
-                  type="number"
-                  min="1"
-                  :max="program?.weeks || 52"
                   class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
-                />
+                >
+                  <option
+                    v-for="w in (program?.weeks || 4)"
+                    :key="w"
+                    :value="w"
+                  >
+                    Settimana {{ w }}
+                  </option>
+                </select>
               </div>
               <div>
                 <label

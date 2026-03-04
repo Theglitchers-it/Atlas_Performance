@@ -13,13 +13,13 @@ const startSessionSchema = Joi.object({
 });
 
 const logSetSchema = Joi.object({
-    exerciseId: Joi.number().integer().required(),
+    sessionExerciseId: Joi.number().integer().required(),
     setNumber: Joi.number().integer().min(1).required(),
-    reps: Joi.number().integer().min(0).allow(null),
-    weightKg: Joi.number().min(0).allow(null),
-    durationSeconds: Joi.number().integer().min(0).allow(null),
+    repsCompleted: Joi.number().integer().min(0).allow(null),
+    weightUsed: Joi.number().min(0).allow(null),
     rpe: Joi.number().min(1).max(10).allow(null),
-    restSeconds: Joi.number().integer().min(0).allow(null),
+    isWarmup: Joi.boolean().default(false),
+    isFailure: Joi.boolean().default(false),
     notes: Joi.string().max(500).allow('', null)
 });
 
@@ -29,11 +29,22 @@ const completeSessionSchema = Joi.object({
     rating: Joi.number().integer().min(1).max(5).allow(null),
     perceivedDifficulty: Joi.number().integer().min(1).max(10).allow(null),
     caloriesBurned: Joi.number().integer().min(0).allow(null),
-    avgHeartRate: Joi.number().integer().min(30).max(250).allow(null)
+    avgHeartRate: Joi.number().integer().min(30).max(250).allow(null),
+    overallFeeling: Joi.string().max(500).allow('', null)
+});
+
+const updateSetSchema = Joi.object({
+    repsCompleted: Joi.number().integer().min(0).required(),
+    weightUsed: Joi.number().min(0).allow(null),
+    rpe: Joi.number().min(1).max(10).allow(null),
+    isWarmup: Joi.boolean().default(false),
+    isFailure: Joi.boolean().default(false),
+    notes: Joi.string().max(500).allow('', null)
 });
 
 module.exports = {
     startSessionSchema,
     logSetSchema,
+    updateSetSchema,
     completeSessionSchema
 };

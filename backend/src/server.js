@@ -41,7 +41,7 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
 // Import configurations
-const { connectDB } = require("./config/database");
+const { connectDB, query: dbQuery, closePool } = require("./config/database");
 const { initFirebase } = require("./config/firebase");
 const { initSocket } = require("./socket/socketHandler");
 const cron = require("node-cron");
@@ -94,11 +94,19 @@ const searchRoutes = require("./routes/search.routes");
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// Parse FRONTEND_URL once — used by CORS, Helmet CSP, and Socket.io
 const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
   .split(",")
   .map((url) => url.trim());
+const allowedHosts = allowedOrigins.map((u) => {
+  try {
+    return new URL(u).host;
+  } catch {
+    return "localhost:5173";
+  }
+});
 
+// Initialize Socket.io
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -120,17 +128,6 @@ initFirebase();
 // Request ID for end-to-end tracing
 app.use(requestId);
 
-// Security middlewares
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-const frontendUrls = frontendUrl.split(",").map((u) => u.trim());
-const frontendHosts = frontendUrls.map((u) => {
-  try {
-    return new URL(u).host;
-  } catch {
-    return "localhost:5173";
-  }
-});
-
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -141,8 +138,8 @@ app.use(
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: [
           "'self'",
-          ...frontendHosts.flatMap((h) => [`wss://${h}`, `ws://${h}`]),
-          ...frontendUrls,
+          ...allowedHosts.flatMap((h) => [`wss://${h}`, `ws://${h}`]),
+          ...allowedOrigins,
         ],
         fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
@@ -299,7 +296,7 @@ app.get("/", (req, res) => {
     description: "Piattaforma SaaS per Personal Trainer",
     documentation: "/api",
     health: "/health",
-    frontend: process.env.FRONTEND_URL || "http://localhost:5173",
+    frontend: allowedOrigins[0],
   });
 });
 
@@ -311,7 +308,6 @@ app.get("/health", async (req, res) => {
     environment: process.env.NODE_ENV,
   };
   try {
-    const { query: dbQuery } = require("./config/database");
     await dbQuery("SELECT 1");
     health.database = "connected";
   } catch {
@@ -390,20 +386,6 @@ const startServer = async () => {
     logger.info("Database connesso con successo");
 
     // Auto-migration: ensure required tables and columns exist
-    const { query: dbQuery } = require("./config/database");
-
-    // Stripe events table (idempotency tracking)
-    await dbQuery(`
-            CREATE TABLE IF NOT EXISTS stripe_events (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                event_id VARCHAR(255) NOT NULL UNIQUE,
-                event_type VARCHAR(100) NOT NULL,
-                processed_at DATETIME NOT NULL,
-                INDEX idx_event_id (event_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-    // Account lockout columns on users table
     const safeAlter = async (sql) => {
       try {
         await dbQuery(sql);
@@ -411,16 +393,28 @@ const startServer = async () => {
         if (e.code !== "ER_DUP_FIELDNAME") throw e;
       }
     };
+
+    // Sequential: ALTERs on users table (same-table DDL must not run concurrently)
     await safeAlter(
       "ALTER TABLE users ADD COLUMN failed_login_attempts INT DEFAULT 0",
     );
     await safeAlter("ALTER TABLE users ADD COLUMN locked_until DATETIME NULL");
-    await safeAlter(
-      "ALTER TABLE tenants ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'active'",
-    );
 
-    // Password history table (prevents password reuse)
-    await dbQuery(`
+    // Parallel: independent tables (no FK conflicts with above)
+    await Promise.all([
+      dbQuery(`
+            CREATE TABLE IF NOT EXISTS stripe_events (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                event_id VARCHAR(255) NOT NULL UNIQUE,
+                event_type VARCHAR(100) NOT NULL,
+                processed_at DATETIME NOT NULL,
+                INDEX idx_event_id (event_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `),
+      safeAlter(
+        "ALTER TABLE tenants ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'active'",
+      ),
+      dbQuery(`
             CREATE TABLE IF NOT EXISTS password_history (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
@@ -429,25 +423,27 @@ const startServer = async () => {
                 INDEX idx_user_created (user_id, created_at),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-    // Audit logs table (admin accountability)
-    await dbQuery(`
+        `),
+      dbQuery(`
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id CHAR(36) DEFAULT NULL,
                 user_id INT,
                 action VARCHAR(100) NOT NULL,
-                resource_type VARCHAR(50),
+                resource_type VARCHAR(100),
                 resource_id VARCHAR(100),
                 details JSON,
                 ip_address VARCHAR(45),
                 user_agent VARCHAR(255),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tenant_created (tenant_id, created_at),
                 INDEX idx_action (action),
                 INDEX idx_created (created_at),
-                INDEX idx_user (user_id)
+                INDEX idx_user (user_id),
+                INDEX idx_resource (resource_type, resource_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
+        `),
+    ]);
 
     // Start listening
     server.listen(PORT, () => {
@@ -529,8 +525,6 @@ process.on("uncaughtException", (error) => {
 });
 
 // Graceful shutdown — chiude server, Socket.io, e database pool
-const { closePool } = require("./config/database");
-
 const gracefulShutdown = (signal) => {
   logger.info(`${signal} ricevuto. Chiusura graceful...`);
   server.close(async () => {

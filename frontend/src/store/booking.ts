@@ -29,6 +29,10 @@ export const useBookingStore = defineStore('booking', () => {
     const filters = ref<BookingFilters>({ clientId: null, trainerId: null, status: null })
 
     // Computed
+    const dayDates = computed((): string[] => {
+        return [currentDate.value]
+    })
+
     const weekDates = computed((): string[] => {
         const d = new Date(currentDate.value)
         const day = d.getDay()
@@ -102,7 +106,7 @@ export const useBookingStore = defineStore('booking', () => {
         loading.value = true
         error.value = null
         try {
-            const dates = currentView.value === 'month' ? monthDates.value : weekDates.value
+            const dates = currentView.value === 'month' ? monthDates.value : currentView.value === 'day' ? dayDates.value : weekDates.value
             const startDate = dates[0]
             const endDate = dates[dates.length - 1] + ' 23:59:59'
 
@@ -174,6 +178,8 @@ export const useBookingStore = defineStore('booking', () => {
         const d = new Date(currentDate.value)
         if (currentView.value === 'month') {
             d.setMonth(d.getMonth() - 1)
+        } else if (currentView.value === 'day') {
+            d.setDate(d.getDate() - 1)
         } else {
             d.setDate(d.getDate() - 7)
         }
@@ -185,6 +191,8 @@ export const useBookingStore = defineStore('booking', () => {
         const d = new Date(currentDate.value)
         if (currentView.value === 'month') {
             d.setMonth(d.getMonth() + 1)
+        } else if (currentView.value === 'day') {
+            d.setDate(d.getDate() + 1)
         } else {
             d.setDate(d.getDate() + 7)
         }
@@ -232,7 +240,7 @@ export const useBookingStore = defineStore('booking', () => {
     return {
         appointments, clients, trainers, loading, error,
         currentView, currentDate, filters,
-        weekDates, monthDates, currentMonthLabel, currentWeekLabel,
+        dayDates, weekDates, monthDates, currentMonthLabel, currentWeekLabel,
         fetchClients, fetchTrainers, fetchAppointments,
         createAppointment, updateAppointment, updateStatus, deleteAppointment,
         navigatePrev, navigateNext, goToToday, setView,

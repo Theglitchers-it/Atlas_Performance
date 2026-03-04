@@ -6,29 +6,7 @@
 const { query } = require('../config/database');
 const { createServiceLogger } = require('../config/logger');
 const logger = createServiceLogger('ADMIN');
-
-/**
- * Log admin action to audit_logs table for accountability and compliance.
- */
-const logAdminAction = async (req, action, resourceType, resourceId, details = null) => {
-    try {
-        await query(
-            `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-            [
-                req.user.id,
-                action,
-                resourceType,
-                String(resourceId),
-                details ? JSON.stringify(details) : null,
-                req.ip || req.headers['x-forwarded-for'] || 'unknown',
-                (req.headers['user-agent'] || '').substring(0, 255)
-            ]
-        );
-    } catch (err) {
-        logger.error('Failed to write audit log', { action, error: err.message });
-    }
-};
+const audit = require('../services/audit.service');
 
 /**
  * GET /api/admin/stats
@@ -162,10 +140,7 @@ const updateTenantStatus = async (req, res) => {
         );
 
         // Audit log
-        await logAdminAction(req, 'TENANT_STATUS_CHANGE', 'tenant', id, {
-            old: oldStatus,
-            new: status
-        });
+        audit.log({ req, action: audit.AUDIT_ACTIONS.TENANT_STATUS_CHANGE, resourceId: id, details: { old: oldStatus, new: status } });
 
         res.json({ success: true, message: 'Stato aggiornato' });
     } catch (error) {
@@ -199,10 +174,7 @@ const updateTenantPlan = async (req, res) => {
         );
 
         // Audit log
-        await logAdminAction(req, 'TENANT_PLAN_CHANGE', 'tenant', id, {
-            oldPlan, newPlan: subscription_plan,
-            oldMaxClients, newMaxClients: max_clients || 5
-        });
+        audit.log({ req, action: audit.AUDIT_ACTIONS.TENANT_PLAN_CHANGE, resourceId: id, details: { oldPlan, newPlan: subscription_plan, oldMaxClients, newMaxClients: max_clients || 5 } });
 
         res.json({ success: true, message: 'Piano aggiornato' });
     } catch (error) {

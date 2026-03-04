@@ -269,8 +269,9 @@ router.get('/audit-logs', async (req, res) => {
             params.push(action);
         }
         if (search) {
+            const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
             conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            params.push(`%${sanitizedSearch}%`, `%${sanitizedSearch}%`, `%${sanitizedSearch}%`);
         }
 
         const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';

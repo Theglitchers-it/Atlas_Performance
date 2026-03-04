@@ -10,8 +10,23 @@ import type { Socket } from "socket.io-client";
 import { useAuthStore } from "@/store/auth";
 
 let socketInstance: Socket | null = null;
+let socketRefCount = 0;
 const isConnected = ref<boolean>(false);
 const connectionError = ref<string | null>(null);
+
+const apiUrl: string =
+  import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+
+function releaseSocket(): void {
+  if (socketRefCount <= 0) return;
+  socketRefCount--;
+  if (socketRefCount === 0 && socketInstance) {
+    socketInstance.removeAllListeners();
+    socketInstance.disconnect();
+    socketInstance = null;
+    isConnected.value = false;
+  }
+}
 
 interface UseSocketReturn {
   // State
@@ -51,6 +66,8 @@ interface UseSocketReturn {
  */
 export function useSocket(): UseSocketReturn {
   const authStore = useAuthStore();
+  socketRefCount++;
+  let released = false;
 
   /**
    * Connetti al server WebSocket
@@ -100,11 +117,9 @@ export function useSocket(): UseSocketReturn {
    * Disconnetti dal server
    */
   const disconnect = (): void => {
-    if (socketInstance) {
-      socketInstance.removeAllListeners();
-      socketInstance.disconnect();
-      socketInstance = null;
-      isConnected.value = false;
+    if (!released) {
+      released = true;
+      releaseSocket();
     }
   };
 
@@ -212,8 +227,6 @@ export function useSocket(): UseSocketReturn {
       const registration = await navigator.serviceWorker.ready;
 
       // Ottieni VAPID public key dal backend
-      const apiUrl: string =
-        import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
       const response = await fetch(`${apiUrl}/notifications/vapid-key`, {
         credentials: "include", // Invia cookies httpOnly
       });
@@ -276,8 +289,6 @@ export function useSocket(): UseSocketReturn {
       if (subscription) {
         await subscription.unsubscribe();
 
-        const apiUrl: string =
-          import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
         await fetch(`${apiUrl}/notifications/device-token`, {
           method: "DELETE",
           credentials: "include", // Invia cookies httpOnly
@@ -297,13 +308,11 @@ export function useSocket(): UseSocketReturn {
     }
   };
 
-  // Auto-cleanup on unmount — rimuovi listener e disconnetti se nessun altro usa il socket
+  // Auto-cleanup on unmount — disconnetti solo se nessun altro componente usa il socket
   onUnmounted(() => {
-    if (socketInstance) {
-      socketInstance.removeAllListeners();
-      socketInstance.disconnect();
-      socketInstance = null;
-      isConnected.value = false;
+    if (!released) {
+      released = true;
+      releaseSocket();
     }
   });
 

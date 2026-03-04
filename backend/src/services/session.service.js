@@ -152,6 +152,39 @@ class SessionService {
     }
 
     /**
+     * Aggiorna set esistente
+     */
+    async updateSet(sessionId, tenantId, setId, setData) {
+        const { repsCompleted, weightUsed, rpe, isWarmup, isFailure, notes } = setData;
+
+        // Verify session belongs to tenant
+        await this.getById(sessionId, tenantId);
+
+        await query(`
+            UPDATE exercise_set_logs SET
+                reps_completed = ?,
+                weight_used = ?,
+                rpe = ?,
+                is_warmup = ?,
+                is_failure = ?,
+                notes = ?
+            WHERE id = ?
+        `, [repsCompleted, weightUsed ?? null, rpe ?? null, isWarmup ?? false, isFailure ?? false, notes ?? null, setId]);
+
+        return { success: true };
+    }
+
+    /**
+     * Elimina set
+     */
+    async deleteSet(sessionId, tenantId, setId) {
+        await this.getById(sessionId, tenantId);
+
+        const result = await query('DELETE FROM exercise_set_logs WHERE id = ?', [setId]);
+        return result.affectedRows > 0;
+    }
+
+    /**
      * Completa sessione
      */
     async complete(sessionId, tenantId, completionData = {}) {

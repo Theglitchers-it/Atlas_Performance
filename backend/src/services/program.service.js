@@ -134,7 +134,7 @@ class ProgramService {
                 days_per_week = COALESCE(?, days_per_week),
                 status = COALESCE(?, status)
             WHERE id = ? AND tenant_id = ?
-        `, [name, description, startDate, endDate, weeks, daysPerWeek, status, programId, tenantId]);
+        `, [name ?? null, description ?? null, startDate ?? null, endDate ?? null, weeks ?? null, daysPerWeek ?? null, status ?? null, programId, tenantId]);
 
         return this.getById(programId, tenantId);
     }

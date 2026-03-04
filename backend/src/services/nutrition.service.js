@@ -175,8 +175,8 @@ class NutritionService {
                  status = COALESCE(?, status),
                  notes = COALESCE(?, notes)
              WHERE id = ? AND tenant_id = ?`,
-            [name, startDate, endDate, targetCalories, targetProteinG,
-             targetCarbsG, targetFatG, status, notes, planId, tenantId]
+            [name ?? null, startDate ?? null, endDate ?? null, targetCalories ?? null, targetProteinG ?? null,
+             targetCarbsG ?? null, targetFatG ?? null, status ?? null, notes ?? null, planId, tenantId]
         );
 
         return { id: planId };

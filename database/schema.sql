@@ -361,21 +361,22 @@ CREATE TABLE IF NOT EXISTS ai_interaction_logs (
 -- 19. Audit Logs
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id CHAR(36) NOT NULL,
+    tenant_id CHAR(36) DEFAULT NULL,
     user_id INT DEFAULT NULL,
     action VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(100) DEFAULT NULL,
-    entity_id INT DEFAULT NULL,
-    old_values JSON DEFAULT NULL,
-    new_values JSON DEFAULT NULL,
+    resource_type VARCHAR(100) DEFAULT NULL,
+    resource_id VARCHAR(100) DEFAULT NULL,
+    details JSON DEFAULT NULL,
     ip_address VARCHAR(45) DEFAULT NULL,
-    user_agent TEXT DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    user_agent VARCHAR(255) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_audit_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     CONSTRAINT fk_audit_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_tenant_created (tenant_id, created_at),
-    INDEX idx_entity (entity_type, entity_id),
-    INDEX idx_action (action)
+    INDEX idx_resource (resource_type, resource_id),
+    INDEX idx_action (action),
+    INDEX idx_created (created_at),
+    INDEX idx_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 20. Calendar Tokens (OAuth Google/Outlook)

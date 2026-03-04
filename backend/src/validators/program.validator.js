@@ -10,7 +10,7 @@ const createProgramSchema = Joi.object({
     description: Joi.string().max(2000).allow('', null),
     clientId: Joi.number().integer().required()
         .messages({ 'any.required': 'Cliente obbligatorio' }),
-    durationWeeks: Joi.number().integer().min(1).max(52).allow(null),
+    weeks: Joi.number().integer().min(1).max(52).allow(null),
     daysPerWeek: Joi.number().integer().min(1).max(7).allow(null),
     goal: Joi.string().valid(
         'weight_loss', 'muscle_gain', 'strength', 'endurance',
@@ -25,7 +25,7 @@ const createProgramSchema = Joi.object({
 const updateProgramSchema = Joi.object({
     name: Joi.string().min(2).max(255),
     description: Joi.string().max(2000).allow('', null),
-    durationWeeks: Joi.number().integer().min(1).max(52).allow(null),
+    weeks: Joi.number().integer().min(1).max(52).allow(null),
     daysPerWeek: Joi.number().integer().min(1).max(7).allow(null),
     goal: Joi.string().valid(
         'weight_loss', 'muscle_gain', 'strength', 'endurance',
@@ -42,7 +42,7 @@ const updateStatusSchema = Joi.object({
 });
 
 const addWorkoutSchema = Joi.object({
-    workoutTemplateId: Joi.number().integer().required(),
+    templateId: Joi.number().integer().required(),
     dayOfWeek: Joi.number().integer().min(1).max(7).required(),
     weekNumber: Joi.number().integer().min(1).allow(null),
     notes: Joi.string().max(500).allow('', null)

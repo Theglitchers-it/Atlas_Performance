@@ -8,7 +8,7 @@ const router = express.Router();
 const sessionController = require('../controllers/session.controller');
 const { verifyToken, requireRole } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
-const { startSessionSchema, logSetSchema, completeSessionSchema } = require('../validators/session.validator');
+const { startSessionSchema, logSetSchema, updateSetSchema, completeSessionSchema } = require('../validators/session.validator');
 
 router.use(verifyToken);
 
@@ -157,6 +157,56 @@ router.post('/', validate(startSessionSchema), sessionController.start);
  *         description: Sessione non trovata
  */
 router.post('/:id/set', validate(logSetSchema), sessionController.logSet);
+
+/**
+ * @swagger
+ * /sessions/{id}/set/{setId}:
+ *   put:
+ *     tags: [Sessions]
+ *     summary: Aggiorna un set nella sessione
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: setId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Set aggiornato
+ */
+router.put('/:id/set/:setId', validate(updateSetSchema), sessionController.updateSet);
+
+/**
+ * @swagger
+ * /sessions/{id}/set/{setId}:
+ *   delete:
+ *     tags: [Sessions]
+ *     summary: Elimina un set dalla sessione
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: setId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Set eliminato
+ */
+router.delete('/:id/set/:setId', sessionController.deleteSet);
 
 /**
  * @swagger

@@ -4,7 +4,9 @@
  */
 
 const apiKeyService = require('../services/apiKey.service');
+const { query } = require('../config/database');
 const { createServiceLogger } = require('../config/logger');
+const { getClientIp, getUserAgent } = require('../utils/request');
 const logger = createServiceLogger('API_KEY_AUTH');
 
 /**
@@ -170,8 +172,6 @@ const logApiRequest = async (req, res, next) => {
         // Log asincrono (non blocca la risposta)
         setImmediate(async () => {
             try {
-                const { query } = require('../config/database');
-
                 await query(
                     `INSERT INTO api_logs
                     (api_key_id, tenant_id, endpoint, method, status_code, response_time_ms, ip_address, user_agent, created_at)
@@ -183,8 +183,8 @@ const logApiRequest = async (req, res, next) => {
                         req.method,
                         res.statusCode,
                         responseTime,
-                        req.ip || req.connection.remoteAddress,
-                        req.get('user-agent')
+                        getClientIp(req),
+                        getUserAgent(req)
                     ]
                 );
             } catch (error) {

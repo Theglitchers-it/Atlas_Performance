@@ -6,14 +6,20 @@ const Joi = require('joi');
 
 const exerciseItemSchema = Joi.object({
     exerciseId: Joi.number().integer().required(),
-    sets: Joi.number().integer().min(1).max(20).allow(null),
-    reps: Joi.string().max(50).allow('', null),
-    durationSeconds: Joi.number().integer().min(0).allow(null),
-    restSeconds: Joi.number().integer().min(0).max(600).allow(null),
-    weightKg: Joi.number().min(0).allow(null),
-    rpe: Joi.number().min(1).max(10).allow(null),
+    sets: Joi.number().integer().min(1).max(20).required(),
+    repsMin: Joi.number().integer().min(1).max(100).required(),
+    repsMax: Joi.number().integer().min(1).max(100).required(),
+    weightType: Joi.string().valid('fixed', 'percentage_1rm', 'rpe', 'bodyweight').required(),
+    weightValue: Joi.when('weightType', {
+        is: 'bodyweight',
+        then: Joi.number().allow(null),
+        otherwise: Joi.number().min(0).required()
+    }),
+    restSeconds: Joi.number().integer().min(0).max(600).required(),
+    tempo: Joi.string().max(50).allow('', null),
     notes: Joi.string().max(500).allow('', null),
-    exerciseOrder: Joi.number().integer().min(0)
+    supersetGroup: Joi.number().integer().min(1).max(10).allow(null),
+    isWarmup: Joi.boolean().default(false)
 });
 
 const createWorkoutSchema = Joi.object({
@@ -22,11 +28,12 @@ const createWorkoutSchema = Joi.object({
     description: Joi.string().max(1000).allow('', null),
     category: Joi.string().valid(
         'strength', 'hypertrophy', 'endurance', 'flexibility',
-        'cardio', 'hiit', 'functional', 'rehabilitation', 'other'
+        'cardio', 'hiit', 'functional', 'rehabilitation',
+        'power', 'conditioning', 'recovery', 'custom', 'other'
     ).allow(null),
-    difficultyLevel: Joi.string().valid('beginner', 'intermediate', 'advanced', 'elite').allow(null),
-    estimatedDurationMinutes: Joi.number().integer().min(5).max(300).allow(null),
-    exercises: Joi.array().items(exerciseItemSchema),
+    difficulty: Joi.string().valid('beginner', 'intermediate', 'advanced', 'elite').allow(null),
+    estimatedDurationMin: Joi.number().integer().min(1).max(300).allow(null),
+    exercises: Joi.array().items(exerciseItemSchema).min(1).required(),
     tags: Joi.array().items(Joi.string().max(50)),
     isPublic: Joi.boolean().default(false)
 });
@@ -36,11 +43,12 @@ const updateWorkoutSchema = Joi.object({
     description: Joi.string().max(1000).allow('', null),
     category: Joi.string().valid(
         'strength', 'hypertrophy', 'endurance', 'flexibility',
-        'cardio', 'hiit', 'functional', 'rehabilitation', 'other'
+        'cardio', 'hiit', 'functional', 'rehabilitation',
+        'power', 'conditioning', 'recovery', 'custom', 'other'
     ).allow(null),
-    difficultyLevel: Joi.string().valid('beginner', 'intermediate', 'advanced', 'elite').allow(null),
-    estimatedDurationMinutes: Joi.number().integer().min(5).max(300).allow(null),
-    exercises: Joi.array().items(exerciseItemSchema),
+    difficulty: Joi.string().valid('beginner', 'intermediate', 'advanced', 'elite').allow(null),
+    estimatedDurationMin: Joi.number().integer().min(1).max(300).allow(null),
+    exercises: Joi.array().items(exerciseItemSchema).min(1),
     tags: Joi.array().items(Joi.string().max(50)),
     isPublic: Joi.boolean()
 });

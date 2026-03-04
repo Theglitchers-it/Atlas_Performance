@@ -311,6 +311,36 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     /**
+     * Aggiorna un set esistente
+     */
+    const updateSet = async (sessionId: number, setId: number, setData: Record<string, any>): Promise<ActionResult> => {
+        error.value = null
+        try {
+            await api.put(`/sessions/${sessionId}/set/${setId}`, setData)
+            await fetchSessionById(sessionId)
+            return { success: true }
+        } catch (err: any) {
+            error.value = err.response?.data?.message || 'Errore nell\'aggiornamento del set'
+            return { success: false, message: error.value as string }
+        }
+    }
+
+    /**
+     * Elimina un set
+     */
+    const deleteSet = async (sessionId: number, setId: number): Promise<ActionResult> => {
+        error.value = null
+        try {
+            await api.delete(`/sessions/${sessionId}/set/${setId}`)
+            await fetchSessionById(sessionId)
+            return { success: true }
+        } catch (err: any) {
+            error.value = err.response?.data?.message || 'Errore nell\'eliminazione del set'
+            return { success: false, message: error.value as string }
+        }
+    }
+
+    /**
      * Completa sessione
      */
     const completeSession = async (sessionId: number, data: Record<string, any>): Promise<ActionResult> => {
@@ -383,6 +413,8 @@ export const useSessionStore = defineStore('session', () => {
         // Detail actions
         fetchSessionById,
         logSet,
+        updateSet,
+        deleteSet,
         completeSession,
         clearCurrentSession
     }

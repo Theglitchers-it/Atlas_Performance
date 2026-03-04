@@ -6,31 +6,60 @@ const Joi = require('joi');
 
 const createMealPlanSchema = Joi.object({
     name: Joi.string().min(2).max(255).required()
-        .messages({ 'any.required': 'Nome piano obbligatorio' }),
+        .messages({
+            'any.required': 'Nome piano obbligatorio',
+            'string.min': 'Il nome del piano deve avere almeno 2 caratteri',
+            'string.max': 'Il nome del piano non può superare i 255 caratteri',
+            'string.empty': 'Nome piano obbligatorio'
+        }),
     clientId: Joi.number().integer().required()
         .messages({ 'any.required': 'Cliente obbligatorio' }),
-    dailyCaloriesTarget: Joi.number().integer().min(500).max(10000).allow(null),
-    proteinTargetG: Joi.number().min(0).allow(null),
-    carbsTargetG: Joi.number().min(0).allow(null),
-    fatTargetG: Joi.number().min(0).allow(null),
-    startDate: Joi.date().allow(null),
-    endDate: Joi.date().allow(null),
+    targetCalories: Joi.number().integer().min(0).max(10000).allow(null),
+    targetProteinG: Joi.number().min(0).allow(null),
+    targetCarbsG: Joi.number().min(0).allow(null),
+    targetFatG: Joi.number().min(0).allow(null),
+    startDate: Joi.date().min('now').allow(null, '').messages({
+        'date.min': 'La data di inizio non può essere nel passato'
+    }),
+    endDate: Joi.date().min('now').allow(null, '').messages({
+        'date.min': 'La data di fine non può essere nel passato'
+    }),
     notes: Joi.string().max(2000).allow('', null)
+}).custom((value) => {
+    if (value.startDate && value.endDate && value.endDate < value.startDate) {
+        throw new Error('La data di fine deve essere uguale o successiva alla data di inizio');
+    }
+    return value;
 });
 
 const updateMealPlanSchema = Joi.object({
-    name: Joi.string().min(2).max(255),
-    dailyCaloriesTarget: Joi.number().integer().min(500).max(10000).allow(null),
-    proteinTargetG: Joi.number().min(0).allow(null),
-    carbsTargetG: Joi.number().min(0).allow(null),
-    fatTargetG: Joi.number().min(0).allow(null),
-    startDate: Joi.date().allow(null),
-    endDate: Joi.date().allow(null),
+    name: Joi.string().min(2).max(255)
+        .messages({
+            'string.min': 'Il nome del piano deve avere almeno 2 caratteri',
+            'string.max': 'Il nome del piano non può superare i 255 caratteri'
+        }),
+    targetCalories: Joi.number().integer().min(0).max(10000).allow(null),
+    targetProteinG: Joi.number().min(0).allow(null),
+    targetCarbsG: Joi.number().min(0).allow(null),
+    targetFatG: Joi.number().min(0).allow(null),
+    startDate: Joi.date().min('now').allow(null, '').messages({
+        'date.min': 'La data di inizio non può essere nel passato'
+    }),
+    endDate: Joi.date().min('now').allow(null, '').messages({
+        'date.min': 'La data di fine non può essere nel passato'
+    }),
+    status: Joi.string().valid('draft', 'active', 'archived').allow(null),
     notes: Joi.string().max(2000).allow('', null)
+}).custom((value) => {
+    if (value.startDate && value.endDate && value.endDate < value.startDate) {
+        throw new Error('La data di fine deve essere uguale o successiva alla data di inizio');
+    }
+    return value;
 });
 
 const addPlanDaySchema = Joi.object({
-    dayOfWeek: Joi.number().integer().min(1).max(7).required(),
+    dayNumber: Joi.number().integer().min(1).max(7).required(),
+    dayName: Joi.string().max(255).allow('', null),
     notes: Joi.string().max(500).allow('', null)
 });
 
