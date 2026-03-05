@@ -63,7 +63,7 @@ onMounted(async () => {
         </p>
       </div>
       <router-link
-        to="/gamification"
+        to="/insights?tab=gamification"
         class="px-3 py-2 rounded-habit text-xs font-medium bg-habit-card border border-habit-border text-habit-text-subtle hover:text-habit-text hover:border-habit-cyan transition"
       >
         &larr; Gamification

@@ -138,7 +138,7 @@ const priorityClassMap: Record<string, string> = {
 </script>
 
 <template>
-  <div class="min-h-screen bg-habit-bg space-y-3 sm:space-y-5">
+  <div class="space-y-3 sm:space-y-5">
     <!-- Header -->
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">

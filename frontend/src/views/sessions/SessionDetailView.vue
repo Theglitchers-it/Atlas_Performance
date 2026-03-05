@@ -316,7 +316,7 @@ const handleSkip = async () => {
 };
 
 const goBack = () => {
-  router.push("/sessions");
+  router.push("/programs?tab=sessioni");
 };
 
 // Lifecycle

@@ -643,7 +643,7 @@ onMounted(() => {
         </div>
 
         <!-- Program Completion Doughnut (1/3) -->
-        <div>
+        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit overflow-hidden">
           <ChartWidget
             type="doughnut"
             title="Stato Programmi"
@@ -663,11 +663,12 @@ onMounted(() => {
             }"
             :loading="loading"
             :height="isMobile ? '200px' : '320px'"
+            class="!border-0 !rounded-none"
           />
           <!-- Summary below chart -->
           <div
             v-if="programCompletion.length > 0"
-            class="bg-habit-card border border-habit-border border-t-0 rounded-b-xl sm:rounded-b-habit px-4 sm:px-6 pb-3 sm:pb-4 -mt-px"
+            class="px-4 sm:px-6 pb-3 sm:pb-4"
           >
             <p
               class="text-habit-text-subtle text-xs pt-3 border-t border-habit-border"

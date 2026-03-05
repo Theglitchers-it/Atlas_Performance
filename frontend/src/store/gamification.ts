@@ -42,6 +42,7 @@ export const useGamificationStore = defineStore('gamification', () => {
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
   const selectedClientId = ref<number | null>(null)
+  const isTrainerMode = ref<boolean>(false)
   const clients = ref<Client[]>([])
   const manageableTitles = ref<Title[]>([])
 
@@ -239,8 +240,8 @@ export const useGamificationStore = defineStore('gamification', () => {
     loading.value = true
     error.value = null
     try {
-      // Se nessun client selezionato (trainer senza selezione), non fare chiamate che richiedono clientId
-      if (!selectedClientId.value) {
+      // Se trainer senza client selezionato, non fare chiamate
+      if (isTrainerMode.value && !selectedClientId.value) {
         dashboard.value = null
         recentXPActivity.value = []
         activeChallengesPreview.value = []
@@ -263,6 +264,7 @@ export const useGamificationStore = defineStore('gamification', () => {
   }
 
   const initialize = async (isTrainer: boolean = false): Promise<void> => {
+    isTrainerMode.value = isTrainer
     if (isTrainer) {
       await fetchClients()
     }

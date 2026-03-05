@@ -166,7 +166,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-6xl mx-auto">
+  <div class="max-w-6xl mx-auto">
     <!-- Header -->
     <div
       class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
@@ -338,23 +338,12 @@ onMounted(async () => {
       </div>
 
       <!-- Ultimi Obiettivi Sbloccati -->
-      <div class="mb-6">
+      <div v-if="gamification.recentAchievements.length > 0" class="mb-6">
         <h2 class="text-lg font-semibold text-habit-text mb-3">
           Ultimi Obiettivi Sbloccati
         </h2>
 
         <div
-          v-if="gamification.recentAchievements.length === 0"
-          class="bg-habit-card rounded-habit border border-habit-border p-8 text-center"
-        >
-          <div class="text-3xl mb-2">&#127942;</div>
-          <p class="text-habit-text-subtle text-sm">
-            Nessun obiettivo sbloccato ancora. Inizia ad allenarti!
-          </p>
-        </div>
-
-        <div
-          v-else
           class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3"
         >
           <div
@@ -396,21 +385,12 @@ onMounted(async () => {
       </div>
 
       <!-- Obiettivi per Categoria -->
-      <div class="mb-6">
+      <div v-if="gamification.achievementsByCategory.length > 0" class="mb-6">
         <h2 class="text-lg font-semibold text-habit-text mb-3">
           Obiettivi per Categoria
         </h2>
 
-        <div
-          v-if="gamification.achievementsByCategory.length === 0"
-          class="bg-habit-card rounded-habit border border-habit-border p-8 text-center"
-        >
-          <p class="text-habit-text-subtle text-sm">
-            Nessun obiettivo disponibile
-          </p>
-        </div>
-
-        <div v-else class="flex flex-wrap justify-center gap-3">
+        <div class="flex flex-wrap justify-center gap-3">
           <div
             v-for="cat in gamification.achievementsByCategory"
             :key="cat.category"
@@ -456,10 +436,10 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Sfide in Corso + Attivita XP (2 colonne) -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Sfide in Corso + Attivita XP -->
+      <div v-if="gamification.activeChallengesPreview.length > 0 || gamification.recentXPActivity.length > 0" class="grid grid-cols-1 gap-6 mb-6" :class="gamification.activeChallengesPreview.length > 0 && gamification.recentXPActivity.length > 0 ? 'lg:grid-cols-2' : ''">
         <!-- Sfide in Corso -->
-        <div>
+        <div v-if="gamification.activeChallengesPreview.length > 0">
           <div class="flex justify-between items-center mb-3">
             <h2 class="text-lg font-semibold text-habit-text">
               Sfide in Corso
@@ -471,21 +451,7 @@ onMounted(async () => {
             >
           </div>
 
-          <div
-            v-if="gamification.activeChallengesPreview.length === 0"
-            class="bg-habit-card rounded-habit border border-habit-border p-6 text-center"
-          >
-            <div class="text-3xl mb-2">&#127919;</div>
-            <p class="text-habit-text-subtle text-sm">Nessuna sfida attiva</p>
-            <router-link
-              to="/challenges"
-              class="inline-block mt-3 text-xs text-habit-cyan hover:underline"
-            >
-              Scopri le sfide
-            </router-link>
-          </div>
-
-          <div v-else class="space-y-3">
+          <div class="space-y-3">
             <div
               v-for="ch in gamification.activeChallengesPreview"
               :key="ch.id"
@@ -539,23 +505,12 @@ onMounted(async () => {
         </div>
 
         <!-- Attivita XP Recente -->
-        <div>
+        <div v-if="gamification.recentXPActivity.length > 0">
           <h2 class="text-lg font-semibold text-habit-text mb-3">
             Attivita XP Recente
           </h2>
 
           <div
-            v-if="gamification.recentXPActivity.length === 0"
-            class="bg-habit-card rounded-habit border border-habit-border p-6 text-center"
-          >
-            <div class="text-3xl mb-2">&#9889;</div>
-            <p class="text-habit-text-subtle text-sm">
-              Nessuna attivita XP registrata
-            </p>
-          </div>
-
-          <div
-            v-else
             class="bg-habit-card rounded-habit border border-habit-border divide-y divide-habit-border"
           >
             <div
@@ -595,8 +550,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Titoli e Progressi (2 colonne) -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Titoli e Progressi -->
+      <div v-if="gamification.titles.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- TitleShowcase -->
         <TitleShowcase
           :titles="gamification.titles as any[]"

@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import type { RouteParams } from "vue-router";
 import { HomeIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
+import { useAuthStore } from "@/store/auth";
 
 interface BreadcrumbMeta {
   label: string | ((params: RouteParams) => string);
@@ -16,6 +17,9 @@ interface BreadcrumbItem {
 }
 
 const route = useRoute();
+const auth = useAuthStore();
+
+const homePath = computed(() => auth.user?.role === 'client' ? '/my-dashboard' : '/');
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {
   const meta = route.meta?.breadcrumb as BreadcrumbMeta[] | undefined;
@@ -40,9 +44,9 @@ const hasBreadcrumbs = computed(() => breadcrumbs.value.length > 0);
   >
     <!-- Home -->
     <router-link
-      to="/"
+      :to="homePath"
       class="text-habit-text-subtle hover:text-habit-orange transition-colors duration-200"
-      aria-label="Dashboard"
+      aria-label="Home"
     >
       <HomeIcon class="w-4 h-4" />
     </router-link>

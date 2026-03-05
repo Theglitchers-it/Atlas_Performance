@@ -141,9 +141,11 @@ api.interceptors.response.use(
             }
         }
 
-        // Generic 401 - redirect to login (only if not already on login page)
+        // Generic 401 - redirect to login
+        // Skip for /auth/me — checkAuth() handles this gracefully in the auth store
         if (error.response?.status === 401) {
-            if (router.currentRoute.value.name !== 'Login') {
+            const reqUrl = originalRequest.url || '';
+            if (!reqUrl.endsWith('/auth/me') && router.currentRoute.value.name !== 'Login') {
                 router.push({ name: 'Login' })
             }
         }

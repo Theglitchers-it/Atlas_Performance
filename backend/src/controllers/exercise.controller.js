@@ -11,6 +11,7 @@ class ExerciseController {
                 category: req.query.category,
                 difficulty: req.query.difficulty,
                 muscleGroup: req.query.muscleGroup ? parseInt(req.query.muscleGroup) : null,
+                equipment: req.query.equipment || null,
                 search: req.query.search,
                 page: parseInt(req.query.page) || 1,
                 limit: parseInt(req.query.limit) || 50

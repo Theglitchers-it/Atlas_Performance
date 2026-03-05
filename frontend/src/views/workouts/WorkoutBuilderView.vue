@@ -94,6 +94,16 @@ onMounted(async () => {
   if (isEditMode.value) {
     await loadTemplate();
   }
+  // Auto-add exercise from library (?addExercise=ID)
+  const addExerciseId = route.query.addExercise;
+  if (addExerciseId && !isEditMode.value) {
+    try {
+      const result = await exerciseStore.fetchExerciseById(Number(addExerciseId));
+      if (result.success && result.exercise) {
+        handleExerciseSelected(result.exercise);
+      }
+    } catch { /* ignore invalid ID */ }
+  }
 });
 
 // Load template in edit mode

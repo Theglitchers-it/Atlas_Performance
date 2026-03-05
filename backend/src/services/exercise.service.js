@@ -10,7 +10,7 @@ class ExerciseService {
      * Ottieni tutti gli esercizi (globali + tenant)
      */
     async getAll(tenantId, options = {}) {
-        const { category, difficulty, muscleGroup, search, page = 1, limit = 50 } = options;
+        const { category, difficulty, muscleGroup, equipment, search, page = 1, limit = 50 } = options;
         const offset = (page - 1) * limit;
 
         let sql = `
@@ -38,6 +38,11 @@ class ExerciseService {
             params.push(muscleGroup);
         }
 
+        if (equipment) {
+            sql += ' AND e.equipment LIKE ?';
+            params.push(`%${equipment}%`);
+        }
+
         if (search) {
             sql += ' AND (e.name LIKE ? OR e.description LIKE ?)';
             const searchPattern = `%${search}%`;
@@ -54,15 +59,34 @@ class ExerciseService {
 
         const exercises = await query(sql, params);
 
-        // Load muscle groups for each exercise
-        for (const exercise of exercises) {
+        // Load muscle groups for all exercises in a single query (avoid N+1)
+        if (exercises.length > 0) {
+            const exerciseIds = exercises.map(e => e.id);
+            const placeholders = exerciseIds.map(() => '?').join(',');
             const muscles = await query(`
-                SELECT mg.id, mg.name, mg.name_it, mg.category, emg.is_primary
+                SELECT emg.exercise_id, mg.id, mg.name, mg.name_it, mg.category, emg.is_primary, emg.activation_percentage
                 FROM exercise_muscle_groups emg
                 JOIN muscle_groups mg ON emg.muscle_group_id = mg.id
-                WHERE emg.exercise_id = ?
-            `, [exercise.id]);
-            exercise.muscleGroups = muscles;
+                WHERE emg.exercise_id IN (${placeholders})
+            `, exerciseIds);
+
+            // Group muscles by exercise_id
+            const muscleMap = {};
+            for (const m of muscles) {
+                if (!muscleMap[m.exercise_id]) muscleMap[m.exercise_id] = [];
+                muscleMap[m.exercise_id].push({
+                    id: m.id,
+                    name: m.name,
+                    name_it: m.name_it,
+                    category: m.category,
+                    is_primary: m.is_primary,
+                    activation_percentage: m.activation_percentage
+                });
+            }
+
+            for (const exercise of exercises) {
+                exercise.muscleGroups = muscleMap[exercise.id] || [];
+            }
         }
 
         return {

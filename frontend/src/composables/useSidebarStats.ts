@@ -25,6 +25,68 @@ interface StatsState {
     stat2: StatItem
 }
 
+interface QuickAction {
+    label: string
+    icon: string
+    path: string
+}
+
+interface StatLinks {
+    stat1Link: string | null
+    stat2Link: string | null
+}
+
+// --- Static lookup tables (module-level, created once) ---
+
+const ROLE_LABELS = {
+    tenant_owner: 'Titolare',
+    staff: 'Collaboratore',
+    client: 'Atleta',
+    super_admin: 'Amministratore'
+} as const
+
+const AVATAR_GRADIENTS = {
+    tenant_owner: 'from-habit-orange to-habit-cyan',
+    staff: 'from-blue-500 to-habit-cyan',
+    client: 'from-emerald-500 to-habit-cyan',
+    super_admin: 'from-purple-500 to-pink-500'
+} as const
+
+const STAT2_ACCENTS = {
+    tenant_owner: 'text-habit-orange',
+    staff: 'text-habit-cyan',
+    client: 'text-habit-orange',
+    super_admin: 'text-purple-400'
+} as const
+
+const STAT_LINKS: Readonly<Record<string, StatLinks>> = {
+    super_admin: { stat1Link: '/admin?tab=tenant', stat2Link: '/admin/monitoraggio?tab=audit' },
+    tenant_owner: { stat1Link: '/clients', stat2Link: '/settings' },
+    staff: { stat1Link: '/clients', stat2Link: '/notifications' },
+    client: { stat1Link: '/my-progress', stat2Link: '/insights?tab=gamification' }
+}
+
+const DEFAULT_STAT_LINKS: Readonly<StatLinks> = { stat1Link: null, stat2Link: null }
+
+const QUICK_ACTIONS: Readonly<Record<string, readonly QuickAction[]>> = {
+    super_admin: [
+        { label: 'Pannello Admin', icon: '🛡️', path: '/admin' },
+        { label: 'Gestisci Attivita\'', icon: '🏢', path: '/admin?tab=tenant' }
+    ],
+    tenant_owner: [
+        { label: '+ Cliente', icon: '👤', path: '/clients/new' },
+        { label: '+ Scheda', icon: '📋', path: '/workouts/builder' }
+    ],
+    staff: [
+        { label: 'Clienti', icon: '👥', path: '/clients' },
+        { label: 'Calendario', icon: '📅', path: '/calendar' }
+    ],
+    client: [
+        { label: 'Allenamento', icon: '💪', path: '/my-workout' },
+        { label: 'Check-in', icon: '❤️', path: '/checkin' }
+    ]
+}
+
 interface CachedStatsState {
     data: StatsState | null
     timestamp: number | null
@@ -41,6 +103,8 @@ interface UseSidebarStatsReturn {
     userInitials: ComputedRef<string>
     stat2AccentClass: ComputedRef<string>
     xpProgress: Ref<number>
+    statLinks: ComputedRef<StatLinks>
+    quickActions: ComputedRef<readonly QuickAction[]>
     refresh: () => Promise<void>
 }
 
@@ -72,25 +136,13 @@ export function useSidebarStats(): UseSidebarStatsReturn {
 
     const userRole = computed<string | null>(() => authStore.userRole)
 
-    const roleLabel = computed<string>(() => {
-        const labels: Record<string, string> = {
-            tenant_owner: 'Titolare',
-            staff: 'Collaboratore',
-            client: 'Atleta',
-            super_admin: 'Super Admin'
-        }
-        return labels[authStore.userRole || ''] || 'Utente'
-    })
+    const roleLabel = computed<string>(() =>
+        ROLE_LABELS[authStore.userRole || ''] || 'Utente'
+    )
 
-    const avatarGradient = computed<string>(() => {
-        const gradients: Record<string, string> = {
-            tenant_owner: 'from-habit-orange to-habit-cyan',
-            staff: 'from-blue-500 to-habit-cyan',
-            client: 'from-emerald-500 to-habit-cyan',
-            super_admin: 'from-purple-500 to-pink-500'
-        }
-        return gradients[authStore.userRole || ''] || 'from-habit-orange to-habit-orange'
-    })
+    const avatarGradient = computed<string>(() =>
+        AVATAR_GRADIENTS[authStore.userRole || ''] || 'from-habit-orange to-habit-orange'
+    )
 
     const userInitials = computed<string>(() => {
         const first: string = authStore.user?.firstName || ''
@@ -98,15 +150,17 @@ export function useSidebarStats(): UseSidebarStatsReturn {
         return `${first[0] || ''}${last[0] || ''}`.toUpperCase() || 'U'
     })
 
-    const stat2AccentClass = computed<string>(() => {
-        const accents: Record<string, string> = {
-            tenant_owner: 'text-habit-orange',
-            staff: 'text-habit-cyan',
-            client: 'text-habit-orange',
-            super_admin: 'text-purple-400'
-        }
-        return accents[authStore.userRole || ''] || 'text-habit-orange'
-    })
+    const stat2AccentClass = computed<string>(() =>
+        STAT2_ACCENTS[authStore.userRole || ''] || 'text-habit-orange'
+    )
+
+    const statLinks = computed<StatLinks>(() =>
+        STAT_LINKS[authStore.userRole || ''] || DEFAULT_STAT_LINKS
+    )
+
+    const quickActions = computed<readonly QuickAction[]>(() =>
+        QUICK_ACTIONS[authStore.userRole || ''] || []
+    )
 
     // --- Cache helpers ---
 
@@ -175,7 +229,7 @@ export function useSidebarStats(): UseSidebarStatsReturn {
         const data: Record<string, any> = response.data.data || {}
 
         stats.value = {
-            stat1: { value: data.totalTenants || 0, label: 'Tenant', icon: '🏢' },
+            stat1: { value: data.totalTenants || 0, label: 'Attivita\'', icon: '🏢' },
             stat2: { value: data.totalUsers || 0, label: 'Utenti', icon: '👥' }
         }
     }
@@ -254,6 +308,8 @@ export function useSidebarStats(): UseSidebarStatsReturn {
         userInitials,
         stat2AccentClass,
         xpProgress,
+        statLinks,
+        quickActions,
         refresh
     }
 }

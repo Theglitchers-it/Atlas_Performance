@@ -26,13 +26,9 @@ import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   ShieldCheckIcon,
-  BuildingOfficeIcon,
   CurrencyEuroIcon,
   MapPinIcon,
   GiftIcon,
-  BeakerIcon,
-  DocumentTextIcon,
-  ClockIcon,
   AcademicCapIcon,
   XMarkIcon,
 } from "@heroicons/vue/24/outline";
@@ -89,6 +85,8 @@ const {
   stat2AccentClass,
   xpProgress,
   userRole,
+  statLinks,
+  quickActions,
 } = useSidebarStats();
 
 // ==========================================
@@ -251,7 +249,6 @@ const trainerMenuGroups = [
       { name: "Schede", path: "/workouts", icon: ClipboardDocumentListIcon },
       { name: "Esercizi", path: "/exercises", icon: SparklesIcon },
       { name: "Programmi", path: "/programs", icon: CalendarIcon },
-      { name: "Sessioni", path: "/sessions", icon: ClockIcon },
     ],
   },
   {
@@ -276,12 +273,10 @@ const trainerMenuGroups = [
   },
   {
     id: "analytics",
-    label: "Analytics",
+    label: "Insights",
     color: GROUP_COLORS.analytics,
     items: [
-      { name: "Analytics", path: "/analytics", icon: ChartBarIcon },
-      { name: "Volume", path: "/volume", icon: BeakerIcon },
-      { name: "Gamification", path: "/gamification", icon: TrophyIcon },
+      { name: "Insights", path: "/insights", icon: ChartBarIcon },
     ],
   },
   {
@@ -320,7 +315,7 @@ const clientMenuGroups = [
       { name: "Community", path: "/community", icon: UsersIcon },
       { name: "Calendario", path: "/calendar", icon: CalendarDaysIcon },
       { name: "Video", path: "/videos", icon: VideoCameraIcon },
-      { name: "Badge", path: "/gamification", icon: TrophyIcon },
+      { name: "Badge", path: "/insights?tab=gamification", icon: TrophyIcon },
     ],
   },
 ];
@@ -330,10 +325,8 @@ const adminMenuGroup = {
   label: "Admin",
   color: GROUP_COLORS.admin,
   items: [
-    { name: "Admin Panel", path: "/admin", icon: ShieldCheckIcon },
-    { name: "Tenant", path: "/admin/tenants", icon: BuildingOfficeIcon },
-    { name: "Fatturazione", path: "/admin/billing", icon: CurrencyEuroIcon },
-    { name: "Audit Log", path: "/admin/audit", icon: DocumentTextIcon },
+    { name: "Gestione", path: "/admin", icon: ShieldCheckIcon },
+    { name: "Monitoraggio", path: "/admin/monitoraggio", icon: CurrencyEuroIcon },
   ],
 };
 
@@ -380,8 +373,17 @@ const menuGroups = computed(() => {
 });
 
 const isActive = (path: string) => {
-  if (path === "/" || path === "/my-dashboard") return route.path === path;
-  return route.path.startsWith(path);
+  // Handle paths with query params (e.g. "/insights?tab=gamification")
+  const [basePath, query] = path.split("?");
+  if (basePath === "/" || basePath === "/my-dashboard" || basePath === "/admin") return route.path === basePath;
+  if (!route.path.startsWith(basePath)) return false;
+  if (query) {
+    const params = new URLSearchParams(query);
+    return Array.from(params.entries()).every(
+      ([k, v]) => route.query[k] === v,
+    );
+  }
+  return true;
 };
 
 const handleLogout = () => {
@@ -544,10 +546,14 @@ const getPlanLabel = (plan: string | undefined): string =>
             </button>
           </div>
 
-          <!-- Stats Grid -->
+          <!-- Stats Grid (clickable) -->
           <div class="grid grid-cols-2 gap-2 text-center">
-            <div
-              class="p-2 bg-habit-card rounded-xl flex flex-col items-center justify-center min-h-[48px]"
+            <component
+              :is="statLinks.stat1Link ? 'router-link' : 'div'"
+              :to="statLinks.stat1Link || undefined"
+              @click.stop
+              class="p-2 bg-habit-card rounded-xl flex flex-col items-center justify-center min-h-[48px] transition-all duration-200"
+              :class="statLinks.stat1Link ? 'cursor-pointer hover:border-habit-cyan/50 hover:scale-[1.03] border border-transparent' : ''"
             >
               <div
                 v-if="statsLoading"
@@ -566,9 +572,13 @@ const getPlanLabel = (plan: string | undefined): string =>
                   {{ sidebarStats.stat1.label }}
                 </p>
               </template>
-            </div>
-            <div
-              class="p-2 bg-habit-card rounded-xl flex flex-col items-center justify-center min-h-[48px]"
+            </component>
+            <component
+              :is="statLinks.stat2Link ? 'router-link' : 'div'"
+              :to="statLinks.stat2Link || undefined"
+              @click.stop
+              class="p-2 bg-habit-card rounded-xl flex flex-col items-center justify-center min-h-[48px] transition-all duration-200"
+              :class="statLinks.stat2Link ? 'cursor-pointer hover:border-habit-cyan/50 hover:scale-[1.03] border border-transparent' : ''"
             >
               <div
                 v-if="statsLoading"
@@ -588,7 +598,24 @@ const getPlanLabel = (plan: string | undefined): string =>
                   {{ sidebarStats.stat2.label }}
                 </p>
               </template>
-            </div>
+            </component>
+          </div>
+
+          <!-- Quick Actions -->
+          <div
+            v-if="quickActions.length"
+            class="grid grid-cols-2 gap-2 mt-2"
+          >
+            <router-link
+              v-for="action in quickActions"
+              :key="action.path"
+              :to="action.path"
+              @click.stop
+              class="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-habit-border/50 text-habit-text-muted text-[11px] font-medium hover:border-habit-cyan/40 hover:text-habit-text hover:bg-habit-card-hover/50 transition-all duration-200"
+            >
+              <span class="text-xs">{{ action.icon }}</span>
+              <span class="truncate">{{ action.label }}</span>
+            </router-link>
           </div>
 
           <!-- XP Progress Bar (client only) -->
@@ -629,38 +656,73 @@ const getPlanLabel = (plan: string | undefined): string =>
         </div>
 
         <!-- Drawer: compact profile row -->
-        <router-link
-          v-if="drawer"
-          to="/profile"
-          class="flex items-center gap-3 mb-3 px-2 py-2 rounded-xl hover:bg-habit-card-hover/50 transition-all duration-200 group"
-        >
-          <img
-            v-if="sidebarAvatarUrl"
-            :src="sidebarAvatarUrl"
-            :alt="userInitials"
-            class="w-9 h-9 rounded-xl object-cover shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-          />
-          <div
-            v-else
-            class="w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-            :class="avatarGradient"
+        <div v-if="drawer" class="mb-3">
+          <router-link
+            to="/profile"
+            class="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-habit-card-hover/50 transition-all duration-200 group"
           >
-            <span class="text-white font-bold text-xs">{{ userInitials }}</span>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p
-              class="text-habit-text font-semibold text-sm truncate leading-tight"
+            <img
+              v-if="sidebarAvatarUrl"
+              :src="sidebarAvatarUrl"
+              :alt="userInitials"
+              class="w-9 h-9 rounded-xl object-cover shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+            />
+            <div
+              v-else
+              class="w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+              :class="avatarGradient"
             >
-              {{ user?.firstName }} {{ user?.lastName }}
-            </p>
-            <span class="text-habit-text-subtle text-[11px]">{{
-              roleLabel
-            }}</span>
+              <span class="text-white font-bold text-xs">{{ userInitials }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p
+                class="text-habit-text font-semibold text-sm truncate leading-tight"
+              >
+                {{ user?.firstName }} {{ user?.lastName }}
+              </p>
+              <span class="text-habit-text-subtle text-[11px]">{{
+                roleLabel
+              }}</span>
+            </div>
+            <!-- Quick action icons (drawer) -->
+            <div class="flex items-center gap-1 flex-shrink-0" @click.prevent.stop>
+              <router-link
+                v-for="action in quickActions"
+                :key="action.path"
+                :to="action.path"
+                :title="action.label"
+                class="w-7 h-7 flex items-center justify-center rounded-lg border border-habit-border/50 hover:border-habit-cyan/40 hover:bg-habit-card-hover/50 transition-all duration-200"
+              >
+                <span class="text-xs">{{ action.icon }}</span>
+              </router-link>
+            </div>
+            <ChevronRightIcon
+              class="w-4 h-4 text-habit-text-subtle group-hover:text-habit-text transition-colors flex-shrink-0"
+            />
+          </router-link>
+          <!-- Stats inline (drawer) -->
+          <div v-if="!statsLoading" class="flex items-center gap-3 px-3 mt-1">
+            <component
+              :is="statLinks.stat1Link ? 'router-link' : 'span'"
+              :to="statLinks.stat1Link || undefined"
+              class="flex items-center gap-1 text-[11px] transition-colors duration-200"
+              :class="statLinks.stat1Link ? 'hover:text-habit-cyan cursor-pointer' : ''"
+            >
+              <span class="text-habit-text font-bold">{{ sidebarStats.stat1.value }}</span>
+              <span class="text-habit-text-subtle">{{ sidebarStats.stat1.label }}</span>
+            </component>
+            <span class="w-1 h-1 rounded-full bg-habit-border"></span>
+            <component
+              :is="statLinks.stat2Link ? 'router-link' : 'span'"
+              :to="statLinks.stat2Link || undefined"
+              class="flex items-center gap-1 text-[11px] transition-colors duration-200"
+              :class="statLinks.stat2Link ? 'hover:text-habit-cyan cursor-pointer' : ''"
+            >
+              <span class="font-bold" :class="stat2AccentClass">{{ sidebarStats.stat2.value }}</span>
+              <span class="text-habit-text-subtle">{{ sidebarStats.stat2.label }}</span>
+            </component>
           </div>
-          <ChevronRightIcon
-            class="w-4 h-4 text-habit-text-subtle group-hover:text-habit-text transition-colors flex-shrink-0"
-          />
-        </router-link>
+        </div>
 
         <!-- ============ GROUPED MENU ============ -->
 

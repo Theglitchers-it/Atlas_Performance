@@ -271,7 +271,7 @@ const getCategoryLabel = (category: any) => {
 
 <template>
   <PullToRefresh @refresh="onRefresh">
-    <div class="min-h-screen bg-habit-bg space-y-4 sm:space-y-5">
+    <div class="space-y-4 sm:space-y-5">
       <!-- Header -->
       <div
         class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"

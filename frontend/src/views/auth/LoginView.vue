@@ -253,12 +253,13 @@ const handleSubmit = async () => {
     showSuccess.value = true;
     await new Promise((resolve) => setTimeout(resolve, 600));
     const rd = route.query.redirect;
+    const defaultPath = authStore.userRole === 'client' ? '/my-dashboard' : '/';
     const safeRedirect = (() => {
-      if (!rd || typeof rd !== "string") return "/";
+      if (!rd || typeof rd !== "string") return defaultPath;
       try {
         const url = new URL(rd, window.location.origin);
-        return url.origin === window.location.origin ? url.pathname + url.search : "/";
-      } catch { return "/"; }
+        return url.origin === window.location.origin ? url.pathname + url.search : defaultPath;
+      } catch { return defaultPath; }
     })();
     router.push(safeRedirect);
   } else {

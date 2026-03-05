@@ -443,7 +443,7 @@ const loadAllData = async (resolve?: () => void) => {
           :chart-data="sessionChartData"
           :loading="chartsLoading"
           :height="chartHeight"
-          @chart-click="router.push('/sessions')"
+          @chart-click="router.push('/programs?tab=sessioni')"
         />
         <ChartWidget
           type="doughnut"
@@ -461,7 +461,7 @@ const loadAllData = async (resolve?: () => void) => {
         <div class="md:col-span-2 lg:col-span-2 bg-habit-card border border-habit-border rounded-habit">
           <div class="p-4 xs:p-6 border-b border-habit-border flex items-center justify-between">
             <h2 class="text-lg font-semibold text-habit-text">Progressi Top Clienti</h2>
-            <router-link to="/analytics" class="text-sm text-habit-cyan hover:text-habit-orange transition-colors">
+            <router-link to="/insights" class="text-sm text-habit-cyan hover:text-habit-orange transition-colors">
               Vedi tutti
             </router-link>
           </div>

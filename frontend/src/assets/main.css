@@ -32,17 +32,17 @@
     }
 
     .dark {
-        /* Dark mode colors — nero puro OLED con contrasto moderato */
+        /* Dark mode colors — nero puro OLED con contrasto migliorato */
         --color-habit-bg: 0 0 0;
-        --color-habit-bg-light: 10 10 10;
-        --color-habit-card: 18 18 18;
-        --color-habit-card-hover: 28 28 28;
+        --color-habit-bg-light: 18 18 18;
+        --color-habit-card: 22 22 22;
+        --color-habit-card-hover: 32 32 32;
         --color-habit-text: 240 240 240;
-        --color-habit-skeleton: 35 35 35;
-        --color-habit-border: rgba(255, 255, 255, 0.10);
-        --color-habit-border-light: rgba(255, 255, 255, 0.15);
-        --color-habit-text-muted: rgba(240, 240, 240, 0.7);
-        --color-habit-text-subtle: rgba(240, 240, 240, 0.5);
+        --color-habit-skeleton: 38 38 38;
+        --color-habit-border: rgba(255, 255, 255, 0.12);
+        --color-habit-border-light: rgba(255, 255, 255, 0.18);
+        --color-habit-text-muted: rgba(240, 240, 240, 0.72);
+        --color-habit-text-subtle: rgba(240, 240, 240, 0.55);
         /* Dark mode shadows — rinforzate per nero puro */
         --shadow-habit: 0 4px 24px rgba(0, 0, 0, 0.5);
         --shadow-habit-lg: 0 8px 40px rgba(0, 0, 0, 0.6);

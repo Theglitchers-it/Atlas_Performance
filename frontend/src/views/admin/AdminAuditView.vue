@@ -8,9 +8,9 @@ interface AuditLog {
   user_email?: string;
   user_name?: string;
   action: string;
-  entity_type?: string;
+  resource_type?: string;
+  resource_id?: string;
   details?: string;
-  description?: string;
   ip_address?: string;
   created_at: string;
 }
@@ -66,31 +66,57 @@ const goToPage = (page: number) => {
 
 const actionLabel = (action: string): string => {
   const labels: Record<string, string> = {
-    login: "Login",
-    logout: "Logout",
-    create: "Creazione",
-    update: "Modifica",
-    delete: "Eliminazione",
-    export: "Export",
-    payment: "Pagamento",
-    subscription_change: "Cambio Piano",
-    role_change: "Cambio Ruolo",
+    LOGIN_SUCCESS: "Login",
+    LOGIN_FAILED: "Login fallito",
+    LOGOUT: "Logout",
+    REGISTER: "Registrazione",
+    PASSWORD_CHANGE: "Cambio password",
+    USER_CREATE: "Creazione utente",
+    USER_UPDATE: "Modifica utente",
+    USER_DELETE: "Eliminazione utente",
+    CLIENT_CREATE: "Creazione cliente",
+    CLIENT_UPDATE: "Modifica cliente",
+    CLIENT_DELETE: "Eliminazione cliente",
+    TENANT_STATUS_CHANGE: "Cambio stato",
+    TENANT_PLAN_CHANGE: "Cambio piano",
   };
   return labels[action] || action;
 };
 
 const actionClass = (action: string): string => {
-  switch (action) {
-    case "delete":
-      return "bg-habit-red/20 text-habit-red";
-    case "create":
-      return "bg-habit-success/20 text-habit-success";
-    case "login":
-    case "logout":
-      return "bg-habit-cyan/20 text-habit-cyan";
-    default:
-      return "bg-habit-orange/20 text-habit-orange";
+  if (action === "LOGIN_FAILED" || action.endsWith("_DELETE"))
+    return "bg-habit-red/20 text-habit-red";
+  if (action.endsWith("_CREATE") || action === "REGISTER")
+    return "bg-habit-success/20 text-habit-success";
+  if (action === "LOGIN_SUCCESS" || action === "LOGOUT")
+    return "bg-habit-cyan/20 text-habit-cyan";
+  if (action === "PASSWORD_CHANGE")
+    return "bg-habit-orange/20 text-habit-orange";
+  if (action.endsWith("_UPDATE") || action.endsWith("_CHANGE"))
+    return "bg-habit-orange/20 text-habit-orange";
+  return "bg-habit-card-hover text-habit-text-muted";
+};
+
+const formatDetails = (details: string | null | undefined): string => {
+  if (!details) return "-";
+  try {
+    const parsed = JSON.parse(details);
+    return Object.entries(parsed)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+  } catch {
+    return details;
   }
+};
+
+const resourceTypeLabel = (type: string | undefined): string => {
+  if (!type) return "-";
+  const labels: Record<string, string> = {
+    user: "Utente",
+    client: "Cliente",
+    tenant: "Tenant",
+  };
+  return labels[type] || type;
 };
 </script>
 
@@ -140,12 +166,27 @@ const actionClass = (action: string): string => {
         class="px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan"
       >
         <option value="">Tutte le azioni</option>
-        <option value="login">Login</option>
-        <option value="create">Creazione</option>
-        <option value="update">Modifica</option>
-        <option value="delete">Eliminazione</option>
-        <option value="export">Export</option>
-        <option value="payment">Pagamento</option>
+        <optgroup label="Autenticazione">
+          <option value="LOGIN_SUCCESS">Login riuscito</option>
+          <option value="LOGIN_FAILED">Login fallito</option>
+          <option value="LOGOUT">Logout</option>
+          <option value="REGISTER">Registrazione</option>
+          <option value="PASSWORD_CHANGE">Cambio password</option>
+        </optgroup>
+        <optgroup label="Utenti">
+          <option value="USER_CREATE">Creazione utente</option>
+          <option value="USER_UPDATE">Modifica utente</option>
+          <option value="USER_DELETE">Eliminazione utente</option>
+        </optgroup>
+        <optgroup label="Clienti">
+          <option value="CLIENT_CREATE">Creazione cliente</option>
+          <option value="CLIENT_UPDATE">Modifica cliente</option>
+          <option value="CLIENT_DELETE">Eliminazione cliente</option>
+        </optgroup>
+        <optgroup label="Tenant">
+          <option value="TENANT_STATUS_CHANGE">Cambio stato</option>
+          <option value="TENANT_PLAN_CHANGE">Cambio piano</option>
+        </optgroup>
       </select>
     </div>
 
@@ -187,7 +228,7 @@ const actionClass = (action: string): string => {
           </div>
           <div class="flex items-center justify-between">
             <p class="text-xs text-habit-text-muted">
-              {{ log.entity_type || "-" }}
+              {{ resourceTypeLabel(log.resource_type) }}
             </p>
             <p class="text-xs text-habit-text-subtle">
               {{
@@ -201,10 +242,10 @@ const actionClass = (action: string): string => {
             </p>
           </div>
           <p
-            v-if="log.details || log.description"
+            v-if="log.details"
             class="text-xs text-habit-text-subtle mt-1 truncate"
           >
-            {{ log.details || log.description }}
+            {{ formatDetails(log.details) }}
           </p>
         </div>
       </div>
@@ -232,7 +273,7 @@ const actionClass = (action: string): string => {
               <th
                 class="px-6 py-3 text-xs font-medium text-habit-text-subtle uppercase"
               >
-                Entita
+                Tipo
               </th>
               <th
                 class="px-6 py-3 text-xs font-medium text-habit-text-subtle uppercase"
@@ -268,12 +309,12 @@ const actionClass = (action: string): string => {
                 >
               </td>
               <td class="px-6 py-3 text-sm text-habit-text-muted">
-                {{ log.entity_type || "-" }}
+                {{ resourceTypeLabel(log.resource_type) }}
               </td>
               <td
                 class="px-6 py-3 text-sm text-habit-text-subtle max-w-xs truncate"
               >
-                {{ log.details || log.description || "-" }}
+                {{ formatDetails(log.details) }}
               </td>
               <td class="px-6 py-3 text-sm text-habit-text-subtle font-mono">
                 {{ log.ip_address || "-" }}

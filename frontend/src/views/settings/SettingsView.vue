@@ -449,7 +449,7 @@ onMounted(async () => {
             </div>
           </button>
           <button
-            @click="router.push('/dashboard')"
+            @click="router.push(auth.user?.role === 'client' ? '/my-dashboard' : '/')"
             class="flex items-center gap-2 sm:gap-3 bg-habit-bg-light/50 rounded-lg p-2.5 sm:p-3 hover:bg-habit-card-hover transition-colors text-left min-w-0"
           >
             <svg
@@ -469,14 +469,15 @@ onMounted(async () => {
               <p
                 class="text-habit-text text-xs sm:text-sm font-medium truncate"
               >
-                Dashboard
+                Home
               </p>
               <p class="text-habit-text-subtle text-[10px] sm:text-xs truncate">
-                Torna alla panoramica
+                Torna alla home
               </p>
             </div>
           </button>
           <button
+            v-if="auth.user?.role !== 'client'"
             @click="router.push('/clients')"
             class="flex items-center gap-2 sm:gap-3 bg-habit-bg-light/50 rounded-lg p-2.5 sm:p-3 hover:bg-habit-card-hover transition-colors text-left min-w-0"
           >

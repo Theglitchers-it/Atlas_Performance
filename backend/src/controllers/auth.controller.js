@@ -90,8 +90,8 @@ class AuthController {
 
             const result = await authService.refreshToken(token);
 
-            // Set nuovo access token cookie
-            setAuthCookies(res, result.accessToken, token);
+            // Set nuovo access token + nuovo refresh token cookie
+            setAuthCookies(res, result.accessToken, result.refreshToken);
 
             res.json({
                 success: true,

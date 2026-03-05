@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted } from "vue";
+import MuscleMap from "./MuscleMap.vue";
 
 interface MuscleGroup {
   id: number;
@@ -27,11 +28,13 @@ interface ExerciseData {
 interface Props {
   exercise?: ExerciseData | null;
   show?: boolean;
+  selectLabel?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   exercise: null,
   show: false,
+  selectLabel: 'Seleziona Esercizio',
 });
 
 const emit = defineEmits<{
@@ -52,6 +55,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener("keydown", handleKeydown);
+  document.body.style.overflow = "";
 });
 
 // Lock body scroll when modal is open
@@ -194,16 +198,16 @@ const handleSelect = (): void => {
 
         <!-- Modal Content -->
         <div
-          class="relative w-full sm:max-w-2xl h-[95vh] sm:h-auto sm:max-h-[90vh] flex flex-col bg-habit-bg border-0 sm:border border-habit-border rounded-t-[20px] sm:rounded-habit shadow-2xl animate-fade-in overflow-hidden"
+          class="relative w-full sm:max-w-md h-[85vh] sm:h-auto sm:max-h-[75vh] flex flex-col bg-habit-bg dark:bg-habit-card border-0 sm:border border-habit-border dark:border-white/[0.12] rounded-t-[20px] sm:rounded-2xl shadow-2xl animate-fade-in overflow-hidden"
         >
           <!-- Close button -->
           <button
             @click="handleClose"
             aria-label="Chiudi dettagli esercizio"
-            class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+            class="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
           >
             <svg
-              class="w-6 h-6"
+              class="w-4 h-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -221,7 +225,7 @@ const handleSelect = (): void => {
           <!-- Scrollable content -->
           <div class="overflow-y-auto flex-1 min-h-0">
             <!-- Image/Video -->
-            <div class="relative aspect-video bg-habit-bg-light">
+            <div class="relative aspect-video bg-habit-bg-light dark:bg-white/[0.04]">
               <img
                 v-if="exercise.image_url"
                 :src="exercise.image_url"
@@ -230,21 +234,9 @@ const handleSelect = (): void => {
               />
               <div
                 v-else
-                class="w-full h-full flex items-center justify-center bg-gradient-to-br from-habit-cyan/20 to-habit-orange/20"
+                class="w-full h-full flex items-center justify-center bg-gradient-to-br from-habit-cyan/10 to-habit-orange/10 dark:from-habit-cyan/15 dark:to-habit-orange/15"
               >
-                <svg
-                  class="w-20 h-20 text-habit-text-subtle"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
+                <MuscleMap size="lg" :muscleGroups="exercise.muscleGroups || []" />
               </div>
 
               <!-- Video player button -->
@@ -255,10 +247,10 @@ const handleSelect = (): void => {
                 class="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
               >
                 <div
-                  class="w-16 h-16 rounded-full bg-habit-orange flex items-center justify-center"
+                  class="w-12 h-12 rounded-full bg-habit-orange flex items-center justify-center"
                 >
                   <svg
-                    class="w-8 h-8 text-white ml-1"
+                    class="w-5 h-5 text-white ml-0.5"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -269,11 +261,11 @@ const handleSelect = (): void => {
             </div>
 
             <!-- Content -->
-            <div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div class="p-3 sm:p-4 space-y-3 sm:space-y-4">
               <!-- Header -->
               <div>
                 <h2
-                  class="text-xl sm:text-2xl font-bold text-habit-text mb-2 sm:mb-3"
+                  class="text-base sm:text-lg font-bold text-habit-text mb-1.5 sm:mb-2"
                 >
                   {{ exercise.name }}
                 </h2>
@@ -281,19 +273,19 @@ const handleSelect = (): void => {
                 <!-- Badges -->
                 <div class="flex flex-wrap gap-2">
                   <span
-                    class="px-3 py-1 text-sm rounded-full border"
+                    class="px-2 py-0.5 text-xs rounded-full border"
                     :class="difficultyClass"
                   >
                     {{ difficultyLabel }}
                   </span>
                   <span
-                    class="px-3 py-1 text-sm rounded-full bg-habit-card-hover/50 text-habit-text-muted border border-habit-border"
+                    class="px-2 py-0.5 text-xs rounded-full bg-habit-card-hover/50 dark:bg-white/[0.08] text-habit-text-muted border border-habit-border dark:border-white/[0.1]"
                   >
                     {{ categoryLabel }}
                   </span>
                   <span
                     v-if="exercise.is_compound"
-                    class="px-3 py-1 text-sm rounded-full bg-habit-orange/20 text-habit-orange border border-habit-orange/30"
+                    class="px-2 py-0.5 text-xs rounded-full bg-habit-orange/20 text-habit-orange border border-habit-orange/30"
                   >
                     Compound
                   </span>
@@ -303,12 +295,14 @@ const handleSelect = (): void => {
               <!-- Muscle Groups -->
               <div v-if="primaryMuscle || secondaryMuscles.length > 0">
                 <h3
-                  class="text-sm font-semibold text-habit-text-subtle uppercase tracking-wider mb-3"
+                  class="text-[10px] font-semibold text-habit-text-subtle uppercase tracking-wider mb-2"
                 >
                   Muscoli coinvolti
                 </h3>
 
-                <div class="space-y-2">
+                <div class="flex gap-3">
+                  <MuscleMap size="sm" :muscleGroups="exercise.muscleGroups || []" class="mt-0.5" />
+                  <div class="space-y-2 flex-1">
                   <!-- Primary -->
                   <div v-if="primaryMuscle" class="flex items-center gap-3">
                     <div class="w-2 h-2 rounded-full bg-habit-cyan"></div>
@@ -331,7 +325,7 @@ const handleSelect = (): void => {
                     class="flex items-center gap-3"
                   >
                     <div
-                      class="w-2 h-2 rounded-full bg-habit-text-subtle"
+                      class="w-2 h-2 rounded-full bg-habit-text-subtle dark:bg-white/30"
                     ></div>
                     <span class="text-habit-text-muted">{{
                       muscle.name_it || muscle.name
@@ -343,13 +337,14 @@ const handleSelect = (): void => {
                       {{ muscle.activation_percentage }}%
                     </span>
                   </div>
+                  </div>
                 </div>
               </div>
 
               <!-- Equipment -->
               <div v-if="equipmentList.length > 0">
                 <h3
-                  class="text-sm font-semibold text-habit-text-subtle uppercase tracking-wider mb-3"
+                  class="text-[10px] font-semibold text-habit-text-subtle uppercase tracking-wider mb-2"
                 >
                   Attrezzatura
                 </h3>
@@ -357,7 +352,7 @@ const handleSelect = (): void => {
                   <span
                     v-for="equip in equipmentList"
                     :key="equip"
-                    class="px-3 py-1 text-sm rounded-full bg-habit-card-hover/50 text-habit-text-muted"
+                    class="px-2 py-0.5 text-xs rounded-full bg-habit-card-hover/50 dark:bg-white/[0.07] text-habit-text-muted"
                   >
                     {{ equip }}
                   </span>
@@ -367,7 +362,7 @@ const handleSelect = (): void => {
               <!-- Description -->
               <div v-if="exercise.description">
                 <h3
-                  class="text-sm font-semibold text-habit-text-subtle uppercase tracking-wider mb-3"
+                  class="text-[10px] font-semibold text-habit-text-subtle uppercase tracking-wider mb-2"
                 >
                   Descrizione
                 </h3>
@@ -379,7 +374,7 @@ const handleSelect = (): void => {
               <!-- Instructions -->
               <div v-if="exercise.instructions">
                 <h3
-                  class="text-sm font-semibold text-habit-text-subtle uppercase tracking-wider mb-3"
+                  class="text-[10px] font-semibold text-habit-text-subtle uppercase tracking-wider mb-2"
                 >
                   Istruzioni
                 </h3>
@@ -392,19 +387,19 @@ const handleSelect = (): void => {
 
               <!-- Actions -->
               <div
-                class="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-habit-border"
+                class="flex gap-2 pt-3 border-t border-habit-border dark:border-white/[0.1]"
               >
                 <button
                   @click="handleClose"
-                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-habit-border text-habit-text-muted hover:bg-habit-card-hover transition-colors text-sm sm:text-base"
+                  class="flex-1 px-3 py-2 rounded-xl border border-habit-border dark:border-white/[0.12] text-habit-text-muted hover:bg-habit-card-hover transition-colors text-xs sm:text-sm"
                 >
                   Chiudi
                 </button>
                 <button
                   @click="handleSelect"
-                  class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-habit-orange text-white hover:bg-habit-cyan transition-colors font-medium text-sm sm:text-base"
+                  class="flex-1 px-3 py-2 rounded-xl bg-habit-orange text-white hover:bg-habit-cyan transition-colors font-medium text-xs sm:text-sm"
                 >
-                  Seleziona Esercizio
+                  {{ selectLabel }}
                 </button>
               </div>
             </div>
@@ -416,9 +411,11 @@ const handleSelect = (): void => {
 </template>
 
 <style scoped>
-.modal-enter-active,
+.modal-enter-active {
+  transition: opacity 0.3s ease;
+}
 .modal-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 
 .modal-enter-from,
@@ -426,8 +423,33 @@ const handleSelect = (): void => {
   opacity: 0;
 }
 
-.modal-enter-from .relative,
-.modal-leave-to .relative {
-  transform: scale(0.95);
+.modal-enter-active .relative {
+  animation: modalSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-leave-active .relative {
+  animation: modalSlideDown 0.2s ease-in forwards;
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
 }
 </style>

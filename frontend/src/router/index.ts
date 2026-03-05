@@ -37,11 +37,10 @@ const WorkoutBuilderView = () => import('@/views/workouts/WorkoutBuilderView.vue
 const ExerciseLibraryView = () => import('@/views/workouts/ExerciseLibraryView.vue')
 
 // Sessions
-const SessionsView = () => import('@/views/sessions/SessionsView.vue')
 const SessionDetailView = () => import('@/views/sessions/SessionDetailView.vue')
 
-// Programs
-const ProgramsView = () => import('@/views/programs/ProgramsView.vue')
+// Programs (Unified)
+const UnifiedProgramsView = () => import('@/views/programs/UnifiedProgramsView.vue')
 const ProgramDetailView = () => import('@/views/programs/ProgramDetailView.vue')
 
 // Nutrition
@@ -62,14 +61,13 @@ const ClassesView = () => import('@/views/booking/ClassesView.vue')
 const VideoLibraryView = () => import('@/views/videos/VideoLibraryView.vue')
 const CourseDetailView = () => import('@/views/videos/CourseDetailView.vue')
 
-// Gamification
-const GamificationView = () => import('@/views/gamification/GamificationView.vue')
+// Gamification (sub-routes only — main view is in UnifiedAnalyticsView)
 const LeaderboardView = () => import('@/views/gamification/LeaderboardView.vue')
 const ChallengesView = () => import('@/views/gamification/ChallengesView.vue')
 const TitlesView = () => import('@/views/gamification/TitlesView.vue')
 
-// Analytics
-const AnalyticsView = () => import('@/views/analytics/AnalyticsView.vue')
+// Analytics (Unified)
+const UnifiedAnalyticsView = () => import('@/views/analytics/UnifiedAnalyticsView.vue')
 
 // Readiness
 const ReadinessView = () => import('@/views/readiness/ReadinessView.vue')
@@ -90,17 +88,14 @@ const ReferralView = () => import('@/views/referral/ReferralView.vue')
 // Locations (Multi-Sede)
 const LocationsView = () => import('@/views/locations/LocationsView.vue')
 
-// Volume Analytics
-const VolumeAnalyticsView = () => import('@/views/volume/VolumeAnalyticsView.vue')
+// Volume Analytics — now embedded in UnifiedAnalyticsView
 
 // Staff Permissions
 const StaffPermissionsView = () => import('@/views/settings/StaffPermissionsView.vue')
 
-// Admin (Super Admin)
-const AdminDashboardView = () => import('@/views/admin/AdminDashboardView.vue')
-const AdminTenantsView = () => import('@/views/admin/AdminTenantsView.vue')
-const AdminBillingView = () => import('@/views/admin/AdminBillingView.vue')
-const AdminAuditView = () => import('@/views/admin/AdminAuditView.vue')
+// Admin (Unified)
+const UnifiedAdminView = () => import('@/views/admin/UnifiedAdminView.vue')
+const UnifiedMonitoringView = () => import('@/views/admin/UnifiedMonitoringView.vue')
 
 // Notifications
 const NotificationsView = () => import('@/views/notifications/NotificationsView.vue')
@@ -140,7 +135,7 @@ const routes: RouteRecordRaw[] = [
         path: '/',
         name: 'Dashboard',
         component: DashboardView,
-        meta: { requiresAuth: true, title: 'Dashboard - Atlas', breadcrumb: [{ label: 'Dashboard' }] }
+        meta: { requiresAuth: true, title: 'Dashboard - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Dashboard' }] }
     },
 
     // Trainer routes — Clienti
@@ -189,25 +184,24 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Esercizi - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Esercizi' }] }
     },
 
-    // Sessioni
+    // Sessioni — redirect to unified Programs view
     {
         path: '/sessions',
         name: 'Sessions',
-        component: SessionsView,
-        meta: { requiresAuth: true, title: 'Sessioni - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Sessioni' }] }
+        redirect: '/programs?tab=sessioni'
     },
     {
         path: '/sessions/:id',
         name: 'SessionDetail',
         component: SessionDetailView,
-        meta: { requiresAuth: true, title: 'Dettaglio Sessione - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Sessioni', to: '/sessions' }, { label: 'Dettaglio' }] }
+        meta: { requiresAuth: true, title: 'Dettaglio Sessione - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Programmi', to: '/programs' }, { label: 'Sessioni', to: '/programs?tab=sessioni' }, { label: 'Dettaglio' }] }
     },
 
-    // Programmi
+    // Programmi (Unified — Programmi + Sessioni)
     {
         path: '/programs',
         name: 'Programs',
-        component: ProgramsView,
+        component: UnifiedProgramsView,
         meta: { requiresAuth: true, title: 'Programmi - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Programmi' }] }
     },
     {
@@ -281,38 +275,43 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Corso - Atlas', breadcrumb: [{ label: 'Video', to: '/videos' }, { label: 'Corso' }] }
     },
 
-    // Gamification
+    // Gamification — redirect to unified Insights view
     {
         path: '/gamification',
         name: 'Gamification',
-        component: GamificationView,
-        meta: { requiresAuth: true, title: 'Gamification - Atlas', breadcrumb: [{ label: 'Gamification' }] }
+        redirect: '/insights?tab=gamification'
     },
     {
         path: '/leaderboard',
         name: 'Leaderboard',
         component: LeaderboardView,
-        meta: { requiresAuth: true, title: 'Classifica - Atlas', breadcrumb: [{ label: 'Gamification', to: '/gamification' }, { label: 'Classifica' }] }
+        meta: { requiresAuth: true, title: 'Classifica - Atlas', breadcrumb: [{ label: 'Insights', to: '/insights' }, { label: 'Gamification', to: '/insights?tab=gamification' }, { label: 'Classifica' }] }
     },
     {
         path: '/challenges',
         name: 'Challenges',
         component: ChallengesView,
-        meta: { requiresAuth: true, title: 'Sfide - Atlas', breadcrumb: [{ label: 'Gamification', to: '/gamification' }, { label: 'Sfide' }] }
+        meta: { requiresAuth: true, title: 'Sfide - Atlas', breadcrumb: [{ label: 'Insights', to: '/insights' }, { label: 'Gamification', to: '/insights?tab=gamification' }, { label: 'Sfide' }] }
     },
     {
         path: '/titles',
         name: 'Titles',
         component: TitlesView,
-        meta: { requiresAuth: true, title: 'Titoli - Atlas', breadcrumb: [{ label: 'Gamification', to: '/gamification' }, { label: 'Titoli' }] }
+        meta: { requiresAuth: true, title: 'Titoli - Atlas', breadcrumb: [{ label: 'Insights', to: '/insights' }, { label: 'Gamification', to: '/insights?tab=gamification' }, { label: 'Titoli' }] }
     },
 
-    // Analytics
+    // Insights (Unified — Panoramica + Volume + Gamification)
+    {
+        path: '/insights',
+        name: 'Insights',
+        component: UnifiedAnalyticsView,
+        meta: { requiresAuth: true, title: 'Insights - Atlas', breadcrumb: [{ label: 'Insights' }] }
+    },
+
+    // Legacy /analytics redirect
     {
         path: '/analytics',
-        name: 'Analytics',
-        component: AnalyticsView,
-        meta: { requiresAuth: true, title: 'Analytics - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Analytics' }] }
+        redirect: '/insights'
     },
 
     // Readiness
@@ -363,30 +362,31 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Check-in - Atlas', roles: ['client'], breadcrumb: [{ label: 'Check-in' }] }
     },
 
-    // Super Admin routes
+    // Admin (Unified)
     {
         path: '/admin',
-        name: 'AdminDashboard',
-        component: AdminDashboardView,
+        name: 'UnifiedAdmin',
+        component: UnifiedAdminView,
         meta: { requiresAuth: true, title: 'Admin - Atlas', roles: ['super_admin'], breadcrumb: [{ label: 'Admin' }] }
     },
     {
+        path: '/admin/monitoraggio',
+        name: 'UnifiedMonitoring',
+        component: UnifiedMonitoringView,
+        meta: { requiresAuth: true, title: 'Monitoraggio - Atlas', roles: ['super_admin'], breadcrumb: [{ label: 'Admin', to: '/admin' }, { label: 'Monitoraggio' }] }
+    },
+    // Legacy redirects
+    {
         path: '/admin/tenants',
-        name: 'AdminTenants',
-        component: AdminTenantsView,
-        meta: { requiresAuth: true, title: 'Tenant - Atlas', roles: ['super_admin'], breadcrumb: [{ label: 'Admin', to: '/admin' }, { label: 'Tenant' }] }
+        redirect: '/admin?tab=tenant'
     },
     {
         path: '/admin/billing',
-        name: 'AdminBilling',
-        component: AdminBillingView,
-        meta: { requiresAuth: true, title: 'Fatturazione - Atlas', roles: ['super_admin'], breadcrumb: [{ label: 'Admin', to: '/admin' }, { label: 'Fatturazione' }] }
+        redirect: '/admin/monitoraggio'
     },
     {
         path: '/admin/audit',
-        name: 'AdminAudit',
-        component: AdminAuditView,
-        meta: { requiresAuth: true, title: 'Audit Log - Atlas', roles: ['super_admin'], breadcrumb: [{ label: 'Admin', to: '/admin' }, { label: 'Audit Log' }] }
+        redirect: '/admin/monitoraggio?tab=audit'
     },
 
     // Referral
@@ -405,12 +405,11 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Sedi - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Sedi' }] }
     },
 
-    // Volume Analytics
+    // Volume Analytics — redirect to unified Analytics view
     {
         path: '/volume',
         name: 'VolumeAnalytics',
-        component: VolumeAnalyticsView,
-        meta: { requiresAuth: true, title: 'Volume - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Volume' }] }
+        redirect: '/insights?tab=volume'
     },
 
     // Staff Permissions
@@ -468,6 +467,7 @@ router.beforeEach(async (to, _from, next) => {
 
     // Guest-only routes (login, register) - but allow landing page
     if (to.meta.requiresGuest && isAuthenticated && to.name !== 'Home') {
+        if (userRole === 'client') return next({ name: 'ClientDashboard' })
         return next({ name: 'Dashboard' })
     }
 
