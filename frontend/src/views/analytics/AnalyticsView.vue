@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useAnalyticsStore } from "@/store/analytics";
 import api from "@/services/api";
 import { useToast } from "vue-toastification";
@@ -13,8 +13,29 @@ const store = useAnalyticsStore();
 const toast = useToast();
 const { isMobile } = useNative();
 const exporting = ref("");
+const showExportMenu = ref(false);
+const exportMenuEl = ref<HTMLElement | null>(null);
+
+const toggleExportMenu = () => {
+  showExportMenu.value = !showExportMenu.value;
+};
+
+const handleExportClickOutside = (e: MouseEvent) => {
+  if (exportMenuEl.value && !exportMenuEl.value.contains(e.target as Node)) {
+    showExportMenu.value = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener("click", handleExportClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleExportClickOutside);
+});
 
 const downloadExport = async (type: any, format: any) => {
+  showExportMenu.value = false;
   exporting.value = `${type}-${format}`;
   try {
     const url =
@@ -298,9 +319,11 @@ onMounted(() => {
         </p>
       </div>
       <div class="flex-shrink-0">
-        <div class="relative group">
+        <div ref="exportMenuEl" class="relative">
           <button
+            @click.stop="toggleExportMenu"
             class="px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm bg-habit-card border border-habit-border rounded-xl sm:rounded-habit text-habit-text-muted hover:text-habit-text hover:bg-habit-card-hover transition-all flex items-center gap-1.5"
+            :class="showExportMenu ? 'border-habit-cyan/40 text-habit-text' : ''"
           >
             <svg
               class="w-4 h-4"
@@ -317,8 +340,10 @@ onMounted(() => {
             </svg>
             Export
           </button>
+          <Transition name="export-dropdown">
           <div
-            class="absolute right-0 top-full mt-1 w-56 bg-habit-card border border-habit-border rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 py-1"
+            v-if="showExportMenu"
+            class="absolute right-0 top-full mt-1 w-56 bg-habit-card border border-habit-border rounded-xl shadow-2xl ring-1 ring-black/5 z-50 py-1"
           >
             <p
               class="px-3 py-1.5 text-xs text-habit-text-subtle uppercase tracking-wide"
@@ -413,6 +438,7 @@ onMounted(() => {
               }}
             </button>
           </div>
+          </Transition>
         </div>
       </div>
     </div>
@@ -731,3 +757,20 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.export-dropdown-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.export-dropdown-leave-active {
+  transition: all 0.15s ease-in;
+}
+.export-dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+}
+.export-dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-2px) scale(0.98);
+}
+</style>

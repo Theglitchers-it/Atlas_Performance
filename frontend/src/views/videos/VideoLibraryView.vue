@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useVideoStore } from "@/store/video";
 import { useAuthStore } from "@/store/auth";
 import { useRouter } from "vue-router";
@@ -21,8 +21,34 @@ const activeTab = ref("videos");
 
 // Filtri
 const searchQuery = ref("");
+const searchDebounce = ref<any>(null);
 const videoTypeFilter = ref("");
 const difficultyFilter = ref("");
+
+// Mobile search/filter state
+const mobileSearchExpanded = ref(false);
+const mobileFiltersExpanded = ref(false);
+const mobileSearchInput = ref<HTMLInputElement | null>(null);
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (videoTypeFilter.value) count++;
+  if (difficultyFilter.value) count++;
+  return count;
+});
+
+const toggleMobileSearch = () => {
+  mobileSearchExpanded.value = !mobileSearchExpanded.value;
+  mobileFiltersExpanded.value = false;
+  if (mobileSearchExpanded.value) {
+    nextTick(() => mobileSearchInput.value?.focus());
+  }
+};
+
+const toggleMobileFilters = () => {
+  mobileFiltersExpanded.value = !mobileFiltersExpanded.value;
+  mobileSearchExpanded.value = false;
+};
 
 // Modali
 const showCreateVideoModal = ref(false);
@@ -151,9 +177,16 @@ const handleTabChange = (tab: any) => {
 };
 
 const handleSearch = () => {
-  if (activeTab.value === "videos") loadVideos();
-  else loadCourses();
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
+  searchDebounce.value = setTimeout(() => {
+    if (activeTab.value === "videos") loadVideos();
+    else loadCourses();
+  }, 300);
 };
+
+onUnmounted(() => {
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
+});
 
 const handleVideoTypeFilter = (type: any) => {
   videoTypeFilter.value = type;
@@ -431,71 +464,111 @@ onMounted(() => {
     </div>
 
     <!-- Search & Filters -->
-    <div class="flex flex-col sm:flex-row gap-3 mb-6">
-      <div class="flex-1 relative">
-        <svg
-          class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    <div class="mb-6">
+
+      <!-- === DESKTOP (sm+) === -->
+      <div class="hidden sm:flex items-center gap-3">
+        <div class="relative max-w-xs group/search">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input v-model="searchQuery" @input="handleSearch" type="text" autocomplete="off"
+            :placeholder="activeTab === 'videos' ? 'Cerca video...' : 'Cerca corsi...'"
+            class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
           />
-        </svg>
-        <input
-          v-model="searchQuery"
-          @input="handleSearch"
-          type="text"
-          autocomplete="off"
-          :placeholder="
-            activeTab === 'videos' ? 'Cerca video...' : 'Cerca corsi...'
-          "
-          class="input-dark w-full pl-10"
-        />
+        </div>
+
+        <div v-if="activeTab === 'videos'" class="flex gap-2 flex-wrap">
+          <button @click="handleVideoTypeFilter('')" class="pill text-xs" :class="!videoTypeFilter ? 'pill-active' : ''">Tutti</button>
+          <button v-for="(config, key) in videoTypeConfig" :key="key" @click="handleVideoTypeFilter(key)"
+            class="pill text-xs" :class="videoTypeFilter === key ? 'pill-active' : ''">
+            {{ config.icon }} {{ config.label }}
+          </button>
+        </div>
+
+        <div v-if="activeTab === 'courses'" class="flex gap-2 flex-wrap">
+          <button @click="handleDifficultyFilter('')" class="pill text-xs" :class="!difficultyFilter ? 'pill-active' : ''">Tutti</button>
+          <button v-for="(config, key) in difficultyConfig" :key="key" @click="handleDifficultyFilter(key)"
+            class="pill text-xs" :class="difficultyFilter === key ? 'pill-active' : ''">
+            {{ config.label }}
+          </button>
+        </div>
       </div>
 
-      <!-- Video Type Filter -->
-      <div v-if="activeTab === 'videos'" class="flex gap-2 flex-wrap">
-        <button
-          @click="handleVideoTypeFilter('')"
-          class="pill text-xs"
-          :class="!videoTypeFilter ? 'pill-active' : ''"
-        >
-          Tutti
-        </button>
-        <button
-          v-for="(config, key) in videoTypeConfig"
-          :key="key"
-          @click="handleVideoTypeFilter(key)"
-          class="pill text-xs"
-          :class="videoTypeFilter === key ? 'pill-active' : ''"
-        >
-          {{ config.icon }} {{ config.label }}
-        </button>
-      </div>
+      <!-- === MOBILE (<sm) === -->
+      <div class="sm:hidden space-y-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 flex items-center">
+            <template v-if="!mobileSearchExpanded">
+              <button @click="toggleMobileSearch"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl bg-habit-card border border-habit-border shadow-sm text-habit-text-subtle text-xs transition-all duration-200 hover:border-habit-cyan/30">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Cerca...
+              </button>
+            </template>
+            <template v-else>
+              <div class="flex-1 relative flex items-center gap-2">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input ref="mobileSearchInput" v-model="searchQuery" @input="handleSearch" type="text" autocomplete="off"
+                  :placeholder="activeTab === 'videos' ? 'Cerca video...' : 'Cerca corsi...'"
+                  class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
+                />
+                <button @click="toggleMobileSearch"
+                  class="flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border border-habit-border text-habit-text-subtle transition-all duration-200 hover:text-habit-text">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
 
-      <!-- Difficulty Filter -->
-      <div v-if="activeTab === 'courses'" class="flex gap-2 flex-wrap">
-        <button
-          @click="handleDifficultyFilter('')"
-          class="pill text-xs"
-          :class="!difficultyFilter ? 'pill-active' : ''"
-        >
-          Tutti
-        </button>
-        <button
-          v-for="(config, key) in difficultyConfig"
-          :key="key"
-          @click="handleDifficultyFilter(key)"
-          class="pill text-xs"
-          :class="difficultyFilter === key ? 'pill-active' : ''"
-        >
-          {{ config.label }}
-        </button>
+          <button @click="toggleMobileFilters"
+            class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border shadow-sm transition-all duration-200"
+            :class="mobileFiltersExpanded || activeFilterCount > 0 ? 'border-habit-cyan/40 text-habit-cyan' : 'border-habit-border text-habit-text-subtle'">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span v-if="activeFilterCount > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-habit-cyan text-white text-[10px] font-bold flex items-center justify-center">
+              {{ activeFilterCount }}
+            </span>
+          </button>
+        </div>
+
+        <Transition name="filter-expand">
+          <div v-if="mobileFiltersExpanded" class="space-y-2 overflow-hidden">
+            <div v-if="activeTab === 'videos'" class="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
+              <button @click="handleVideoTypeFilter('')"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                :class="!videoTypeFilter ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30' : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
+                Tutti
+              </button>
+              <button v-for="(config, key) in videoTypeConfig" :key="key" @click="handleVideoTypeFilter(key)"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                :class="videoTypeFilter === key ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30' : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
+                {{ config.icon }} {{ config.label }}
+              </button>
+            </div>
+
+            <div v-if="activeTab === 'courses'" class="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
+              <button @click="handleDifficultyFilter('')"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                :class="!difficultyFilter ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30' : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
+                Tutti
+              </button>
+              <button v-for="(config, key) in difficultyConfig" :key="key" @click="handleDifficultyFilter(key)"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                :class="difficultyFilter === key ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30' : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
+                {{ config.label }}
+              </button>
+            </div>
+          </div>
+        </Transition>
       </div>
     </div>
 
@@ -1632,3 +1705,23 @@ onMounted(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.filter-expand-enter-active {
+  transition: all 0.25s ease-out;
+}
+.filter-expand-leave-active {
+  transition: all 0.2s ease-in;
+}
+.filter-expand-enter-from,
+.filter-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+.filter-expand-enter-to,
+.filter-expand-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+</style>

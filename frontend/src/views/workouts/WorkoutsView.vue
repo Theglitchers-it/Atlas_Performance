@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from "vue";
+import { ref, onMounted, onUnmounted, watch, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
 import api from "@/services/api";
@@ -11,8 +11,53 @@ const toast = useToast();
 const workouts = ref<any[]>([]);
 const isLoading = ref(true);
 const searchQuery = ref("");
+const searchDebounce = ref<any>(null);
 const categoryFilter = ref("");
 const difficultyFilter = ref("");
+
+const categoryOptions = [
+  { value: "", label: "Tutte le categorie" },
+  { value: "strength", label: "Forza" },
+  { value: "hypertrophy", label: "Ipertrofia" },
+  { value: "endurance", label: "Resistenza" },
+  { value: "cardio", label: "Cardio" },
+  { value: "hiit", label: "HIIT" },
+  { value: "functional", label: "Funzionale" },
+  { value: "custom", label: "Personalizzato" },
+];
+
+const difficultyOptions = [
+  { value: "", label: "Tutte le difficolta" },
+  { value: "beginner", label: "Principiante" },
+  { value: "intermediate", label: "Intermedio" },
+  { value: "advanced", label: "Avanzato" },
+  { value: "elite", label: "Elite" },
+];
+
+// Mobile search/filter state
+const mobileSearchExpanded = ref(false);
+const mobileFiltersExpanded = ref(false);
+const mobileSearchInput = ref<HTMLInputElement | null>(null);
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (categoryFilter.value) count++;
+  if (difficultyFilter.value) count++;
+  return count;
+});
+
+const toggleMobileSearch = () => {
+  mobileSearchExpanded.value = !mobileSearchExpanded.value;
+  mobileFiltersExpanded.value = false;
+  if (mobileSearchExpanded.value) {
+    nextTick(() => mobileSearchInput.value?.focus());
+  }
+};
+
+const toggleMobileFilters = () => {
+  mobileFiltersExpanded.value = !mobileFiltersExpanded.value;
+  mobileSearchExpanded.value = false;
+};
 const pagination = ref({
   page: 1,
   limit: 20,
@@ -37,9 +82,22 @@ onMounted(() => {
   loadWorkouts();
 });
 
-watch([searchQuery, categoryFilter, difficultyFilter], () => {
+// Debounce search, immediate for dropdowns
+watch([categoryFilter, difficultyFilter], () => {
   pagination.value.page = 1;
   loadWorkouts();
+});
+
+watch(searchQuery, () => {
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
+  searchDebounce.value = setTimeout(() => {
+    pagination.value.page = 1;
+    loadWorkouts();
+  }, 300);
+});
+
+onUnmounted(() => {
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
 });
 
 const loadWorkouts = async () => {
@@ -264,64 +322,89 @@ const formatDate = (dateStr: any) => {
     </div>
 
     <!-- Filters -->
-    <div class="bg-habit-bg border border-habit-border rounded-habit p-4">
-      <div class="flex flex-col sm:flex-row gap-4">
-        <!-- Search -->
-        <div class="flex-1">
-          <div class="relative">
-            <svg
-              class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-habit-text-subtle"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
+    <div class="mb-4">
+
+      <!-- === DESKTOP (sm+) === -->
+      <div class="hidden sm:block bg-habit-bg border border-habit-border rounded-habit p-3">
+        <div class="flex items-center gap-2">
+          <div class="relative max-w-xs group/search">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input
-              v-model="searchQuery"
-              type="text"
-              autocomplete="off"
-              placeholder="Cerca per nome scheda..."
-              class="w-full pl-10 pr-4 py-2 border border-habit-border rounded-xl focus:ring-2 focus:ring-habit-cyan focus:border-transparent bg-habit-bg text-habit-text placeholder-habit-text-subtle"
+            <input v-model="searchQuery" type="text" autocomplete="off" placeholder="Cerca scheda..."
+              class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
             />
           </div>
-        </div>
 
-        <!-- Category Filter -->
-        <div class="sm:w-48">
-          <select
-            v-model="categoryFilter"
-            class="w-full px-4 py-2 border border-habit-border rounded-xl focus:ring-2 focus:ring-habit-cyan focus:border-transparent bg-habit-bg text-habit-text"
-          >
-            <option value="">Tutte le categorie</option>
-            <option value="strength">Forza</option>
-            <option value="hypertrophy">Ipertrofia</option>
-            <option value="endurance">Resistenza</option>
-            <option value="cardio">Cardio</option>
-            <option value="hiit">HIIT</option>
-            <option value="functional">Funzionale</option>
-            <option value="custom">Personalizzato</option>
+          <select v-model="categoryFilter"
+            class="px-3 py-1.5 border border-habit-border rounded-xl text-xs bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30 transition-all">
+            <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+
+          <select v-model="difficultyFilter"
+            class="px-3 py-1.5 border border-habit-border rounded-xl text-xs bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30 transition-all">
+            <option v-for="opt in difficultyOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
+      </div>
 
-        <!-- Difficulty Filter -->
-        <div class="sm:w-48">
-          <select
-            v-model="difficultyFilter"
-            class="w-full px-4 py-2 border border-habit-border rounded-xl focus:ring-2 focus:ring-habit-cyan focus:border-transparent bg-habit-bg text-habit-text"
-          >
-            <option value="">Tutte le difficolta</option>
-            <option value="beginner">Principiante</option>
-            <option value="intermediate">Intermedio</option>
-            <option value="advanced">Avanzato</option>
-            <option value="elite">Elite</option>
-          </select>
+      <!-- === MOBILE (<sm) === -->
+      <div class="sm:hidden space-y-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 flex items-center">
+            <template v-if="!mobileSearchExpanded">
+              <button @click="toggleMobileSearch"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl bg-habit-card border border-habit-border shadow-sm text-habit-text-subtle text-xs transition-all duration-200 hover:border-habit-cyan/30">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Cerca...
+              </button>
+            </template>
+            <template v-else>
+              <div class="flex-1 relative flex items-center gap-2">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input ref="mobileSearchInput" v-model="searchQuery" type="text" autocomplete="off" placeholder="Cerca scheda..."
+                  class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
+                />
+                <button @click="toggleMobileSearch"
+                  class="flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border border-habit-border text-habit-text-subtle transition-all duration-200 hover:text-habit-text">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <button @click="toggleMobileFilters"
+            class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border shadow-sm transition-all duration-200"
+            :class="mobileFiltersExpanded || activeFilterCount > 0 ? 'border-habit-cyan/40 text-habit-cyan' : 'border-habit-border text-habit-text-subtle'">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span v-if="activeFilterCount > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-habit-cyan text-white text-[10px] font-bold flex items-center justify-center">
+              {{ activeFilterCount }}
+            </span>
+          </button>
         </div>
+
+        <Transition name="filter-expand">
+          <div v-if="mobileFiltersExpanded" class="space-y-2 overflow-hidden">
+            <select v-model="categoryFilter"
+              class="w-full px-3 py-2 border border-habit-border rounded-xl text-sm bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30">
+              <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+
+            <select v-model="difficultyFilter"
+              class="w-full px-3 py-2 border border-habit-border rounded-xl text-sm bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30">
+              <option v-for="opt in difficultyOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
+        </Transition>
       </div>
     </div>
 
@@ -621,3 +704,23 @@ const formatDate = (dateStr: any) => {
     />
   </div>
 </template>
+
+<style scoped>
+.filter-expand-enter-active {
+  transition: all 0.25s ease-out;
+}
+.filter-expand-leave-active {
+  transition: all 0.2s ease-in;
+}
+.filter-expand-enter-from,
+.filter-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+.filter-expand-enter-to,
+.filter-expand-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+</style>

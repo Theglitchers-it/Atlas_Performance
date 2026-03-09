@@ -8,6 +8,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 const router = useRouter();
 const store = useProgramStore();
 const toast = useToast();
+const today = new Date().toISOString().split("T")[0];
 
 // Modal state
 const showCreateModal = ref(false);
@@ -576,6 +577,7 @@ onMounted(() => {
               <input
                 v-model="createForm.startDate"
                 type="date"
+                :min="today"
                 class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
               />
             </div>

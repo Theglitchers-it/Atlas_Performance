@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useExerciseStore } from "@/store/exercise";
 import { useNative } from "@/composables/useNative";
@@ -17,6 +17,30 @@ const hoveredExercise = ref<any>(null);
 const previewVisible = ref(false);
 const showMobilePreview = ref(false);
 const { isMobile } = useNative();
+
+const mobileSearchExpanded = ref(false);
+const mobileFiltersExpanded = ref(false);
+const mobileSearchInput = ref<HTMLInputElement | null>(null);
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (filters.value.muscleGroup) count++;
+  if (filters.value.difficulty) count++;
+  return count;
+});
+
+const toggleMobileSearch = () => {
+  mobileSearchExpanded.value = !mobileSearchExpanded.value;
+  mobileFiltersExpanded.value = false;
+  if (mobileSearchExpanded.value) {
+    nextTick(() => mobileSearchInput.value?.focus());
+  }
+};
+
+const toggleMobileFilters = () => {
+  mobileFiltersExpanded.value = !mobileFiltersExpanded.value;
+  mobileSearchExpanded.value = false;
+};
 
 const exercises = computed(() => exerciseStore.exercises);
 const muscleGroups = computed(() => exerciseStore.muscleGroups);
@@ -203,16 +227,6 @@ watch([showMobilePreview, showModal], ([mobileOpen, modalOpen]) => {
   }
 });
 
-onMounted(async () => {
-  await exerciseStore.initialize();
-});
-
-onUnmounted(() => {
-  if (searchDebounce.value) clearTimeout(searchDebounce.value);
-  if (hoverTimeout) clearTimeout(hoverTimeout);
-  document.body.style.overflow = '';
-});
-
 // ── Handlers ──
 const handleExerciseClick = (exercise: any) => {
   if (isMobile.value) {
@@ -260,8 +274,73 @@ const handleSelectExercise = (exercise: any) => {
   router.push({ path: '/workouts/builder', query: { addExercise: exercise?.id } });
 };
 
-const handleFilterMuscleGroup = (e: any) => exerciseStore.setFilter("muscleGroup", e.target.value || null);
-const handleFilterDifficulty = (e: any) => exerciseStore.setFilter("difficulty", e.target.value || null);
+// Custom dropdown state
+const showMuscleDropdown = ref(false);
+const showDifficultyDropdown = ref(false);
+const muscleDropdownEl = ref<HTMLElement | null>(null);
+const difficultyDropdownEl = ref<HTMLElement | null>(null);
+
+const toggleMuscleDropdown = () => {
+  showMuscleDropdown.value = !showMuscleDropdown.value;
+  showDifficultyDropdown.value = false;
+};
+const toggleDifficultyDropdown = () => {
+  showDifficultyDropdown.value = !showDifficultyDropdown.value;
+  showMuscleDropdown.value = false;
+};
+const closeDropdowns = () => {
+  showMuscleDropdown.value = false;
+  showDifficultyDropdown.value = false;
+};
+
+const handleFilterMuscleGroup = (val: string | null) => {
+  exerciseStore.setFilter("muscleGroup", val);
+  showMuscleDropdown.value = false;
+};
+const handleFilterDifficulty = (val: string | null) => {
+  exerciseStore.setFilter("difficulty", val);
+  showDifficultyDropdown.value = false;
+};
+
+const selectedMuscleLabel = computed(() => {
+  if (!filters.value.muscleGroup) return "Tutti i muscoli";
+  const allGroups = [...muscleGroupsByCategory.value.push, ...muscleGroupsByCategory.value.pull, ...muscleGroupsByCategory.value.legs, ...muscleGroupsByCategory.value.core, ...muscleGroupsByCategory.value.other];
+  const found = allGroups.find((mg: any) => String(mg.id) === String(filters.value.muscleGroup));
+  return found ? (found.name_it || found.name) : "Tutti i muscoli";
+});
+
+const difficultyOptions = [
+  { value: null, label: "Tutte", dot: "bg-habit-text-subtle/40", color: "" },
+  { value: "beginner", label: "Principiante", dot: "bg-emerald-400", color: "text-emerald-400" },
+  { value: "intermediate", label: "Intermedio", dot: "bg-cyan-400", color: "text-cyan-400" },
+  { value: "advanced", label: "Avanzato", dot: "bg-orange-400", color: "text-orange-400" },
+];
+
+const selectedDifficultyOption = computed(() => {
+  return difficultyOptions.find(o => o.value === (filters.value.difficulty || null)) || difficultyOptions[0];
+});
+
+// Close dropdowns on click outside
+const handleClickOutside = (e: MouseEvent) => {
+  if (muscleDropdownEl.value && !muscleDropdownEl.value.contains(e.target as Node)) {
+    showMuscleDropdown.value = false;
+  }
+  if (difficultyDropdownEl.value && !difficultyDropdownEl.value.contains(e.target as Node)) {
+    showDifficultyDropdown.value = false;
+  }
+};
+
+onMounted(async () => {
+  document.addEventListener("click", handleClickOutside);
+  await exerciseStore.initialize();
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside);
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
+  if (hoverTimeout) clearTimeout(hoverTimeout);
+  document.body.style.overflow = '';
+});
 const handleSearch = (e: any) => {
   const value = e.target.value;
   if (searchDebounce.value) clearTimeout(searchDebounce.value);
@@ -287,6 +366,9 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
         <p class="text-habit-text-subtle text-sm mt-0.5">
           <span class="text-habit-cyan font-semibold">{{ pagination.total }}</span> esercizi
         </p>
+        <p class="text-habit-text-subtle text-sm mt-1">
+          Esplora, filtra e seleziona gli esercizi per costruire le tue schede di allenamento.
+        </p>
       </div>
       <router-link
         to="/workouts/builder"
@@ -302,88 +384,276 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
     </div>
 
     <!-- Search & Filters -->
-    <div class="glass-panel glass-panel-mobile search-panel-mobile rounded-xl sm:rounded-2xl p-2.5 sm:p-3 lg:p-4 mb-3 sm:mb-5 space-y-2">
-      <!-- Search -->
-      <div class="relative group/search">
-        <svg
-          class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300"
-          fill="none" viewBox="0 0 24 24" stroke="currentColor"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          type="text" autocomplete="off" placeholder="Cerca esercizio..."
-          :value="filters.search" @input="handleSearch"
-          class="w-full pl-9 pr-3 sm:pr-4 py-1.5 sm:py-2 bg-habit-bg-light border border-habit-border rounded-lg sm:rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
-        />
-      </div>
+    <div class="mb-3 sm:mb-5">
 
-      <!-- Mobile muscle group chips -->
-      <div v-if="isMobile && orderedMuscleGroupsFlat.length" class="lg:hidden">
-        <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
-          <button @click="handleChipFilter(null)"
-            class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border"
-            :class="!filters.muscleGroup
-              ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30'
-              : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
-            <span class="w-1.5 h-1.5 rounded-full bg-habit-cyan"></span>
-            Tutti
-          </button>
-          <button v-for="mg in orderedMuscleGroupsFlat" :key="mg.id"
-            @click="handleChipFilter(String(mg.id))"
-            class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
-            :class="String(filters.muscleGroup) === String(mg.id)
-              ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30'
-              : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
-            <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
-            {{ mg.name_it || mg.name }}
+      <!-- === DESKTOP (lg+) === -->
+      <div class="hidden lg:block glass-panel search-filter-bar rounded-2xl p-3">
+        <div class="flex items-center gap-2">
+          <!-- Search -->
+          <div class="relative max-w-xs group/search">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text" autocomplete="off" placeholder="Cerca esercizio..."
+              :value="filters.search" @input="handleSearch"
+              class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
+            />
+          </div>
+
+          <!-- Muscle group dropdown -->
+          <div ref="muscleDropdownEl" class="relative" :class="showMuscleDropdown ? 'z-50' : 'z-10'">
+            <button
+              @click.stop="toggleMuscleDropdown"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs min-w-[140px] cursor-pointer transition-all duration-200 bg-habit-card border border-habit-border shadow-sm hover:border-habit-cyan/30 hover:shadow-md"
+              :class="[
+                showMuscleDropdown ? 'border-habit-cyan/40 shadow-[0_0_0_2px_rgba(2,131,167,0.15)]' : '',
+                filters.muscleGroup ? '!bg-habit-cyan/10 !border-habit-cyan/30' : ''
+              ]"
+            >
+              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="filters.muscleGroup ? 'bg-habit-cyan' : 'bg-habit-text-subtle/40'"></span>
+              <span class="flex-1 text-left truncate" :class="filters.muscleGroup ? 'text-habit-cyan font-medium' : 'text-habit-text/70'">{{ selectedMuscleLabel }}</span>
+              <svg class="w-3 h-3 text-habit-text/50 transition-transform duration-300" :class="showMuscleDropdown ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <Transition name="dropdown">
+              <div v-if="showMuscleDropdown" class="absolute top-full left-0 mt-1.5 w-56 max-h-[320px] rounded-2xl overflow-hidden z-50 bg-habit-card border border-habit-border shadow-2xl ring-1 ring-black/5">
+                <div class="overflow-y-auto max-h-[320px] py-1.5 custom-scrollbar">
+                  <button
+                    @click="handleFilterMuscleGroup(null)"
+                    class="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                    :class="!filters.muscleGroup ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-habit-cyan/60"></span>
+                    <span class="font-medium">Tutti i muscoli</span>
+                  </button>
+
+                  <template v-if="muscleGroupsByCategory.push.length">
+                    <div class="h-px bg-habit-border mx-3 my-1"></div>
+                    <div class="px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-habit-text-subtle/50">Push</div>
+                    <button v-for="mg in muscleGroupsByCategory.push" :key="mg.id"
+                      @click="handleFilterMuscleGroup(String(mg.id))"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                      :class="String(filters.muscleGroup) === String(mg.id) ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
+                      <span>{{ mg.name_it || mg.name }}</span>
+                    </button>
+                  </template>
+
+                  <template v-if="muscleGroupsByCategory.pull.length">
+                    <div class="h-px bg-habit-border mx-3 my-1"></div>
+                    <div class="px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-habit-text-subtle/50">Pull</div>
+                    <button v-for="mg in muscleGroupsByCategory.pull" :key="mg.id"
+                      @click="handleFilterMuscleGroup(String(mg.id))"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                      :class="String(filters.muscleGroup) === String(mg.id) ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
+                      <span>{{ mg.name_it || mg.name }}</span>
+                    </button>
+                  </template>
+
+                  <template v-if="muscleGroupsByCategory.legs.length">
+                    <div class="h-px bg-habit-border mx-3 my-1"></div>
+                    <div class="px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-habit-text-subtle/50">Gambe</div>
+                    <button v-for="mg in muscleGroupsByCategory.legs" :key="mg.id"
+                      @click="handleFilterMuscleGroup(String(mg.id))"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                      :class="String(filters.muscleGroup) === String(mg.id) ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
+                      <span>{{ mg.name_it || mg.name }}</span>
+                    </button>
+                  </template>
+
+                  <template v-if="muscleGroupsByCategory.core.length">
+                    <div class="h-px bg-habit-border mx-3 my-1"></div>
+                    <div class="px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-habit-text-subtle/50">Core</div>
+                    <button v-for="mg in muscleGroupsByCategory.core" :key="mg.id"
+                      @click="handleFilterMuscleGroup(String(mg.id))"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                      :class="String(filters.muscleGroup) === String(mg.id) ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
+                      <span>{{ mg.name_it || mg.name }}</span>
+                    </button>
+                  </template>
+
+                  <template v-if="muscleGroupsByCategory.other.length">
+                    <div class="h-px bg-habit-border mx-3 my-1"></div>
+                    <div class="px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-habit-text-subtle/50">Altro</div>
+                    <button v-for="mg in muscleGroupsByCategory.other" :key="mg.id"
+                      @click="handleFilterMuscleGroup(String(mg.id))"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                      :class="String(filters.muscleGroup) === String(mg.id) ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
+                      <span>{{ mg.name_it || mg.name }}</span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- Difficulty dropdown -->
+          <div ref="difficultyDropdownEl" class="relative" :class="showDifficultyDropdown ? 'z-50' : 'z-10'">
+            <button
+              @click.stop="toggleDifficultyDropdown"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs min-w-[120px] cursor-pointer transition-all duration-200 bg-habit-card border border-habit-border shadow-sm hover:border-habit-cyan/30 hover:shadow-md"
+              :class="[
+                showDifficultyDropdown ? 'border-habit-cyan/40 shadow-[0_0_0_2px_rgba(2,131,167,0.15)]' : '',
+                filters.difficulty ? '!bg-habit-cyan/10 !border-habit-cyan/30' : ''
+              ]"
+            >
+              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="selectedDifficultyOption.dot"></span>
+              <span class="flex-1 text-left" :class="filters.difficulty ? selectedDifficultyOption.color + ' font-medium' : 'text-habit-text/70'">
+                {{ filters.difficulty ? selectedDifficultyOption.label : "Difficolta'" }}
+              </span>
+              <svg class="w-3 h-3 text-habit-text/50 transition-transform duration-300" :class="showDifficultyDropdown ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <Transition name="dropdown">
+              <div v-if="showDifficultyDropdown" class="absolute top-full left-0 mt-1.5 w-48 rounded-2xl overflow-hidden z-50 bg-habit-card border border-habit-border shadow-2xl ring-1 ring-black/5">
+                <div class="py-1.5">
+                  <button
+                    v-for="opt in difficultyOptions" :key="opt.value ?? 'all'"
+                    @click="handleFilterDifficulty(opt.value)"
+                    class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs transition-colors duration-150 text-habit-text/70 hover:bg-habit-card-hover hover:text-habit-text"
+                    :class="(filters.difficulty || null) === opt.value ? '!bg-habit-cyan/10 !text-habit-cyan' : ''"
+                  >
+                    <span class="w-2 h-2 rounded-full shadow-sm" :class="opt.dot"></span>
+                    <span class="font-medium" :class="opt.value && (filters.difficulty || null) === opt.value ? opt.color : ''">{{ opt.label }}</span>
+                    <svg v-if="(filters.difficulty || null) === opt.value" class="w-3 h-3 ml-auto text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- Reset -->
+          <button
+            v-if="hasFilters" @click="handleResetFilters"
+            class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-red-400/70 rounded-xl border border-red-400/15 hover:bg-red-400/10 hover:text-red-400 transition-all duration-300"
+          >
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Reset
           </button>
         </div>
       </div>
 
-      <!-- Filter row -->
-      <div class="flex flex-wrap items-center gap-2">
-        <select
-          :value="filters.muscleGroup || ''" @change="handleFilterMuscleGroup"
-          class="hidden lg:block glass-select px-2.5 py-1.5 rounded-xl text-xs min-w-[120px]"
-        >
-          <option value="">Tutti i muscoli</option>
-          <optgroup v-if="muscleGroupsByCategory.push.length" label="Push">
-            <option v-for="mg in muscleGroupsByCategory.push" :key="mg.id" :value="mg.id">{{ mg.name_it || mg.name }}</option>
-          </optgroup>
-          <optgroup v-if="muscleGroupsByCategory.pull.length" label="Pull">
-            <option v-for="mg in muscleGroupsByCategory.pull" :key="mg.id" :value="mg.id">{{ mg.name_it || mg.name }}</option>
-          </optgroup>
-          <optgroup v-if="muscleGroupsByCategory.legs.length" label="Gambe">
-            <option v-for="mg in muscleGroupsByCategory.legs" :key="mg.id" :value="mg.id">{{ mg.name_it || mg.name }}</option>
-          </optgroup>
-          <optgroup v-if="muscleGroupsByCategory.core.length" label="Core">
-            <option v-for="mg in muscleGroupsByCategory.core" :key="mg.id" :value="mg.id">{{ mg.name_it || mg.name }}</option>
-          </optgroup>
-          <optgroup v-if="muscleGroupsByCategory.other.length" label="Altro">
-            <option v-for="mg in muscleGroupsByCategory.other" :key="mg.id" :value="mg.id">{{ mg.name_it || mg.name }}</option>
-          </optgroup>
-        </select>
+      <!-- === MOBILE (<lg) === -->
+      <div class="lg:hidden space-y-2">
 
-        <select
-          :value="filters.difficulty || ''" @change="handleFilterDifficulty"
-          class="glass-select px-2.5 py-1.5 rounded-xl text-xs min-w-[100px]"
-        >
-          <option value="">Difficolta'</option>
-          <option value="beginner">Principiante</option>
-          <option value="intermediate">Intermedio</option>
-          <option value="advanced">Avanzato</option>
-        </select>
+        <!-- Barra compatta -->
+        <div class="flex items-center gap-2">
 
-        <button
-          v-if="hasFilters" @click="handleResetFilters"
-          class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-red-400/70 rounded-xl border border-red-400/15 hover:bg-red-400/10 hover:text-red-400 transition-all duration-300"
-        >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Reset
-        </button>
+          <!-- Search icon / expanded input -->
+          <div class="flex-1 flex items-center">
+            <template v-if="!mobileSearchExpanded">
+              <button @click="toggleMobileSearch"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl bg-habit-card border border-habit-border shadow-sm text-habit-text-subtle text-xs transition-all duration-200 hover:border-habit-cyan/30">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Cerca...
+              </button>
+            </template>
+            <template v-else>
+              <div class="flex-1 relative flex items-center gap-2">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input ref="mobileSearchInput" type="text" autocomplete="off" placeholder="Cerca esercizio..."
+                  :value="filters.search" @input="handleSearch"
+                  class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
+                />
+                <button @click="toggleMobileSearch"
+                  class="flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border border-habit-border text-habit-text-subtle transition-all duration-200 hover:text-habit-text">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <!-- Filter icon + badge -->
+          <button @click="toggleMobileFilters"
+            class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border shadow-sm transition-all duration-200"
+            :class="mobileFiltersExpanded || activeFilterCount > 0 ? 'border-habit-cyan/40 text-habit-cyan' : 'border-habit-border text-habit-text-subtle'">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span v-if="activeFilterCount > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-habit-cyan text-white text-[10px] font-bold flex items-center justify-center">
+              {{ activeFilterCount }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Pannello filtri espandibile -->
+        <Transition name="filter-expand">
+          <div v-if="mobileFiltersExpanded" class="space-y-2 overflow-hidden">
+            <!-- Muscle chips -->
+            <div v-if="orderedMuscleGroupsFlat.length">
+              <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
+                <button @click="handleChipFilter(null)"
+                  class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border"
+                  :class="!filters.muscleGroup
+                    ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30'
+                    : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
+                  <span class="w-1.5 h-1.5 rounded-full bg-habit-cyan"></span>
+                  Tutti
+                </button>
+                <button v-for="mg in orderedMuscleGroupsFlat" :key="mg.id"
+                  @click="handleChipFilter(String(mg.id))"
+                  class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                  :class="String(filters.muscleGroup) === String(mg.id)
+                    ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30'
+                    : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="getChipDotColor(mg)"></span>
+                  {{ mg.name_it || mg.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Difficulty chips -->
+            <div>
+              <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
+                <button
+                  v-for="opt in difficultyOptions" :key="opt.value ?? 'all'"
+                  @click="handleFilterDifficulty(opt.value)"
+                  class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                  :class="(filters.difficulty || null) === opt.value
+                    ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30'
+                    : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full" :class="opt.dot"></span>
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Reset inline -->
+            <button v-if="hasFilters" @click="handleResetFilters"
+              class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-red-400/70 rounded-xl border border-red-400/15 hover:bg-red-400/10 hover:text-red-400 transition-all duration-300">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Reset filtri
+            </button>
+          </div>
+        </Transition>
       </div>
     </div>
 
@@ -789,17 +1059,30 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
   }
 }
 
-/* Mobile: search panel flat/transparent */
-@media (max-width: 639px) {
-  .search-panel-mobile {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    padding-left: 0;
-    padding-right: 0;
-  }
+/* Search/filter bar: allow dropdowns to overflow and appear above content below */
+.search-filter-bar {
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+/* Filter expand transition (mobile) */
+.filter-expand-enter-active {
+  transition: all 0.25s ease-out;
+}
+.filter-expand-leave-active {
+  transition: all 0.2s ease-in;
+}
+.filter-expand-enter-from,
+.filter-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+.filter-expand-enter-to,
+.filter-expand-leave-from {
+  opacity: 1;
+  max-height: 200px;
 }
 
 /* Mobile: exercise list panels — solid bg, no glass */
@@ -813,49 +1096,33 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
   }
 }
 
-.glass-select {
-  background: var(--glass-bg, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.09));
-  color: inherit;
-  cursor: pointer;
-  appearance: none;
-  transition: all 0.3s;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-size: 12px;
-  background-position: right 8px center;
-  padding-right: 1.75rem;
+
+/* ── Scrollbar ── */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--color-habit-border)) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-habit-border));
+  border-radius: 4px;
 }
 
-:root:not(.dark) .glass-select {
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.1);
+/* Dropdown transition */
+.dropdown-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.glass-select:focus {
-  outline: none;
-  border-color: rgba(0, 200, 255, 0.25);
+.dropdown-leave-active {
+  transition: all 0.15s ease-in;
 }
-
-.glass-select option {
-  background: #12121e;
-  color: #d0d0d0;
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
 }
-
-.glass-select optgroup {
-  background: #12121e;
-  color: #8a8a9a;
-  font-style: normal;
-}
-
-:root:not(.dark) .glass-select option {
-  background: #ffffff;
-  color: #333333;
-}
-
-:root:not(.dark) .glass-select optgroup {
-  background: #f5f5f5;
-  color: #666666;
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-2px) scale(0.98);
 }
 
 /* CTA button glow */
@@ -914,15 +1181,6 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
 .mobile-preview-enter-from > :last-child,
 .mobile-preview-leave-to > :last-child {
   transform: translateY(100%);
-}
-
-/* Hide scrollbar for muscle group chips */
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
 }
 
 /* Safe area bottom padding for notched phones */
