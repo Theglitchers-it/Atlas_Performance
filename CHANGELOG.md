@@ -1,7 +1,46 @@
 # CHANGELOG - Atlas Platform
 
 > Questo file traccia tutte le azioni di sviluppo del progetto.
-> Ultimo aggiornamento: 2026-02-24
+> Ultimo aggiornamento: 2026-03-09
+
+---
+
+## [2026-03-09] - Pulizia Progetto + Miglioramenti UI/Backend
+
+### 1. Pulizia e Riorganizzazione Progetto
+- **`fix-muscles.sql`** — Spostato dalla root a `database/migrations/015_fix_muscles.sql` per coerenza con la struttura migrazioni
+- **`frontend/dist/`** — Rimossa cartella build artifacts (già in `.gitignore`)
+- **Verificato** che `backend/.env` non è nel git history — nessun secret esposto
+
+### 2. Backend — Estensione API Client
+- **`backend/src/controllers/client.controller.js`** — Nuove azioni controller per gestione clienti
+- **`backend/src/routes/client.routes.js`** — Aggiunti nuovi endpoint API
+- **`backend/src/services/client.service.js`** — Nuovi metodi service per funzionalità clienti estese
+- **`backend/src/routes/location.routes.js`** — Refactor route location
+
+### 3. Frontend — Nuovi Componenti Client
+- **`frontend/src/components/clients/ClientGlassCard.vue`** — Nuovo componente card con effetto glass per visualizzazione clienti
+- **`frontend/src/components/clients/ClientProgramsTab.vue`** — Nuovo tab per programmi assegnati al cliente
+- **`frontend/src/components/layout/AppSidebar.vue`** — Aggiornata sidebar navigazione
+- **`frontend/src/components/mobile/BottomNavigation.vue`** — Migliorata navigazione mobile
+- **`frontend/src/components/skeleton/ClientListSkeleton.vue`** — Aggiornato skeleton loading clienti
+- **`frontend/src/store/client.ts`** — Aggiornato store gestione stato clienti
+
+### 4. Frontend — Miglioramenti Viste
+- **`frontend/src/views/clients/ClientsListView.vue`** — Refactor lista clienti (842 righe rivisitate)
+- **`frontend/src/views/clients/ClientDetailView.vue`** — Migliorata vista dettaglio cliente
+- **`frontend/src/views/admin/AdminAuditView.vue`** — Espansa vista audit (+209 righe)
+- **`frontend/src/views/admin/AdminTenantsView.vue`** — Espansa vista tenants (+185 righe)
+- **`frontend/src/views/analytics/AnalyticsView.vue`** — Migliorata dashboard analytics
+- **`frontend/src/views/programs/ProgramsView.vue`** — Aggiornata vista programmi
+- **`frontend/src/views/videos/VideoLibraryView.vue`** — Migliorata libreria video
+- **`frontend/src/views/workouts/ExerciseLibraryView.vue`** — Espansa libreria esercizi (+550 righe)
+- **`frontend/src/views/workouts/WorkoutsView.vue`** — Migliorata vista workouts
+
+### Riepilogo Numerico
+- **19 file modificati + 2 nuovi** in 8 commit organizzati
+- **~2337 righe aggiunte**, **~814 righe rimosse**
+- **0 secret esposti** — `.env` verificato assente dal git history
 
 ---
 
