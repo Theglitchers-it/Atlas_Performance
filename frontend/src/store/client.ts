@@ -8,6 +8,15 @@ import { ref, computed } from 'vue'
 import api from '@/services/api'
 import type { Client, PaginationMeta } from '@/types'
 
+interface ClientProgramSummary {
+    program_count: number
+    active_program_name: string | null
+    active_program_weeks: number | null
+    active_program_start: string | null
+    active_program_end: string | null
+    program_badge: 'has_active' | 'has_draft' | 'none'
+}
+
 interface ActionResult {
     success: boolean
     message?: string
@@ -33,6 +42,7 @@ export const useClientStore = defineStore('client', () => {
     const loading = ref<boolean>(false)
     const detailLoading = ref<boolean>(false)
     const error = ref<string | null>(null)
+    const programSummaries = ref<Record<number, ClientProgramSummary>>({})
 
     // Filters
     const filters = ref<ClientFilters>({
@@ -96,6 +106,18 @@ export const useClientStore = defineStore('client', () => {
             return { success: false, message: error.value as string }
         } finally {
             loading.value = false
+        }
+    }
+
+    /**
+     * Fetch sommario programmi per tutti i clienti
+     */
+    const fetchProgramSummaries = async (): Promise<void> => {
+        try {
+            const response = await api.get('/clients/program-summaries')
+            programSummaries.value = response.data.data.summaries || {}
+        } catch {
+            // Non-critical, fail silently
         }
     }
 
@@ -286,16 +308,16 @@ export const useClientStore = defineStore('client', () => {
     }
 
     const initialize = async (): Promise<void> => {
-        await fetchClients()
+        await Promise.all([fetchClients(), fetchProgramSummaries()])
     }
 
     return {
         // State
-        clients, currentClient, loading, detailLoading, error, filters, pagination,
+        clients, currentClient, loading, detailLoading, error, filters, pagination, programSummaries,
         // Getters
         activeClients, clientCount, hasFilters, statusOptions,
         // Actions
-        fetchClients, fetchClientById, createClient, updateClient, deleteClient,
+        fetchClients, fetchClientById, fetchProgramSummaries, createClient, updateClient, deleteClient,
         updateClientStatus, addGoal, updateGoal, deleteGoal,
         addInjury, updateInjury,
         setFilter, setSearch, resetFilters, setPage,

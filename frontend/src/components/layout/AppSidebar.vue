@@ -11,7 +11,6 @@ import {
   HomeIcon,
   UserGroupIcon,
   ClipboardDocumentListIcon,
-  CalendarIcon,
   CalendarDaysIcon,
   ChatBubbleLeftRightIcon,
   VideoCameraIcon,
@@ -248,7 +247,6 @@ const trainerMenuGroups = [
       { name: "Clienti", path: "/clients", icon: UserGroupIcon },
       { name: "Schede", path: "/workouts", icon: ClipboardDocumentListIcon },
       { name: "Esercizi", path: "/exercises", icon: SparklesIcon },
-      { name: "Programmi", path: "/programs", icon: CalendarIcon },
     ],
   },
   {
@@ -418,7 +416,10 @@ const getPlanLabel = (plan: string | undefined): string =>
     ]"
   >
     <!-- Scrollable inner container -->
-    <div class="flex-1 overflow-y-auto sidebar-scroll min-h-0">
+    <div
+      class="flex-1 sidebar-scroll min-h-0"
+      :class="[isCollapsed && !drawer ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden']"
+    >
       <nav
         :class="[
           isCollapsed && !drawer ? 'px-2 py-4' : drawer ? 'px-3 py-3' : 'p-4',

@@ -40,12 +40,17 @@ const unreadCount = computed<number>(() => chatStore.totalUnread || 0);
 
 // Bottom nav items per trainer
 const trainerNav: NavItem[] = [
-  { name: "Home", path: "/", icon: HomeIcon, iconActive: HomeIconSolid },
   {
     name: "Clienti",
     path: "/clients",
     icon: ClipboardDocumentListIcon,
     iconActive: ClipboardSolid,
+  },
+  {
+    name: "Home",
+    path: "/",
+    icon: HomeIcon,
+    iconActive: HomeIconSolid,
   },
   {
     name: "Chat",
@@ -66,16 +71,16 @@ const trainerNav: NavItem[] = [
 // Bottom nav items per client
 const clientNav: NavItem[] = [
   {
+    name: "Workout",
+    path: "/my-workout",
+    icon: ClipboardDocumentListIcon,
+    iconActive: ClipboardSolid,
+  },
+  {
     name: "Home",
     path: "/my-dashboard",
     icon: HomeIcon,
     iconActive: HomeIconSolid,
-  },
-  {
-    name: "Check-in",
-    path: "/checkin",
-    icon: HeartIcon,
-    iconActive: HeartSolid,
   },
   {
     name: "Chat",
@@ -85,10 +90,10 @@ const clientNav: NavItem[] = [
     isCenter: true,
   },
   {
-    name: "Workout",
-    path: "/my-workout",
-    icon: ClipboardDocumentListIcon,
-    iconActive: ClipboardSolid,
+    name: "Check-in",
+    path: "/checkin",
+    icon: HeartIcon,
+    iconActive: HeartSolid,
   },
   { name: "Profilo", path: "/profile", icon: UserIcon, iconActive: UserSolid },
 ];
