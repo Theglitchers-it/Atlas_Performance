@@ -204,6 +204,21 @@ class ClientController {
     }
 
     /**
+     * GET /api/clients/program-summaries
+     */
+    async getProgramSummaries(req, res, next) {
+        try {
+            const summaries = await clientService.getProgramSummaries(req.user.tenantId);
+            res.json({
+                success: true,
+                data: { summaries }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * POST /api/clients/:id/xp
      */
     async addXP(req, res, next) {

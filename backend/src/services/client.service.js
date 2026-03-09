@@ -71,6 +71,19 @@ class ClientService {
     }
 
     /**
+     * Verifica che il cliente appartenga al tenant (guard leggero, 1 sola query)
+     */
+    async assertOwnership(clientId, tenantId) {
+        const rows = await query(
+            'SELECT id FROM clients WHERE id = ? AND tenant_id = ?',
+            [clientId, tenantId]
+        );
+        if (rows.length === 0) {
+            throw { status: 404, message: 'Cliente non trovato' };
+        }
+    }
+
+    /**
      * Ottieni cliente per ID
      */
     async getById(id, tenantId) {
@@ -264,6 +277,8 @@ class ClientService {
      * Aggiungi obiettivo cliente
      */
     async addGoal(clientId, tenantId, goalData) {
+        await this.assertOwnership(clientId, tenantId);
+
         const { goalType, targetValue, currentValue, unit, deadline, priority, notes } = goalData;
 
         const result = await query(
@@ -279,6 +294,8 @@ class ClientService {
      * Aggiungi infortunio
      */
     async addInjury(clientId, tenantId, injuryData) {
+        await this.assertOwnership(clientId, tenantId);
+
         const { bodyPart, description, severity, injuryDate, restrictions, notes } = injuryData;
 
         const result = await query(
@@ -371,9 +388,40 @@ class ClientService {
     }
 
     /**
+     * Sommario programmi per tutti i clienti del tenant (lookup O(1) per client_id)
+     */
+    async getProgramSummaries(tenantId) {
+        const rows = await query(`
+            SELECT
+                cp.client_id,
+                COUNT(*) as program_count,
+                MAX(CASE WHEN cp.status = 'active' THEN cp.name END) as active_program_name,
+                MAX(CASE WHEN cp.status = 'active' THEN cp.weeks END) as active_program_weeks,
+                MAX(CASE WHEN cp.status = 'active' THEN cp.start_date END) as active_program_start,
+                MAX(CASE WHEN cp.status = 'active' THEN cp.end_date END) as active_program_end,
+                CASE
+                    WHEN SUM(cp.status = 'active') > 0 THEN 'has_active'
+                    WHEN SUM(cp.status = 'draft') > 0 THEN 'has_draft'
+                    ELSE 'none'
+                END as program_badge
+            FROM client_programs cp
+            WHERE cp.tenant_id = ?
+            GROUP BY cp.client_id
+        `, [tenantId]);
+
+        const summaries = {};
+        for (const row of rows) {
+            summaries[row.client_id] = row;
+        }
+        return summaries;
+    }
+
+    /**
      * Statistiche cliente
      */
     async getStats(clientId, tenantId) {
+        await this.assertOwnership(clientId, tenantId);
+
         // Workout completati
         const [workoutStats] = await query(
             `SELECT

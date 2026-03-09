@@ -82,6 +82,20 @@ router.get('/', requireRole('tenant_owner', 'staff', 'super_admin'), clientContr
 
 /**
  * @swagger
+ * /clients/program-summaries:
+ *   get:
+ *     tags: [Clients]
+ *     summary: Sommario programmi per tutti i clienti
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sommario programmi indicizzato per client_id
+ */
+router.get('/program-summaries', requireRole('tenant_owner', 'staff', 'super_admin'), clientController.getProgramSummaries);
+
+/**
+ * @swagger
  * /clients/{id}:
  *   get:
  *     tags: [Clients]
