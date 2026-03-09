@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
 import api from "@/services/api";
 import { useToast } from "vue-toastification";
 import { useNative } from "@/composables/useNative";
@@ -22,9 +22,51 @@ const { isMobile } = useNative();
 const tenants = ref<Tenant[]>([]);
 const isLoading = ref<boolean>(true);
 const searchQuery = ref<string>("");
+const searchDebounce = ref<any>(null);
 const filterPlan = ref<string>("");
 const filterStatus = ref<string>("");
 const currentPage = ref<number>(1);
+
+const planOptions = [
+  { value: "", label: "Tutti i piani" },
+  { value: "free", label: "Free" },
+  { value: "starter", label: "Starter" },
+  { value: "professional", label: "Professional" },
+  { value: "enterprise", label: "Enterprise" },
+];
+
+const statusOptions = [
+  { value: "", label: "Tutti gli stati" },
+  { value: "active", label: "Attivo" },
+  { value: "trial", label: "Trial" },
+  { value: "paused", label: "Sospeso" },
+  { value: "cancelled", label: "Cancellato" },
+];
+
+// Mobile search/filter state
+const mobileSearchExpanded = ref(false);
+const mobileFiltersExpanded = ref(false);
+const mobileSearchInput = ref<HTMLInputElement | null>(null);
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (filterPlan.value) count++;
+  if (filterStatus.value) count++;
+  return count;
+});
+
+const toggleMobileSearch = () => {
+  mobileSearchExpanded.value = !mobileSearchExpanded.value;
+  mobileFiltersExpanded.value = false;
+  if (mobileSearchExpanded.value) {
+    nextTick(() => mobileSearchInput.value?.focus());
+  }
+};
+
+const toggleMobileFilters = () => {
+  mobileFiltersExpanded.value = !mobileFiltersExpanded.value;
+  mobileSearchExpanded.value = false;
+};
 const totalPages = ref<number>(1);
 const totalCount = ref<number>(0);
 const perPage = 20;
@@ -37,9 +79,21 @@ onMounted(async () => {
   await loadTenants();
 });
 
-watch([searchQuery, filterPlan, filterStatus], () => {
+watch([filterPlan, filterStatus], () => {
   currentPage.value = 1;
   loadTenants();
+});
+
+watch(searchQuery, () => {
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
+  searchDebounce.value = setTimeout(() => {
+    currentPage.value = 1;
+    loadTenants();
+  }, 300);
+});
+
+onUnmounted(() => {
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
 });
 
 const loadTenants = async () => {
@@ -193,36 +247,85 @@ const goToPage = (page: number) => {
     </div>
 
     <!-- Filters -->
-    <div class="flex flex-col sm:flex-row gap-4">
-      <div class="flex-1">
-        <input
-          v-model="searchQuery"
-          type="text"
-          autocomplete="off"
-          placeholder="Cerca per nome o email..."
-          class="w-full px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan transition-colors"
-        />
+    <div class="mb-4">
+
+      <!-- === DESKTOP (sm+) === -->
+      <div class="hidden sm:flex items-center gap-2">
+        <div class="relative max-w-xs group/search">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input v-model="searchQuery" type="text" autocomplete="off" placeholder="Cerca per nome o email..."
+            class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
+          />
+        </div>
+        <select v-model="filterPlan"
+          class="px-3 py-1.5 border border-habit-border rounded-xl text-xs bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30 transition-all">
+          <option v-for="opt in planOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
+        <select v-model="filterStatus"
+          class="px-3 py-1.5 border border-habit-border rounded-xl text-xs bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30 transition-all">
+          <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
       </div>
-      <select
-        v-model="filterPlan"
-        class="px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan transition-colors"
-      >
-        <option value="">Tutti i piani</option>
-        <option value="free">Free</option>
-        <option value="starter">Starter</option>
-        <option value="professional">Professional</option>
-        <option value="enterprise">Enterprise</option>
-      </select>
-      <select
-        v-model="filterStatus"
-        class="px-4 py-2 bg-habit-card border border-habit-border rounded-habit text-habit-text focus:outline-none focus:border-habit-cyan transition-colors"
-      >
-        <option value="">Tutti gli stati</option>
-        <option value="active">Attivo</option>
-        <option value="trial">Trial</option>
-        <option value="paused">Sospeso</option>
-        <option value="cancelled">Cancellato</option>
-      </select>
+
+      <!-- === MOBILE (<sm) === -->
+      <div class="sm:hidden space-y-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 flex items-center">
+            <template v-if="!mobileSearchExpanded">
+              <button @click="toggleMobileSearch"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl bg-habit-card border border-habit-border shadow-sm text-habit-text-subtle text-xs transition-all duration-200 hover:border-habit-cyan/30">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Cerca...
+              </button>
+            </template>
+            <template v-else>
+              <div class="flex-1 relative flex items-center gap-2">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input ref="mobileSearchInput" v-model="searchQuery" type="text" autocomplete="off" placeholder="Cerca nome o email..."
+                  class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
+                />
+                <button @click="toggleMobileSearch"
+                  class="flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border border-habit-border text-habit-text-subtle transition-all duration-200 hover:text-habit-text">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <button @click="toggleMobileFilters"
+            class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border shadow-sm transition-all duration-200"
+            :class="mobileFiltersExpanded || activeFilterCount > 0 ? 'border-habit-cyan/40 text-habit-cyan' : 'border-habit-border text-habit-text-subtle'">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span v-if="activeFilterCount > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-habit-cyan text-white text-[10px] font-bold flex items-center justify-center">
+              {{ activeFilterCount }}
+            </span>
+          </button>
+        </div>
+
+        <Transition name="filter-expand">
+          <div v-if="mobileFiltersExpanded" class="space-y-2 overflow-hidden">
+            <select v-model="filterPlan"
+              class="w-full px-3 py-2 border border-habit-border rounded-xl text-sm bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30">
+              <option v-for="opt in planOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+            <select v-model="filterStatus"
+              class="w-full px-3 py-2 border border-habit-border rounded-xl text-sm bg-habit-card text-habit-text focus:outline-none focus:border-habit-cyan/30">
+              <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
+        </Transition>
+      </div>
     </div>
 
     <!-- Table -->
@@ -551,3 +654,23 @@ const goToPage = (page: number) => {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.filter-expand-enter-active {
+  transition: all 0.25s ease-out;
+}
+.filter-expand-leave-active {
+  transition: all 0.2s ease-in;
+}
+.filter-expand-enter-from,
+.filter-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+.filter-expand-enter-to,
+.filter-expand-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+</style>
