@@ -1,192 +1,352 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import api from "@/services/api";
-import DataTable from "@/components/ui/DataTable.vue";
-import PullToRefresh from "@/components/mobile/PullToRefresh.vue";
-import FloatingActionButton from "@/components/mobile/FloatingActionButton.vue";
-import SwipeableCard from "@/components/mobile/SwipeableCard.vue";
+import { useClientStore } from "@/store/client";
+import ClientGlassCard from "@/components/clients/ClientGlassCard.vue";
 import ClientListSkeleton from "@/components/skeleton/ClientListSkeleton.vue";
-import { UserGroupIcon } from "@heroicons/vue/24/outline";
+import FloatingActionButton from "@/components/mobile/FloatingActionButton.vue";
 import { useViewShortcuts } from "@/composables/useKeyboardShortcuts";
-import { useNative } from "@/composables/useNative";
 
 const router = useRouter();
-const { isMobile } = useNative();
+const clientStore = useClientStore();
 
-// Keyboard shortcut: N → nuovo cliente
 useViewShortcuts({ n: () => router.push("/clients/new") });
 
-const clients = ref<any[]>([]);
-const isLoading = ref(true);
 const initialLoadDone = ref(false);
-const searchQuery = ref("");
-const statusFilter = ref("");
-const pagination = ref({
-  page: 1,
-  limit: 20,
-  total: 0,
-  totalPages: 0,
-});
+const searchDebounce = ref<ReturnType<typeof setTimeout> | null>(null);
 
+const clients = computed(() => clientStore.clients);
+const loading = computed(() => clientStore.loading);
+const filters = computed(() => clientStore.filters);
+const pagination = computed(() => clientStore.pagination);
+const programSummaries = computed(() => clientStore.programSummaries);
+const hasFilters = computed(() => clientStore.hasFilters);
 const totalPages = computed(() => pagination.value.totalPages);
 
-// DataTable columns definition
-const columns = [
-  { key: "client", label: "Cliente", sortable: false },
-  {
-    key: "fitness_level",
-    label: "Livello",
-    sortable: false,
-    hideBelow: "sm" as const,
-  },
-  {
-    key: "primary_goal",
-    label: "Obiettivo",
-    sortable: false,
-    hideBelow: "md" as const,
-  },
-  { key: "status", label: "Stato", sortable: false },
-  {
-    key: "streak_days",
-    label: "Streak",
-    sortable: false,
-    hideBelow: "lg" as const,
-  },
+// Mobile search/filter state
+const mobileSearchExpanded = ref(false);
+const mobileFiltersExpanded = ref(false);
+const mobileSearchInput = ref<HTMLInputElement | null>(null);
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (filters.value.status) count++;
+  return count;
+});
+
+const toggleMobileSearch = () => {
+  mobileSearchExpanded.value = !mobileSearchExpanded.value;
+  mobileFiltersExpanded.value = false;
+  if (mobileSearchExpanded.value) {
+    nextTick(() => mobileSearchInput.value?.focus());
+  }
+};
+
+const toggleMobileFilters = () => {
+  mobileFiltersExpanded.value = !mobileFiltersExpanded.value;
+  mobileSearchExpanded.value = false;
+};
+
+// Status chips
+const statusChips = [
+  { value: null, label: "Tutti" },
+  { value: "active", label: "Attivi" },
+  { value: "inactive", label: "Inattivi" },
+  { value: "paused", label: "In pausa" },
 ];
 
-onMounted(() => {
-  loadClients();
+onMounted(async () => {
+  await clientStore.initialize();
+  initialLoadDone.value = true;
 });
 
-watch([searchQuery, statusFilter], () => {
-  pagination.value.page = 1;
-  loadClients();
+onUnmounted(() => {
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
 });
 
-const loadClients = async () => {
-  isLoading.value = true;
-  try {
-    const params: any = {
-      page: pagination.value.page,
-      limit: pagination.value.limit,
-    };
+const handleSearch = (e: Event) => {
+  const value = (e.target as HTMLInputElement).value;
+  if (searchDebounce.value) clearTimeout(searchDebounce.value);
+  searchDebounce.value = setTimeout(() => {
+    clientStore.setSearch(value);
+  }, 300);
+};
 
-    if (searchQuery.value) {
-      params.search = searchQuery.value;
-    }
-    if (statusFilter.value) {
-      params.status = statusFilter.value;
-    }
+const handleStatusFilter = (status: string | null) => {
+  clientStore.setFilter("status", status);
+};
 
-    const response = await api.get("/clients", { params });
-    clients.value = response.data.data.clients || [];
-    pagination.value = {
-      ...pagination.value,
-      ...response.data.data.pagination,
-    };
-  } catch (error: any) {
-    console.error("Error loading clients:", error);
-  } finally {
-    isLoading.value = false;
-    initialLoadDone.value = true;
+const handleResetFilters = () => {
+  clientStore.resetFilters();
+};
+
+const viewClient = (client: any) => {
+  router.push(`/clients/${client.id}`);
+};
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+const handlePrevPage = () => {
+  if (pagination.value.page > 1) {
+    clientStore.setPage(pagination.value.page - 1);
+    scrollToTop();
   }
 };
 
-const onRefresh = async (resolve: any) => {
-  await loadClients();
-  resolve();
-};
-
-const goToPage = (page: any) => {
-  if (page >= 1 && page <= totalPages.value) {
-    pagination.value.page = page;
-    loadClients();
+const handleNextPage = () => {
+  if (pagination.value.page < totalPages.value) {
+    clientStore.setPage(pagination.value.page + 1);
+    scrollToTop();
   }
-};
-
-const viewClient = (row: any) => {
-  router.push(`/clients/${row.id}`);
-};
-
-const onSearch = (query: any) => {
-  searchQuery.value = query;
-};
-
-const getStatusBadgeClass = (status: any) => {
-  const classes: Record<string, string> = {
-    active: "bg-habit-success/20 text-habit-success",
-    inactive: "bg-habit-skeleton text-habit-text-subtle",
-    paused: "bg-habit-orange/20 text-habit-orange",
-    cancelled: "bg-red-500/20 text-red-400",
-  };
-  return classes[status] || classes.inactive;
-};
-
-const getStatusLabel = (status: any) => {
-  const labels: Record<string, string> = {
-    active: "Attivo",
-    inactive: "Inattivo",
-    paused: "In pausa",
-    cancelled: "Cancellato",
-  };
-  return labels[status] || status;
-};
-
-const getFitnessLevelLabel = (level: any) => {
-  const labels: Record<string, string> = {
-    beginner: "Principiante",
-    intermediate: "Intermedio",
-    advanced: "Avanzato",
-    elite: "Elite",
-  };
-  return labels[level] || level || "-";
 };
 </script>
 
 <template>
-  <PullToRefresh @refresh="onRefresh">
-    <div class="min-h-screen bg-habit-bg space-y-4 sm:space-y-5">
-      <!-- Header -->
-      <div
-        class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
-        <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-habit-text">Clienti</h1>
-          <p class="text-habit-text-subtle mt-1">Gestisci i tuoi clienti</p>
-        </div>
-        <!-- Desktop button (hidden on mobile, FAB replaces it) -->
-        <router-link
-          to="/clients/new"
-          class="hidden sm:inline-flex items-center justify-center px-4 py-2 bg-habit-orange text-white rounded-habit hover:bg-habit-cyan transition-all duration-300"
+  <div class="bg-habit-bg pb-4 lg:pb-8 overflow-hidden">
+    <!-- Header -->
+    <div
+      class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-5"
+    >
+      <div>
+        <h1
+          class="text-xl sm:text-2xl font-bold text-habit-text tracking-tight"
         >
-          <svg
-            class="w-5 h-5 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 4v16m8-8H4"
+          Clienti
+        </h1>
+        <p class="text-habit-text-subtle text-sm mt-0.5">
+          <span class="text-habit-cyan font-semibold">{{
+            pagination.total
+          }}</span>
+          clienti
+        </p>
+        <p class="text-habit-text-subtle text-sm mt-1">
+          Visualizza e gestisci i tuoi clienti, monitora i programmi attivi e tieni sotto controllo progressi e scadenze.
+        </p>
+      </div>
+      <router-link
+        to="/clients/new"
+        class="cta-btn group relative inline-flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl font-medium text-xs sm:text-sm text-white overflow-hidden w-fit"
+      >
+        <div
+          class="absolute inset-0 bg-habit-orange opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+        ></div>
+        <div
+          class="absolute inset-0 bg-habit-orange opacity-0 group-hover:opacity-40 blur-xl transition-opacity duration-500"
+        ></div>
+        <svg
+          class="relative w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2.5"
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+        <span class="relative">Nuovo Cliente</span>
+      </router-link>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="mb-3 sm:mb-5">
+
+      <!-- === DESKTOP (sm+) === -->
+      <div class="hidden sm:block glass-panel search-filter-bar rounded-2xl p-3">
+        <div class="flex items-center gap-2">
+          <div class="relative max-w-xs group/search">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" autocomplete="off" placeholder="Cerca cliente..."
+              :value="filters.search" @input="handleSearch"
+              class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
             />
-          </svg>
-          Nuovo Cliente
-        </router-link>
+          </div>
+
+          <select
+            :value="filters.status || ''"
+            @change="handleStatusFilter(($event.target as HTMLSelectElement).value || null)"
+            class="glass-select px-2.5 py-1.5 rounded-xl text-xs min-w-[120px]"
+          >
+            <option value="">Tutti gli stati</option>
+            <option value="active">Attivi</option>
+            <option value="inactive">Inattivi</option>
+            <option value="paused">In pausa</option>
+          </select>
+
+          <button v-if="hasFilters" @click="handleResetFilters"
+            class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-red-400/70 rounded-xl border border-red-400/15 hover:bg-red-400/10 hover:text-red-400 transition-all duration-300">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Reset
+          </button>
+        </div>
       </div>
 
-      <!-- Skeleton on initial load -->
-      <ClientListSkeleton v-if="!initialLoadDone" />
-
-      <!-- Mobile Card View -->
-      <template v-else-if="isMobile">
-        <!-- Search + Filter -->
+      <!-- === MOBILE (<sm) === -->
+      <div class="sm:hidden space-y-2">
         <div class="flex items-center gap-2">
-          <div class="flex-1 relative">
+          <div class="flex-1 flex items-center">
+            <template v-if="!mobileSearchExpanded">
+              <button @click="toggleMobileSearch"
+                class="flex items-center gap-2 px-3 py-2 rounded-xl bg-habit-card border border-habit-border shadow-sm text-habit-text-subtle text-xs transition-all duration-200 hover:border-habit-cyan/30">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Cerca...
+              </button>
+            </template>
+            <template v-else>
+              <div class="flex-1 relative flex items-center gap-2">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input ref="mobileSearchInput" type="text" autocomplete="off" placeholder="Cerca cliente..."
+                  :value="filters.search" @input="handleSearch"
+                  class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
+                />
+                <button @click="toggleMobileSearch"
+                  class="flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border border-habit-border text-habit-text-subtle transition-all duration-200 hover:text-habit-text">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <button @click="toggleMobileFilters"
+            class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-habit-card border shadow-sm transition-all duration-200"
+            :class="mobileFiltersExpanded || activeFilterCount > 0 ? 'border-habit-cyan/40 text-habit-cyan' : 'border-habit-border text-habit-text-subtle'">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span v-if="activeFilterCount > 0"
+              class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-habit-cyan text-white text-[10px] font-bold flex items-center justify-center">
+              {{ activeFilterCount }}
+            </span>
+          </button>
+        </div>
+
+        <Transition name="filter-expand">
+          <div v-if="mobileFiltersExpanded" class="space-y-2 overflow-hidden">
+            <div class="flex gap-1.5 overflow-x-auto hide-scrollbar">
+              <button
+                v-for="chip in statusChips" :key="chip.value ?? 'all'"
+                @click="handleStatusFilter(chip.value)"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border whitespace-nowrap"
+                :class="filters.status === chip.value
+                  ? 'bg-habit-cyan/15 text-habit-cyan border-habit-cyan/30'
+                  : 'bg-habit-bg-light text-habit-text-subtle border-habit-border'"
+              >
+                {{ chip.label }}
+              </button>
+            </div>
+            <button v-if="hasFilters" @click="handleResetFilters"
+              class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-red-400/70 rounded-xl border border-red-400/15 hover:bg-red-400/10 hover:text-red-400 transition-all duration-300">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Reset filtri
+            </button>
+          </div>
+        </Transition>
+      </div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <ClientListSkeleton v-if="!initialLoadDone" />
+
+    <!-- Empty state -->
+    <div
+      v-else-if="clients.length === 0"
+      class="flex flex-col items-center justify-center py-20"
+    >
+      <div
+        class="w-20 h-20 rounded-3xl bg-habit-bg-light border border-habit-border flex items-center justify-center mb-5"
+      >
+        <svg
+          class="w-9 h-9 text-habit-text-subtle/30"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1"
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      </div>
+      <h3 class="text-base font-semibold text-habit-text mb-1">
+        {{ hasFilters ? "Nessun risultato" : "Nessun cliente" }}
+      </h3>
+      <p class="text-habit-text-subtle text-sm mb-5">
+        {{
+          hasFilters
+            ? "Prova a modificare i filtri"
+            : "Aggiungi il primo cliente per iniziare"
+        }}
+      </p>
+      <button
+        v-if="hasFilters"
+        @click="handleResetFilters"
+        class="text-sm text-habit-cyan/70 hover:text-habit-cyan transition-colors"
+      >
+        Reset filtri
+      </button>
+      <router-link
+        v-else
+        to="/clients/new"
+        class="inline-flex items-center px-4 py-2 bg-habit-cyan text-white rounded-xl text-sm font-medium hover:bg-habit-cyan/90 transition-colors"
+      >
+        Aggiungi Cliente
+      </router-link>
+    </div>
+
+    <!-- Client list -->
+    <div v-else>
+      <div
+        class="glass-panel glass-panel-mobile client-list-mobile rounded-xl sm:rounded-2xl overflow-hidden divide-y divide-habit-border"
+      >
+        <ClientGlassCard
+          v-for="(client, idx) in clients"
+          :key="client.id"
+          :client="client"
+          :program-summary="programSummaries[client.id]"
+          :index="idx"
+          @click="viewClient"
+        />
+      </div>
+
+      <!-- Pagination -->
+      <div
+        v-if="totalPages > 1"
+        class="flex items-center justify-between mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-2.5 glass-panel glass-panel-mobile client-list-mobile rounded-xl sm:rounded-2xl"
+      >
+        <p class="text-xs text-habit-text-subtle">
+          Pagina
+          <span class="text-habit-text font-medium">{{
+            pagination.page
+          }}</span>
+          di
+          <span class="text-habit-text font-medium">{{ totalPages }}</span>
+        </p>
+        <div class="flex gap-1.5">
+          <button
+            @click="handlePrevPage"
+            :disabled="pagination.page <= 1"
+            class="w-8 h-8 rounded-xl border border-habit-border flex items-center justify-center text-habit-text-subtle hover:bg-habit-card-hover hover:text-habit-text disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-300"
+          >
             <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle"
+              class="w-3.5 h-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -195,299 +355,17 @@ const getFitnessLevelLabel = (level: any) => {
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                d="M15 19l-7-7 7-7"
               />
             </svg>
-            <input
-              v-model="searchQuery"
-              type="search"
-              autocomplete="off"
-              placeholder="Cerca clienti..."
-              class="w-full pl-9 pr-3 py-2.5 bg-habit-card border border-habit-border rounded-xl text-sm text-habit-text placeholder-habit-text-subtle focus:ring-2 focus:ring-habit-orange/50 focus:border-transparent"
-            />
-          </div>
-          <select
-            v-model="statusFilter"
-            class="px-3 py-2.5 border border-habit-border rounded-xl bg-habit-card text-habit-text text-sm min-w-[100px]"
-          >
-            <option value="">Tutti</option>
-            <option value="active">Attivi</option>
-            <option value="inactive">Inattivi</option>
-            <option value="paused">In pausa</option>
-          </select>
-        </div>
-
-        <!-- Client Cards List -->
-        <div v-if="clients.length > 0" class="space-y-2">
-          <SwipeableCard
-            v-for="client in clients"
-            :key="client.id"
-            swipe-left
-            @swipe-left="viewClient(client)"
-          >
-            <template #left-action>
-              <div class="flex items-center gap-2 text-white">
-                <svg
-                  class="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-                <span class="text-sm font-medium">Vedi</span>
-              </div>
-            </template>
-
-            <div
-              class="flex items-center gap-3 p-3 active:bg-habit-card-hover transition-colors"
-              @click="viewClient(client)"
-            >
-              <!-- Avatar -->
-              <div
-                class="flex-shrink-0 w-11 h-11 bg-habit-cyan/20 rounded-full flex items-center justify-center"
-              >
-                <span class="text-habit-cyan font-semibold text-sm">
-                  {{ client.first_name?.charAt(0)
-                  }}{{ client.last_name?.charAt(0) }}
-                </span>
-              </div>
-
-              <!-- Info -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-semibold text-habit-text truncate">
-                    {{ client.first_name }} {{ client.last_name }}
-                  </span>
-                  <span
-                    class="px-1.5 py-0.5 text-[10px] rounded-full flex-shrink-0"
-                    :class="getStatusBadgeClass(client.status)"
-                  >
-                    {{ getStatusLabel(client.status) }}
-                  </span>
-                </div>
-                <div class="flex items-center gap-2 mt-0.5">
-                  <span class="text-xs text-habit-text-subtle truncate">{{
-                    client.email || "Nessuna email"
-                  }}</span>
-                  <span
-                    v-if="client.streak_days"
-                    class="flex items-center text-xs text-habit-orange flex-shrink-0"
-                  >
-                    <svg
-                      class="w-3 h-3 mr-0.5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
-                      />
-                    </svg>
-                    {{ client.streak_days }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Arrow -->
-              <svg
-                class="w-4 h-4 text-habit-text-subtle flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </div>
-          </SwipeableCard>
-        </div>
-
-        <!-- Empty state mobile -->
-        <div
-          v-else
-          class="flex flex-col items-center justify-center py-12 text-center"
-        >
-          <UserGroupIcon class="w-12 h-12 text-habit-text-subtle mb-3" />
-          <p class="text-habit-text font-medium">
-            {{
-              searchQuery || statusFilter
-                ? "Nessun risultato"
-                : "Nessun cliente"
-            }}
-          </p>
-          <p class="text-habit-text-subtle text-sm mt-1">
-            {{
-              searchQuery || statusFilter
-                ? "Prova a modificare i filtri"
-                : "Aggiungi il primo cliente per iniziare"
-            }}
-          </p>
-          <router-link
-            v-if="!searchQuery && !statusFilter"
-            to="/clients/new"
-            class="mt-4 inline-flex items-center px-4 py-2 bg-habit-cyan text-white rounded-habit text-sm font-medium hover:bg-habit-cyan/90 transition-colors"
-          >
-            Aggiungi Cliente
-          </router-link>
-        </div>
-
-        <!-- Pagination mobile -->
-        <div
-          v-if="totalPages > 1"
-          class="flex items-center justify-between py-3"
-        >
-          <button
-            :disabled="pagination.page <= 1"
-            class="px-4 py-2 text-sm rounded-xl bg-habit-card border border-habit-border text-habit-text disabled:opacity-40"
-            @click="goToPage(pagination.page - 1)"
-          >
-            Indietro
           </button>
-          <span class="text-sm text-habit-text-muted"
-            >{{ pagination.page }} / {{ totalPages }}</span
-          >
           <button
+            @click="handleNextPage"
             :disabled="pagination.page >= totalPages"
-            class="px-4 py-2 text-sm rounded-xl bg-habit-card border border-habit-border text-habit-text disabled:opacity-40"
-            @click="goToPage(pagination.page + 1)"
-          >
-            Avanti
-          </button>
-        </div>
-      </template>
-
-      <!-- Desktop DataTable View -->
-      <DataTable
-        v-else
-        :columns="columns"
-        :data="clients"
-        :loading="isLoading"
-        searchable
-        search-placeholder="Cerca per nome, email..."
-        paginated
-        server-pagination
-        :current-page="pagination.page"
-        :total-items="pagination.total"
-        :total-pages="totalPages"
-        :page-size="pagination.limit"
-        hoverable
-        :empty-icon="UserGroupIcon"
-        :empty-title="
-          searchQuery || statusFilter ? 'Nessun risultato' : 'Nessun cliente'
-        "
-        :empty-description="
-          searchQuery || statusFilter
-            ? 'Prova a modificare i filtri di ricerca'
-            : 'Inizia aggiungendo il tuo primo cliente. Premi N per creare.'
-        "
-        :empty-action-text="
-          !searchQuery && !statusFilter ? 'Aggiungi Cliente' : ''
-        "
-        :empty-action-to="!searchQuery && !statusFilter ? '/clients/new' : ''"
-        @row-click="viewClient"
-        @page-change="goToPage"
-        @search="onSearch"
-      >
-        <!-- Toolbar: status filter -->
-        <template #toolbar>
-          <div class="sm:w-48">
-            <select
-              v-model="statusFilter"
-              class="w-full px-4 py-2 border border-habit-border rounded-xl focus:ring-2 focus:ring-habit-cyan focus:border-transparent bg-habit-bg text-habit-text"
-            >
-              <option value="">Tutti gli stati</option>
-              <option value="active">Attivi</option>
-              <option value="inactive">Inattivi</option>
-              <option value="paused">In pausa</option>
-            </select>
-          </div>
-        </template>
-
-        <!-- Custom cell: Client name with avatar -->
-        <template #cell-client="{ row }: { row: any }">
-          <div class="flex items-center">
-            <div
-              class="flex-shrink-0 w-10 h-10 bg-habit-cyan/20 rounded-full flex items-center justify-center"
-            >
-              <span class="text-habit-cyan font-medium">
-                {{ row.first_name?.charAt(0) }}{{ row.last_name?.charAt(0) }}
-              </span>
-            </div>
-            <div class="ml-4">
-              <div class="text-sm font-medium text-habit-text">
-                {{ row.first_name }} {{ row.last_name }}
-              </div>
-              <div class="text-sm text-habit-text-subtle">
-                {{ row.email || "Nessuna email" }}
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Custom cell: Fitness level -->
-        <template #cell-fitness_level="{ value }: { value: any }">
-          <span class="text-sm text-habit-text-muted">
-            {{ getFitnessLevelLabel(value) }}
-          </span>
-        </template>
-
-        <!-- Custom cell: Goal -->
-        <template #cell-primary_goal="{ value }: { value: any }">
-          <span class="text-sm text-habit-text-muted capitalize">
-            {{ value?.replace("_", " ") || "-" }}
-          </span>
-        </template>
-
-        <!-- Custom cell: Status -->
-        <template #cell-status="{ value }: { value: any }">
-          <span
-            class="px-2 py-1 text-xs rounded-full"
-            :class="getStatusBadgeClass(value)"
-          >
-            {{ getStatusLabel(value) }}
-          </span>
-        </template>
-
-        <!-- Custom cell: Streak -->
-        <template #cell-streak_days="{ value }: { value: any }">
-          <div class="flex items-center">
-            <svg
-              class="w-4 h-4 text-habit-orange mr-1"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
-              />
-            </svg>
-            <span class="text-sm text-habit-text">{{ value || 0 }}</span>
-          </div>
-        </template>
-
-        <!-- Actions column -->
-        <template #actions="{ row }">
-          <button
-            @click="viewClient(row)"
-            class="text-habit-cyan hover:text-habit-orange transition-colors"
-            v-tooltip="'Visualizza'"
+            class="w-8 h-8 rounded-xl border border-habit-border flex items-center justify-center text-habit-text-subtle hover:bg-habit-card-hover hover:text-habit-text disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-300"
           >
             <svg
-              class="w-5 h-5"
+              class="w-3.5 h-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -500,14 +378,126 @@ const getFitnessLevelLabel = (level: any) => {
               />
             </svg>
           </button>
-        </template>
-      </DataTable>
-
-      <!-- FAB for mobile (new client) -->
-      <FloatingActionButton
-        label="Nuovo Cliente"
-        @click="router.push('/clients/new')"
-      />
+        </div>
+      </div>
     </div>
-  </PullToRefresh>
+
+    <!-- FAB mobile -->
+    <FloatingActionButton
+      label="Nuovo Cliente"
+      @click="router.push('/clients/new')"
+    />
+  </div>
 </template>
+
+<style scoped>
+/* Liquid Glass panels */
+.glass-panel {
+  background: var(--glass-bg, rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.09));
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+}
+
+:root:not(.dark) .glass-panel {
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 639px) {
+  .glass-panel-mobile {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 1px 6px -1px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+@media (max-width: 639px) {
+  :root:not(.dark) .glass-panel-mobile {
+    box-shadow: 0 1px 4px -1px rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Search/filter bar: allow dropdowns to overflow */
+.search-filter-bar {
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+/* Filter expand transition (mobile) */
+.filter-expand-enter-active {
+  transition: all 0.25s ease-out;
+}
+.filter-expand-leave-active {
+  transition: all 0.2s ease-in;
+}
+.filter-expand-enter-from,
+.filter-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+}
+.filter-expand-enter-to,
+.filter-expand-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+
+@media (max-width: 639px) {
+  .client-list-mobile {
+    background: rgb(var(--color-habit-bg));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border-color: var(--color-habit-border);
+  }
+}
+
+.glass-select {
+  background: var(--glass-bg, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.09));
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  transition: all 0.3s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 12px;
+  background-position: right 8px center;
+  padding-right: 1.75rem;
+}
+
+:root:not(.dark) .glass-select {
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.1);
+}
+
+.glass-select:focus {
+  outline: none;
+  border-color: rgba(0, 200, 255, 0.25);
+}
+
+.glass-select option {
+  background: #12121e;
+  color: #d0d0d0;
+}
+
+:root:not(.dark) .glass-select option {
+  background: #ffffff;
+  color: #333333;
+}
+
+.cta-btn {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cta-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px -4px rgba(255, 120, 50, 0.25);
+}
+
+</style>

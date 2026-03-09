@@ -9,6 +9,7 @@ import BodyCompositionChart from "@/components/measurements/BodyCompositionChart
 import MeasurementFormCard from "@/components/measurements/MeasurementFormCard.vue";
 import MeasurementComparison from "@/components/measurements/MeasurementComparison.vue";
 import MeasurementHistory from "@/components/measurements/MeasurementHistory.vue";
+import ClientProgramsTab from "@/components/clients/ClientProgramsTab.vue";
 import type { Client, MeasurementType } from "@/types";
 
 interface ClientDetail extends Omit<Client, "status" | "fitness_level"> {
@@ -67,6 +68,7 @@ const measurementsInitialized = ref(false);
 
 const tabs: TabItem[] = [
   { id: "overview", label: "Panoramica" },
+  { id: "programs", label: "Programmi" },
   { id: "workouts", label: "Allenamenti" },
   { id: "progress", label: "Progressi" },
   { id: "nutrition", label: "Nutrizione" },
@@ -516,6 +518,11 @@ const handleHistoryDelete = async (type: MeasurementType, id: number) => {
                 <span class="text-[10px] text-habit-text-subtle flex-shrink-0">{{ goal.current_value || 0 }}/{{ goal.target_value }}{{ goal.unit }}</span>
               </div>
             </div>
+          </div>
+
+          <!-- Programs Tab -->
+          <div v-if="activeTab === 'programs'">
+            <ClientProgramsTab :client-id="clientId" />
           </div>
 
           <!-- Workouts Tab -->
