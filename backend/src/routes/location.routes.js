@@ -35,10 +35,14 @@ router.use(requireRole('tenant_owner', 'staff', 'super_admin'));
  */
 router.get('/', async (req, res) => {
     try {
-        const locations = await query(
-            'SELECT * FROM locations WHERE tenant_id = ? ORDER BY name',
+        const rows = await query(
+            'SELECT id, name, address, city, phone, notes, status, created_at, updated_at FROM locations WHERE tenant_id = ? ORDER BY name',
             [req.user.tenantId]
         );
+        const locations = rows.map(({ status, ...loc }) => ({
+            ...loc,
+            is_active: status === 'active'
+        }));
         res.json({ success: true, data: { locations } });
     } catch (error) {
         // Se la tabella non esiste, ritorna array vuoto
@@ -98,9 +102,10 @@ router.post('/', async (req, res) => {
         if (!name || !name.trim()) {
             return res.status(400).json({ success: false, message: 'Nome sede obbligatorio' });
         }
+        const status = is_active !== false ? 'active' : 'inactive';
         const result = await query(
-            'INSERT INTO locations (tenant_id, name, address, city, phone, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.user.tenantId, name.trim(), address || null, city || null, phone || null, notes || null, is_active !== false ? 1 : 0]
+            'INSERT INTO locations (tenant_id, name, address, city, phone, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.user.tenantId, name.trim(), address || null, city || null, phone || null, notes || null, status]
         );
         res.status(201).json({ success: true, data: { id: result.insertId, message: 'Sede creata' } });
     } catch (error) {
@@ -159,10 +164,17 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { name, address, city, phone, notes, is_active } = req.body;
-        await query(
-            'UPDATE locations SET name = ?, address = ?, city = ?, phone = ?, notes = ?, is_active = ? WHERE id = ? AND tenant_id = ?',
-            [name, address || null, city || null, phone || null, notes || null, is_active !== false ? 1 : 0, req.params.id, req.user.tenantId]
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: 'Nome sede obbligatorio' });
+        }
+        const status = is_active !== false ? 'active' : 'inactive';
+        const result = await query(
+            'UPDATE locations SET name = ?, address = ?, city = ?, phone = ?, notes = ?, status = ? WHERE id = ? AND tenant_id = ?',
+            [name.trim(), address || null, city || null, phone || null, notes || null, status, req.params.id, req.user.tenantId]
         );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Sede non trovata' });
+        }
         res.json({ success: true, message: 'Sede aggiornata' });
     } catch (error) {
         logger.error('Error updating location', { error: error.message });
@@ -200,10 +212,13 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
     try {
-        await query(
-            'DELETE FROM locations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.user.tenantId]
+        const result = await query(
+            'UPDATE locations SET status = ? WHERE id = ? AND tenant_id = ?',
+            ['inactive', req.params.id, req.user.tenantId]
         );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Sede non trovata' });
+        }
         res.json({ success: true, message: 'Sede eliminata' });
     } catch (error) {
         logger.error('Error deleting location', { error: error.message });
