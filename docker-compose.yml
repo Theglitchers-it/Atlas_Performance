@@ -1,0 +1,86 @@
+# =============================================================================
+# Atlas Platform — Docker Compose Produzione
+# =============================================================================
+# Usage: docker compose up --build -d
+# Migrate: docker compose exec backend npm run migrate
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL 8.0
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: atlas-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      MYSQL_DATABASE: ${DB_NAME:-pt_saas_db}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # Backend Node.js (Express + PM2)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: atlas-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # Frontend (Nginx + Vue.js build)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
+    container_name: atlas-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - uploads_data:/app/uploads:ro
+    networks:
+      - atlas-network
+
+volumes:
+  mysql_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  atlas-network:
+    driver: bridge

@@ -1,0 +1,92 @@
+# =============================================================================
+# Atlas Platform — Docker Compose Sviluppo (Hot-Reload)
+# =============================================================================
+# Usage: docker compose -f docker-compose.dev.yml up
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL 8.0
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: atlas-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-atlas_dev_password}
+      MYSQL_DATABASE: ${DB_NAME:-pt_saas_db}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - atlas-network-dev
+
+  # ---------------------------------------------------------------------------
+  # Backend (Hot-reload con nodemon)
+  # ---------------------------------------------------------------------------
+  backend:
+    image: node:22-alpine
+    container_name: atlas-backend-dev
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      DB_HOST: mysql
+      DB_PORT: 3306
+    volumes:
+      - ./backend:/app
+      - ./database:/database
+      - backend_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev"
+    networks:
+      - atlas-network-dev
+
+  # ---------------------------------------------------------------------------
+  # Frontend (Hot-reload con Vite dev server)
+  # ---------------------------------------------------------------------------
+  frontend:
+    image: node:22-alpine
+    container_name: atlas-frontend-dev
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_DEV_PROXY_TARGET: http://backend:3000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - atlas-network-dev
+
+volumes:
+  mysql_data_dev:
+    driver: local
+  backend_node_modules:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+networks:
+  atlas-network-dev:
+    driver: bridge

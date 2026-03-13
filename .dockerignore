@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Git
+.git/
+.github/
+.gitignore
+
+# Environment
+.env
+.env.*
+!.env.docker.example
+
+# Build output
+frontend/dist/
+
+# Mobile
+frontend/android/
+
+# Logs
+logs/
+*.log
+
+# Documentation
+docs/
+*.md
+
+# Tests
+frontend/e2e/
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude
+.claude/
+
+# Misc
+*.tmp
+*.tsbuildinfo
+.eslintcache
+*.pem
+*.key
+*.cert
+*.pid
+venv/
+__pycache__/
