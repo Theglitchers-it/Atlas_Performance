@@ -176,6 +176,50 @@ class ProgramService {
     }
 
     /**
+     * Ottieni programma per ID con esercizi di ogni workout
+     */
+    async getByIdWithExercises(programId, tenantId) {
+        const program = await this.getById(programId, tenantId);
+        if (!program) return null;
+
+        // Load exercises for each workout template
+        if (program.workouts && program.workouts.length > 0) {
+            const templateIds = [...new Set(program.workouts.map(w => w.template_id).filter(Boolean))];
+
+            if (templateIds.length > 0) {
+                const placeholders = templateIds.map(() => '?').join(',');
+                const exercises = await query(`
+                    SELECT wte.*, wte.template_id,
+                           e.name as exercise_name, e.category as exercise_category,
+                           e.video_url, e.image_url, e.difficulty as exercise_difficulty,
+                           e.description as exercise_description, e.equipment,
+                           e.is_compound
+                    FROM workout_template_exercises wte
+                    JOIN exercises e ON wte.exercise_id = e.id
+                    WHERE wte.template_id IN (${placeholders})
+                    ORDER BY wte.template_id, wte.order_index ASC
+                `, templateIds);
+
+                // Group exercises by template_id
+                const exercisesByTemplate = {};
+                for (const ex of exercises) {
+                    if (!exercisesByTemplate[ex.template_id]) {
+                        exercisesByTemplate[ex.template_id] = [];
+                    }
+                    exercisesByTemplate[ex.template_id].push(ex);
+                }
+
+                // Attach exercises to each workout
+                for (const workout of program.workouts) {
+                    workout.exercises = exercisesByTemplate[workout.template_id] || [];
+                }
+            }
+        }
+
+        return program;
+    }
+
+    /**
      * Aggiorna stato programma
      */
     async updateStatus(programId, tenantId, status) {

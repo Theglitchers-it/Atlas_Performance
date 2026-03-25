@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useBookingStore } from "@/store/booking";
 import { useAuthStore } from "@/store/auth";
 import { useToast } from "vue-toastification";
@@ -31,6 +31,9 @@ const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null);
 const activeView = ref<"day" | "week" | "month">(
   isMobile.value ? "day" : "week",
 );
+
+// Track whether initial data has loaded (to avoid destroying FullCalendar on subsequent fetches)
+const initialLoaded = ref(false);
 
 // Modal state
 const showCreateModal = ref(false);
@@ -147,7 +150,12 @@ const renderEventContent = (arg: any) => {
 // --- Stable format objects (hoisted to avoid triggering FullCalendar resetOptions) ---
 const timeFormat = { hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
 
-// --- FullCalendar options ---
+// --- Stable event source function (reference never changes, reads calendarEvents at call time) ---
+const eventSourceFn = (_fetchInfo: any, successCallback: any) => {
+  successCallback(calendarEvents.value);
+};
+
+// --- FullCalendar options (events handled via stable function to avoid infinite reset loop) ---
 const calendarOptions = computed((): any => ({
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
   initialView: isMobile.value ? "timeGridDay" : "timeGridWeek",
@@ -167,7 +175,7 @@ const calendarOptions = computed((): any => ({
   firstDay: 1,
   eventTimeFormat: timeFormat,
   slotLabelFormat: timeFormat,
-  events: calendarEvents.value,
+  events: eventSourceFn,
   eventContent: renderEventContent,
   select: handleDateSelect,
   eventClick: handleEventClick,
@@ -175,6 +183,18 @@ const calendarOptions = computed((): any => ({
   eventResize: handleEventResize,
   datesSet: handleDatesSet,
 }));
+
+// --- Sync store appointments → FullCalendar (without resetting the calendar) ---
+watch(() => store.appointments, () => {
+  calendarRef.value?.getApi()?.refetchEvents();
+});
+
+// Mark initial load complete once loading finishes for the first time
+watch(loading, (isLoading) => {
+  if (!isLoading && !initialLoaded.value) {
+    initialLoaded.value = true;
+  }
+});
 
 // --- FullCalendar navigation ---
 const navigatePrev = () => {
@@ -341,7 +361,10 @@ const handleEventResize = async (resizeInfo: any) => {
 /**
  * Triggered when the visible date range changes (navigation, view switch).
  * Syncs the store currentDate and fetches appointments for the new range.
+ * Uses a range guard to prevent redundant fetches (FullCalendar may fire
+ * datesSet multiple times for the same range after option updates).
  */
+let _lastDatesSetRange = "";
 const handleDatesSet = (dateInfo: any) => {
   calendarTitle.value = dateInfo.view.title;
 
@@ -363,8 +386,12 @@ const handleDatesSet = (dateInfo: any) => {
   const midStr = mid.toISOString().substring(0, 10);
   store.currentDate = midStr;
 
-  // Always fetch for the current view/date range
-  store.fetchAppointments();
+  // Only fetch if the date range actually changed (prevents infinite loop)
+  const rangeKey = `${dateInfo.startStr}|${dateInfo.endStr}|${viewType}`;
+  if (rangeKey !== _lastDatesSetRange) {
+    _lastDatesSetRange = rangeKey;
+    store.fetchAppointments();
+  }
 };
 
 // --- Helpers ---
@@ -771,7 +798,7 @@ onMounted(() => {
     </div>
 
     <!-- Loading Skeleton -->
-    <template v-if="loading && appointments.length === 0">
+    <template v-if="loading && !initialLoaded">
       <CalendarSkeleton />
       <p v-if="isSlowRequest" class="text-sm text-habit-text-subtle text-center mt-2">
         La richiesta sta impiegando piu tempo del previsto...

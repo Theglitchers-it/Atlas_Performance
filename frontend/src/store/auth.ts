@@ -7,7 +7,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/services/api'
-import { setNativeToken, clearNativeToken } from '@/services/api'
+import { setNativeToken, clearNativeToken, startProactiveRefresh, stopProactiveRefresh } from '@/services/api'
 import router from '@/router'
 import type { User } from '@/types'
 
@@ -91,6 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
                 await saveTokenNative(response.data.data.token)
             }
 
+            startProactiveRefresh()
             return { success: true }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Errore durante il login'
@@ -114,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
                 await saveTokenNative(response.data.data.token)
             }
 
+            startProactiveRefresh()
             return { success: true }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Errore durante la registrazione'
@@ -131,6 +133,7 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (err) {
             console.error('Errore logout:', err)
         } finally {
+            stopProactiveRefresh()
             user.value = null
             await clearTokenNative()
             router.push('/login')
@@ -150,6 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
             const response = await api.get('/auth/me')
             user.value = response.data.data.user
             initialAuthChecked.value = true
+            startProactiveRefresh()
             return true
         } catch (err) {
             user.value = null
@@ -229,6 +233,7 @@ export const useAuthStore = defineStore('auth', () => {
                     if (event.data.success) {
                         const data = event.data.data
                         user.value = data.user
+                        startProactiveRefresh()
                         loading.value = false
                         resolve({ success: true })
                     } else {

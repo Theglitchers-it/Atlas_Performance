@@ -95,6 +95,59 @@ const addRefreshSubscriber = (callback: (error?: Error | null) => void) => {
     refreshSubscribers.push(callback)
 }
 
+/**
+ * Esegue il refresh del token.
+ * Usato sia dal timer proattivo che dall'interceptor reattivo.
+ * Ritorna true se il refresh ha avuto successo.
+ */
+const doRefresh = async (): Promise<boolean> => {
+    if (isRefreshing) return false
+    isRefreshing = true
+    try {
+        await api.post('/auth/refresh-token')
+        isRefreshing = false
+        onRefreshed()
+        scheduleProactiveRefresh()
+        return true
+    } catch (err) {
+        isRefreshing = false
+        onRefreshFailed(err as Error)
+        return false
+    }
+}
+
+/**
+ * Refresh proattivo — rinnova l'access token PRIMA della scadenza.
+ * Il timer viene avviato dopo login/refresh e rinnova a 13 minuti
+ * (2 minuti prima della scadenza di 15 minuti).
+ */
+let _refreshTimer: ReturnType<typeof setTimeout> | null = null
+const PROACTIVE_REFRESH_MS = 13 * 60 * 1000 // 13 minuti
+
+const scheduleProactiveRefresh = () => {
+    if (_refreshTimer) clearTimeout(_refreshTimer)
+    _refreshTimer = setTimeout(async () => {
+        await doRefresh()
+    }, PROACTIVE_REFRESH_MS)
+}
+
+/**
+ * Ferma il timer di refresh proattivo (chiamato al logout)
+ */
+export const stopProactiveRefresh = () => {
+    if (_refreshTimer) {
+        clearTimeout(_refreshTimer)
+        _refreshTimer = null
+    }
+}
+
+/**
+ * Avvia il timer di refresh proattivo (chiamato dopo login o checkAuth)
+ */
+export const startProactiveRefresh = () => {
+    scheduleProactiveRefresh()
+}
+
 // Response interceptor
 api.interceptors.response.use(
     (response) => {
@@ -103,7 +156,7 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config
 
-        // Token expired - try refresh via cookie
+        // Token expired - try refresh via cookie (fallback reattivo)
         if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
             originalRequest._retry = true
 
@@ -120,32 +173,30 @@ api.interceptors.response.use(
                 })
             }
 
-            isRefreshing = true
-
-            try {
-                // Il refresh token e nel cookie httpOnly — il server lo legge automaticamente
-                await api.post('/auth/refresh-token')
-
-                isRefreshing = false
-                onRefreshed()
-
+            const refreshed = await doRefresh()
+            if (refreshed) {
                 // Ritenta la richiesta originale (il nuovo access_token e nel cookie)
                 return api(originalRequest)
-            } catch (refreshError) {
-                isRefreshing = false
-                onRefreshFailed(refreshError as Error)
-
-                // Refresh failed - redirect to login
-                router.push({ name: 'Login', query: { expired: 'true' } })
-                return Promise.reject(refreshError)
             }
+
+            // Refresh failed - redirect to login
+            stopProactiveRefresh()
+            router.push({ name: 'Login', query: { expired: 'true' } })
+            return Promise.reject(error)
         }
 
         // Generic 401 - redirect to login
-        // Skip for /auth/me — checkAuth() handles this gracefully in the auth store
-        if (error.response?.status === 401) {
-            const reqUrl = originalRequest.url || '';
-            if (!reqUrl.endsWith('/auth/me') && router.currentRoute.value.name !== 'Login') {
+        // Skip se refresh in corso (le richieste accodate verranno ritentate)
+        // Skip per /auth/me — checkAuth() gestisce questo caso nel auth store
+        // Skip per /auth/refresh-token — gestito sopra
+        if (error.response?.status === 401 && !isRefreshing) {
+            const reqUrl = originalRequest.url || ''
+            if (
+                !reqUrl.endsWith('/auth/me') &&
+                !reqUrl.endsWith('/auth/refresh-token') &&
+                router.currentRoute.value.name !== 'Login'
+            ) {
+                stopProactiveRefresh()
                 router.push({ name: 'Login' })
             }
         }

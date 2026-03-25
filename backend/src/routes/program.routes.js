@@ -83,6 +83,35 @@ router.get('/:id', programController.getById);
 
 /**
  * @swagger
+ * /programs/{id}/full:
+ *   get:
+ *     tags: [Programs]
+ *     summary: Dettaglio programma completo con esercizi
+ *     description: Restituisce i dettagli completi di un programma con workout e relativi esercizi.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Dettaglio programma con esercizi
+ *       401:
+ *         description: Non autenticato
+ *       403:
+ *         description: Accesso negato
+ *       404:
+ *         description: Programma non trovato
+ *       500:
+ *         description: Errore server
+ */
+router.get('/:id/full', programController.getByIdFull);
+
+/**
+ * @swagger
  * /programs:
  *   post:
  *     tags: [Programs]

@@ -81,6 +81,7 @@ const ClientDashboardView = () => import('@/views/client/ClientDashboardView.vue
 const ClientWorkoutView = () => import('@/views/client/ClientWorkoutView.vue')
 const ClientProgressView = () => import('@/views/client/ClientProgressView.vue')
 const ClientCheckinView = () => import('@/views/client/ClientCheckinView.vue')
+const ClientProgramDetailView = () => import('@/views/client/ClientProgramDetailView.vue')
 
 // Referral
 const ReferralView = () => import('@/views/referral/ReferralView.vue')
@@ -348,6 +349,12 @@ const routes: RouteRecordRaw[] = [
         name: 'ClientWorkout',
         component: ClientWorkoutView,
         meta: { requiresAuth: true, title: 'Allenamento - Atlas', roles: ['client'], breadcrumb: [{ label: 'Allenamento' }] }
+    },
+    {
+        path: '/my-workout/program/:id',
+        name: 'ClientProgramDetail',
+        component: ClientProgramDetailView,
+        meta: { requiresAuth: true, title: 'Dettaglio Programma - Atlas', roles: ['client'], breadcrumb: [{ label: 'Allenamento', to: '/my-workout' }, { label: 'Programma' }] }
     },
     {
         path: '/my-progress',

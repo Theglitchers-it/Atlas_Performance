@@ -46,6 +46,7 @@ const todayCheckin = ref<any>(null);
 const recentSessions = ref<any[]>([]);
 const sessionStats = ref<SessionStats | null>(null);
 const readinessAvg = ref<Record<string, number> | null>(null);
+const activeProgram = ref<any>(null);
 
 // Dati utente
 const userName = computed(() => {
@@ -178,8 +179,8 @@ const loadDashboard = async () => {
       return;
     }
 
-    // All 5 API calls run in parallel
-    const [profileRes, checkinRes, sessionsRes, statsRes, avgRes] =
+    // All 6 API calls run in parallel
+    const [profileRes, checkinRes, sessionsRes, statsRes, avgRes, programsRes] =
       await Promise.all([
         api.get("/clients/me").catch(() => null),
         api.get(`/readiness/${clientId.value}/today`).catch(() => null),
@@ -188,6 +189,7 @@ const loadDashboard = async () => {
           .catch(() => null),
         api.get(`/sessions/client/${clientId.value}/stats`).catch(() => null),
         api.get(`/readiness/${clientId.value}/average`).catch(() => null),
+        api.get("/programs", { params: { status: "active", limit: 1 } }).catch(() => null),
       ]);
 
     clientProfile.value = profileRes?.data?.data?.client || null;
@@ -195,6 +197,8 @@ const loadDashboard = async () => {
     recentSessions.value = sessionsRes?.data?.data?.sessions || [];
     sessionStats.value = statsRes?.data?.data?.stats || null;
     readinessAvg.value = avgRes?.data?.data || null;
+    const programsList = programsRes?.data?.data?.programs || [];
+    activeProgram.value = programsList.length > 0 ? programsList[0] : null;
   } catch (err) {
     console.error("Errore caricamento dashboard:", err);
   } finally {
@@ -448,20 +452,21 @@ onMounted(loadDashboard);
         </div>
       </div>
 
-      <!-- Prossimo Allenamento -->
+      <!-- Programma Attivo -->
       <div
-        v-if="clientProfile?.active_program"
+        v-if="activeProgram"
         class="card-dark p-4 sm:p-6 border-l-4 border-habit-orange mb-6"
       >
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold text-habit-text text-sm">
-            Prossimo Allenamento
+            Programma Attivo
           </h3>
-          <span class="text-xs text-habit-text-subtle">Oggi</span>
+          <span v-if="activeProgram.duration_weeks" class="text-xs text-habit-text-subtle">{{ activeProgram.duration_weeks }} settimane</span>
         </div>
         <p class="text-habit-orange font-medium">
-          {{ clientProfile.active_program }}
+          {{ activeProgram.name }}
         </p>
+        <p v-if="activeProgram.goal" class="text-habit-text-muted text-xs mt-1">{{ activeProgram.goal }}</p>
         <button
           @click="router.push({ name: 'ClientWorkout' })"
           class="mt-3 w-full btn-primary btn-sm text-sm"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 import api from "@/services/api";
 import type { PaginationMeta } from "@/types";
@@ -24,6 +25,7 @@ interface FeelingConfig {
   color: string;
 }
 
+const router = useRouter();
 const auth = useAuthStore();
 
 const loading = ref(true);
@@ -32,6 +34,13 @@ const sessionStats = ref<SessionStats | null>(null);
 const currentSession = ref<any>(null);
 const showSessionDetail = ref(false);
 const activeFilter = ref("all");
+
+// Programs
+const programs = ref<any[]>([]);
+const loadingPrograms = ref(true);
+const expandedProgramId = ref<number | null>(null);
+const programDetail = ref<any>(null);
+const loadingProgramDetail = ref(false);
 
 // Paginazione
 const pagination = ref<PaginationMeta>({
@@ -115,6 +124,87 @@ const formatDuration = (minutes: number | null | undefined): string => {
   return `${minutes} min`;
 };
 
+// Load programs
+const loadPrograms = async () => {
+  loadingPrograms.value = true;
+  try {
+    const response = await api.get("/programs", { params: { limit: 50 } });
+    programs.value = response.data.data?.programs || [];
+  } catch (err) {
+    console.error("Errore caricamento programmi:", err);
+  } finally {
+    loadingPrograms.value = false;
+  }
+};
+
+// Program status config
+const programStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
+  draft: { label: "Bozza", color: "text-gray-400", bg: "bg-gray-500/20" },
+  active: { label: "Attivo", color: "text-green-400", bg: "bg-green-500/20" },
+  completed: { label: "Completato", color: "text-blue-400", bg: "bg-blue-500/20" },
+  archived: { label: "Archiviato", color: "text-yellow-400", bg: "bg-yellow-500/20" },
+};
+
+const getProgramStatus = (s: string) =>
+  programStatusConfig[s] || programStatusConfig.draft;
+
+const difficultyLabels: Record<string, string> = {
+  beginner: "Principiante",
+  intermediate: "Intermedio",
+  advanced: "Avanzato",
+};
+
+const dayLabels: Record<number, string> = {
+  1: "Lunedi",
+  2: "Martedi",
+  3: "Mercoledi",
+  4: "Giovedi",
+  5: "Venerdi",
+  6: "Sabato",
+  7: "Domenica",
+};
+
+// Group workouts by week for detail view
+const workoutsByWeek = computed(() => {
+  if (!programDetail.value?.workouts) return {};
+  const grouped: Record<number, any[]> = {};
+  for (const w of programDetail.value.workouts) {
+    const week = w.week_number || 1;
+    if (!grouped[week]) grouped[week] = [];
+    grouped[week].push(w);
+  }
+  for (const week of Object.keys(grouped)) {
+    (grouped as any)[week].sort(
+      (a: any, b: any) => (a.day_of_week || 0) - (b.day_of_week || 0),
+    );
+  }
+  return grouped;
+});
+
+const weekNumbers = computed(() =>
+  Object.keys(workoutsByWeek.value).map(Number).sort((a, b) => a - b),
+);
+
+// Toggle program detail
+const toggleProgram = async (programId: number) => {
+  if (expandedProgramId.value === programId) {
+    expandedProgramId.value = null;
+    programDetail.value = null;
+    return;
+  }
+  expandedProgramId.value = programId;
+  loadingProgramDetail.value = true;
+  try {
+    const response = await api.get(`/programs/${programId}`);
+    programDetail.value = response.data.data?.program || null;
+  } catch (err) {
+    console.error("Errore caricamento dettaglio programma:", err);
+    programDetail.value = null;
+  } finally {
+    loadingProgramDetail.value = false;
+  }
+};
+
 // Load sessioni
 const loadSessions = async (page: number = 1) => {
   if (!clientId.value) {
@@ -167,7 +257,7 @@ const handleFilter = (filter: string) => {
 };
 
 onMounted(async () => {
-  await Promise.all([loadSessions(), loadStats()]);
+  await Promise.all([loadPrograms(), loadSessions(), loadStats()]);
 });
 </script>
 
@@ -210,6 +300,181 @@ onMounted(async () => {
         <div class="text-habit-text-subtle text-xs mt-1">XP Guadagnati</div>
       </div>
     </div>
+
+    <!-- I Miei Programmi -->
+    <div v-if="loadingPrograms" class="mb-6">
+      <div class="card-dark p-4 animate-pulse">
+        <div class="h-5 bg-habit-skeleton rounded w-1/3 mb-3"></div>
+        <div class="h-4 bg-habit-skeleton rounded w-2/3"></div>
+      </div>
+    </div>
+    <div v-else-if="programs.length > 0" class="mb-6">
+      <h2 class="text-base font-semibold text-habit-text mb-3">I Miei Programmi</h2>
+      <div class="space-y-3">
+        <div
+          v-for="program in programs"
+          :key="program.id"
+          class="card-dark overflow-hidden"
+        >
+          <!-- Program Header (clickable) -->
+          <div
+            @click="toggleProgram(program.id)"
+            class="p-4 cursor-pointer hover:bg-habit-bg-light/50 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="font-semibold text-habit-text text-sm truncate">
+                    {{ program.name }}
+                  </h3>
+                  <span
+                    :class="[getProgramStatus(program.status).bg, getProgramStatus(program.status).color]"
+                    class="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                  >
+                    {{ getProgramStatus(program.status).label }}
+                  </span>
+                </div>
+                <p v-if="program.description" class="text-habit-text-muted text-xs mb-2 line-clamp-2">
+                  {{ program.description }}
+                </p>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-habit-text-subtle">
+                  <span v-if="program.goal">{{ program.goal }}</span>
+                  <span v-if="program.duration_weeks">{{ program.duration_weeks }} settimane</span>
+                  <span v-if="program.days_per_week">{{ program.days_per_week }} giorni/sett.</span>
+                  <span v-if="program.workout_count" class="text-habit-cyan">
+                    {{ program.workout_count }} schede
+                  </span>
+                </div>
+                <div v-if="program.start_date || program.end_date" class="flex items-center gap-2 text-xs text-habit-text-subtle mt-1">
+                  <span v-if="program.start_date">Dal {{ formatDate(program.start_date) }}</span>
+                  <span v-if="program.end_date">al {{ formatDate(program.end_date) }}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0 mt-0.5">
+                <!-- Vedi Esercizi button -->
+                <button
+                  @click.stop="router.push(`/my-workout/program/${program.id}`)"
+                  class="text-xs px-3 py-1.5 rounded-lg bg-habit-orange/10 text-habit-orange hover:bg-habit-orange/20 transition-colors font-medium"
+                >
+                  Vedi Esercizi
+                </button>
+                <!-- Chevron -->
+                <svg
+                  class="w-5 h-5 text-habit-text-subtle transition-transform duration-200"
+                  :class="{ 'rotate-180': expandedProgramId === program.id }"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Expanded Detail -->
+          <div v-if="expandedProgramId === program.id" class="border-t border-habit-border">
+            <!-- Loading -->
+            <div v-if="loadingProgramDetail" class="p-4 space-y-3">
+              <div v-for="i in 4" :key="i" class="animate-pulse flex items-center gap-3">
+                <div class="w-8 h-8 bg-habit-skeleton rounded-lg"></div>
+                <div class="flex-1 space-y-1">
+                  <div class="h-4 bg-habit-skeleton rounded w-2/3"></div>
+                  <div class="h-3 bg-habit-skeleton rounded w-1/3"></div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="programDetail" class="p-4 space-y-4">
+              <!-- Program Info Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <p class="text-habit-text-subtle text-xs uppercase tracking-wide">Stato</p>
+                  <span
+                    :class="[getProgramStatus(programDetail.status).bg, getProgramStatus(programDetail.status).color]"
+                    class="inline-block text-xs px-2 py-0.5 rounded-full mt-0.5"
+                  >
+                    {{ getProgramStatus(programDetail.status).label }}
+                  </span>
+                </div>
+                <div>
+                  <p class="text-habit-text-subtle text-xs uppercase tracking-wide">Settimane</p>
+                  <p class="text-habit-text text-sm mt-0.5">{{ programDetail.weeks || '-' }}</p>
+                </div>
+                <div>
+                  <p class="text-habit-text-subtle text-xs uppercase tracking-wide">Giorni/Sett</p>
+                  <p class="text-habit-text text-sm mt-0.5">{{ programDetail.days_per_week || '-' }}</p>
+                </div>
+                <div>
+                  <p class="text-habit-text-subtle text-xs uppercase tracking-wide">Inizio</p>
+                  <p class="text-habit-text text-sm mt-0.5">{{ programDetail.start_date ? formatDate(programDetail.start_date) : '-' }}</p>
+                </div>
+                <div>
+                  <p class="text-habit-text-subtle text-xs uppercase tracking-wide">Fine</p>
+                  <p class="text-habit-text text-sm mt-0.5">{{ programDetail.end_date ? formatDate(programDetail.end_date) : '-' }}</p>
+                </div>
+                <div v-if="programDetail.mesocycle_name">
+                  <p class="text-habit-text-subtle text-xs uppercase tracking-wide">Mesociclo</p>
+                  <p class="text-habit-text text-sm mt-0.5">
+                    {{ programDetail.mesocycle_name }}
+                    <span v-if="programDetail.mesocycle_focus" class="text-habit-text-subtle"> &middot; {{ programDetail.mesocycle_focus }}</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div v-if="programDetail.description">
+                <p class="text-habit-text-subtle text-xs uppercase tracking-wide mb-1">Descrizione</p>
+                <p class="text-habit-text-muted text-sm whitespace-pre-line">{{ programDetail.description }}</p>
+              </div>
+
+              <!-- Workouts by Week -->
+              <div v-if="programDetail.workouts?.length">
+                <h4 class="text-xs font-semibold text-habit-text-subtle uppercase tracking-wider mb-3">Schede di Allenamento</h4>
+                <div class="space-y-4">
+                  <div v-for="week in weekNumbers" :key="week">
+                    <h5 class="text-habit-text-subtle text-xs mb-2 flex items-center gap-2">
+                      <span class="w-6 h-6 rounded bg-habit-bg-light flex items-center justify-center text-habit-text text-xs font-bold">{{ week }}</span>
+                      Settimana {{ week }}
+                    </h5>
+                    <div class="space-y-2">
+                      <div
+                        v-for="workout in workoutsByWeek[week]"
+                        :key="workout.id"
+                        class="flex items-center gap-3 p-3 bg-habit-bg-light/50 rounded-xl"
+                      >
+                        <div class="w-8 h-8 rounded-lg bg-habit-cyan/10 border border-habit-cyan/20 text-habit-cyan flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {{ workout.day_of_week || '-' }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="font-medium text-habit-text text-sm truncate">
+                            {{ workout.template_name || 'Scheda senza nome' }}
+                          </div>
+                          <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-habit-text-subtle mt-0.5">
+                            <span v-if="workout.day_of_week">{{ dayLabels[workout.day_of_week] || `Giorno ${workout.day_of_week}` }}</span>
+                            <span v-if="workout.scheduled_date">&middot; {{ formatDate(workout.scheduled_date) }}</span>
+                            <span v-if="workout.category">&middot; {{ workout.category }}</span>
+                            <span v-if="workout.difficulty">&middot; {{ difficultyLabels[workout.difficulty] || workout.difficulty }}</span>
+                            <span v-if="workout.estimated_duration_min">&middot; {{ workout.estimated_duration_min }} min</span>
+                          </div>
+                          <p v-if="workout.notes" class="text-habit-text-muted text-xs mt-1 italic">{{ workout.notes }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- No Workouts -->
+              <div v-else class="text-center py-4">
+                <p class="text-habit-text-muted text-sm">Nessuna scheda associata a questo programma</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sessioni Header -->
+    <h2 v-if="programs.length > 0" class="text-base font-semibold text-habit-text mb-3">Sessioni</h2>
 
     <!-- Filtri -->
     <div class="flex gap-2 flex-wrap mb-6">

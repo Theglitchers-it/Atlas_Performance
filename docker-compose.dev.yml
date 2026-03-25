@@ -13,7 +13,7 @@ services:
     container_name: atlas-mysql-dev
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-atlas_dev_password}
+      MYSQL_ROOT_PASSWORD: atlas_dev_password
       MYSQL_DATABASE: ${DB_NAME:-pt_saas_db}
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
@@ -35,7 +35,7 @@ services:
   # Backend (Hot-reload con nodemon)
   # ---------------------------------------------------------------------------
   backend:
-    image: node:22-alpine
+    image: node:22-slim
     container_name: atlas-backend-dev
     working_dir: /app
     restart: unless-stopped
@@ -48,6 +48,9 @@ services:
       NODE_ENV: development
       DB_HOST: mysql
       DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: atlas_dev_password
+      DB_NAME: pt_saas_db
     volumes:
       - ./backend:/app
       - ./database:/database
@@ -62,7 +65,7 @@ services:
   # Frontend (Hot-reload con Vite dev server)
   # ---------------------------------------------------------------------------
   frontend:
-    image: node:22-alpine
+    image: node:22-slim
     container_name: atlas-frontend-dev
     working_dir: /app
     restart: unless-stopped

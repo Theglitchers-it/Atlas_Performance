@@ -34,17 +34,31 @@ const getPool = () => {
 };
 
 /**
- * Connette al database e verifica la connessione
+ * Connette al database e verifica la connessione (con retry per Docker)
  */
 const connectDB = async () => {
-    try {
-        const connection = await getPool().getConnection();
-        logger.info(`MySQL connesso: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
-        connection.release();
-        return true;
-    } catch (error) {
-        logger.error('Errore connessione MySQL', { error: error.message });
-        throw error;
+    const maxRetries = parseInt(process.env.DB_CONNECT_RETRIES) || 10;
+    const retryDelay = parseInt(process.env.DB_CONNECT_RETRY_DELAY) || 3000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const connection = await getPool().getConnection();
+            logger.info(`MySQL connesso: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
+            connection.release();
+            return true;
+        } catch (error) {
+            logger.error(`Errore connessione MySQL (tentativo ${attempt}/${maxRetries})`, { error: error.message });
+            if (attempt === maxRetries) {
+                throw error;
+            }
+            // Reset pool per forzare nuova risoluzione DNS
+            if (pool) {
+                try { await pool.end(); } catch (_) {}
+                pool = null;
+            }
+            logger.info(`Nuovo tentativo tra ${retryDelay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
     }
 };
 
@@ -56,7 +70,7 @@ const connectDB = async () => {
  */
 const query = async (sql, params = []) => {
     try {
-        const [rows] = await getPool().execute(sql, params);
+        const [rows] = await getPool().query(sql, params);
         return rows;
     } catch (error) {
         logger.error('Errore query', { error: error.message });

@@ -65,7 +65,8 @@ const verifyToken = async (req, res, next) => {
         if (!token) {
             return res.status(401).json({
                 success: false,
-                message: 'Token di autenticazione mancante'
+                message: 'Token di autenticazione mancante',
+                code: 'TOKEN_EXPIRED'
             });
         }
 

@@ -46,9 +46,10 @@ const loadProgress = async () => {
     }
 
     // Load client profile for goal_weight_kg + measurements in parallel
-    const [profileRes, progressRes, weightRes] = await Promise.all([
+    const [profileRes, bodyRes, circumRes, weightRes] = await Promise.all([
       api.get("/clients/me").catch(() => null),
-      api.get(`/measurements/${clientId.value}`).catch(() => null),
+      api.get(`/measurements/${clientId.value}/body`).catch(() => null),
+      api.get(`/measurements/${clientId.value}/circumferences`).catch(() => null),
       api
         .get(`/measurements/${clientId.value}/weight-change`)
         .catch(() => null),
@@ -56,8 +57,8 @@ const loadProgress = async () => {
 
     clientGoal.value = profileRes?.data?.data?.client?.goal_weight_kg || null;
 
-    bodyMeasurements.value = progressRes?.data?.data?.bodyMeasurements || [];
-    circumferences.value = progressRes?.data?.data?.circumferences || [];
+    bodyMeasurements.value = bodyRes?.data?.data || [];
+    circumferences.value = circumRes?.data?.data || [];
     weightChange.value =
       weightRes?.data?.data?.weightChange || weightRes?.data?.data || null;
   } catch (err: any) {

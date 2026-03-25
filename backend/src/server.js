@@ -41,7 +41,7 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
 // Import configurations
-const { connectDB, query: dbQuery, closePool } = require("./config/database");
+const { connectDB, getPool, query: dbQuery, closePool } = require("./config/database");
 const { initFirebase } = require("./config/firebase");
 const { initSocket } = require("./socket/socketHandler");
 const cron = require("node-cron");
@@ -386,19 +386,19 @@ const startServer = async () => {
     logger.info("Database connesso con successo");
 
     // Auto-migration: ensure required tables and columns exist
-    const safeAlter = async (sql) => {
-      try {
-        await dbQuery(sql);
-      } catch (e) {
-        if (e.code !== "ER_DUP_FIELDNAME") throw e;
+    const safeAddColumn = async (table, column, definition) => {
+      const [rows] = await getPool().execute(
+        `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [table, column]
+      );
+      if (rows.length === 0) {
+        await dbQuery(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
       }
     };
 
     // Sequential: ALTERs on users table (same-table DDL must not run concurrently)
-    await safeAlter(
-      "ALTER TABLE users ADD COLUMN failed_login_attempts INT DEFAULT 0",
-    );
-    await safeAlter("ALTER TABLE users ADD COLUMN locked_until DATETIME NULL");
+    await safeAddColumn("users", "failed_login_attempts", "INT DEFAULT 0");
+    await safeAddColumn("users", "locked_until", "DATETIME NULL");
 
     // Parallel: independent tables (no FK conflicts with above)
     await Promise.all([
@@ -411,9 +411,7 @@ const startServer = async () => {
                 INDEX idx_event_id (event_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         `),
-      safeAlter(
-        "ALTER TABLE tenants ADD COLUMN subscription_status VARCHAR(20) DEFAULT 'active'",
-      ),
+      safeAddColumn("tenants", "subscription_status", "VARCHAR(20) DEFAULT 'active'"),
       dbQuery(`
             CREATE TABLE IF NOT EXISTS password_history (
                 id INT AUTO_INCREMENT PRIMARY KEY,
