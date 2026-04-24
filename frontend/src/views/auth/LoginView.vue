@@ -46,6 +46,7 @@ const showDemoAccounts = ref<boolean>(false);
 const isLoading = computed(() => authStore.loading);
 const formShake = ref<boolean>(false);
 const showSuccess = ref<boolean>(false);
+const navigating = ref<boolean>(false);
 
 // ── Demo Accounts (solo in development) ──
 const demoAccounts: DemoAccount[] = import.meta.env.DEV
@@ -250,8 +251,7 @@ const handleSubmit = async () => {
   const result = await authStore.login(email.value, password.value);
 
   if (result.success) {
-    showSuccess.value = true;
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    navigating.value = true;
     const rd = route.query.redirect;
     const defaultPath = authStore.userRole === 'client' ? '/my-dashboard' : '/';
     const safeRedirect = (() => {
@@ -271,8 +271,7 @@ const handleSubmit = async () => {
 const socialLogin = async (provider: string) => {
   const result = await authStore.socialLogin(provider.toLowerCase());
   if (result.success) {
-    showSuccess.value = true;
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    navigating.value = true;
     const rd = route.query.redirect;
     const safeRedirect = (() => {
       if (!rd || typeof rd !== "string") return "/";
@@ -291,6 +290,19 @@ const socialLogin = async (provider: string) => {
 
 <template>
   <div class="auth-gradient-bg py-8 px-4 sm:px-6 lg:px-8">
+    <!-- Navigating: show only logo + spinner -->
+    <div v-if="navigating" class="max-w-md w-full relative z-10 flex flex-col items-center justify-center" style="min-height: 60vh;">
+      <h1 class="text-3xl sm:text-4xl font-display font-bold mb-4">
+        <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
+      </h1>
+      <p class="text-sm font-medium text-habit-text/40 tracking-[0.2em] uppercase mb-6">Performance</p>
+      <svg class="animate-spin h-8 w-8 text-[#ff4c00]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    </div>
+
+    <template v-else>
     <AuthThemeToggle />
     <div class="max-w-md w-full relative z-10">
       <!-- Logo & Title -->
@@ -757,5 +769,6 @@ const socialLogin = async (provider: string) => {
         &copy; 2025 Atlas Performance. Tutti i diritti riservati.
       </p>
     </div>
+    </template>
   </div>
 </template>
