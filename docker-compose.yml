@@ -68,12 +68,11 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    ports:
-      - "80:80"
     volumes:
       - uploads_data:/app/uploads:ro
     networks:
       - atlas-network
+      - web_net
 
 volumes:
   mysql_data:
@@ -84,3 +83,5 @@ volumes:
 networks:
   atlas-network:
     driver: bridge
+  web_net:
+    external: true

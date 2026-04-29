@@ -26,10 +26,14 @@ WORKDIR /app
 # Copia node_modules e pm2 dal builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /usr/local/lib/node_modules/pm2 /usr/local/lib/node_modules/pm2
-COPY --from=builder /usr/local/bin/pm2 /usr/local/bin/pm2
-COPY --from=builder /usr/local/bin/pm2-runtime /usr/local/bin/pm2-runtime
+
+# Ricrea i symlink (npm install -g li crea, ma docker COPY li dereferenzia
+# e i require relativi di pm2 si rompono)
+RUN ln -sf /usr/local/lib/node_modules/pm2/bin/pm2 /usr/local/bin/pm2 \
+ && ln -sf /usr/local/lib/node_modules/pm2/bin/pm2-runtime /usr/local/bin/pm2-runtime
 
 # Copia sorgenti backend
+COPY backend/package.json ./
 COPY backend/src/ ./src/
 COPY backend/database/ ./database/
 COPY backend/pm2.config.js ./
@@ -46,7 +50,7 @@ USER atlas
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -qO- http://localhost:3000/health || exit 1
 
 CMD ["pm2-runtime", "pm2.config.js", "--env", "production"]
