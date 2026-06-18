@@ -24,9 +24,10 @@ const updatePaymentStatusSchema = Joi.object({
 
 const createSubscriptionSchema = Joi.object({
     clientId: Joi.number().integer().required(),
-    planType: Joi.string().valid('monthly', 'quarterly', 'semi_annual', 'annual', 'custom').required(),
-    amount: Joi.number().positive().required(),
+    planType: Joi.string().max(50).required(),
+    amount: Joi.number().positive().allow(null),
     currency: Joi.string().valid('EUR', 'USD', 'GBP').default('EUR'),
+    billingCycle: Joi.string().valid('monthly', 'quarterly', 'yearly').default('monthly'),
     startDate: Joi.date().required(),
     endDate: Joi.date().greater(Joi.ref('startDate')).allow(null),
     autoRenew: Joi.boolean().default(true),
