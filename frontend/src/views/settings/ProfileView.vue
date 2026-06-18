@@ -129,17 +129,7 @@ const userInitials = computed<string>(() => {
   return (f + l).toUpperCase();
 });
 
-const avatarGradient = computed<string>(() => {
-  const gradients = [
-    "from-violet-500 to-purple-600",
-    "from-habit-cyan to-blue-600",
-    "from-emerald-500 to-teal-600",
-    "from-habit-orange to-red-500",
-    "from-pink-500 to-rose-600",
-  ];
-  const idx = (user.value?.id || 0) % gradients.length;
-  return gradients[idx];
-});
+const avatarGradient = computed<string>(() => "from-habit-orange to-amber-500");
 
 const avatarUrl = computed<string | null>(() => {
   if (avatarPreview.value) return avatarPreview.value;
@@ -402,12 +392,14 @@ onMounted(async () => {
     </div>
 
     <div class="space-y-4 sm:space-y-5">
-      <!-- ==================== SECTION 1: PROFILE HEADER ==================== -->
+      <!-- ==================== SECTION 1: PROFILE HEADER (glass-mesh 2026) ==================== -->
       <div
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-2xl p-4 sm:p-6"
+        class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-4 sm:p-6"
       >
+        <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-habit-orange/15 blur-3xl"></div>
+        <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-habit-cyan/10 blur-3xl"></div>
         <div
-          class="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5"
+          class="relative flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5"
         >
           <!-- Avatar -->
           <div class="relative group flex-shrink-0">
@@ -499,7 +491,7 @@ onMounted(async () => {
 
       <!-- ==================== SECTION 2: PERSONAL INFO ==================== -->
       <div
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-2xl p-4 sm:p-6"
+        class="bg-habit-card border border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-4 sm:p-6"
       >
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
@@ -642,7 +634,7 @@ onMounted(async () => {
       <!-- ==================== SECTION 3: BUSINESS INFO (tenant_owner only) ==================== -->
       <div
         v-if="isTenantOwner"
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-2xl p-4 sm:p-6"
+        class="bg-habit-card border border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-4 sm:p-6"
       >
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
@@ -738,7 +730,7 @@ onMounted(async () => {
 
       <!-- ==================== SECTION 4: NOTIFICATION PREFERENCES ==================== -->
       <div
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-2xl p-4 sm:p-6"
+        class="bg-habit-card border border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-4 sm:p-6"
       >
         <div class="flex items-center gap-2 mb-4 sm:mb-5">
           <div
@@ -958,7 +950,7 @@ onMounted(async () => {
 
       <!-- ==================== SECTION 5: SECURITY ==================== -->
       <div
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-2xl p-4 sm:p-6"
+        class="bg-habit-card border border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-4 sm:p-6"
       >
         <div class="flex items-center gap-2 mb-4">
           <div

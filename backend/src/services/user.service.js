@@ -193,6 +193,167 @@ class UserService {
         );
         return this.getBusinessInfo(tenantId);
     }
+
+    /**
+     * Aggiorna campi pubblici del proprio profilo.
+     * Whitelist rigorosa: firstName, lastName (string), bio, city (string|null).
+     * Rifiuta tipi non-string per evitare coercion silenziosa (es. {bio: {a:1}} -> "[object Object]").
+     */
+    async updateMyProfile(userId, payload) {
+        const updates = [];
+        const params = [];
+        if (typeof payload.firstName === 'string') {
+            updates.push('first_name = ?');
+            params.push(payload.firstName.trim().slice(0, 100));
+        }
+        if (typeof payload.lastName === 'string') {
+            updates.push('last_name = ?');
+            params.push(payload.lastName.trim().slice(0, 100));
+        }
+        if (payload.bio === null) {
+            updates.push('bio = ?');
+            params.push(null);
+        } else if (typeof payload.bio === 'string') {
+            updates.push('bio = ?');
+            params.push(payload.bio.slice(0, 1000));
+        }
+        if (payload.city === null) {
+            updates.push('city = ?');
+            params.push(null);
+        } else if (typeof payload.city === 'string') {
+            updates.push('city = ?');
+            params.push(payload.city.trim().slice(0, 120));
+        }
+        if (updates.length === 0) {
+            return null;
+        }
+        params.push(userId);
+        const result = await query(
+            `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ?`,
+            params
+        );
+        if (result.affectedRows === 0) return null;
+        const rows = await query(
+            `SELECT id, first_name, last_name, email, role, avatar_url, bio, city
+             FROM users WHERE id = ?`,
+            [userId]
+        );
+        const u = rows[0];
+        return {
+            id: u.id,
+            firstName: u.first_name,
+            lastName: u.last_name,
+            email: u.email,
+            role: u.role,
+            avatarUrl: u.avatar_url,
+            bio: u.bio,
+            city: u.city
+        };
+    }
+
+    /**
+     * Profilo pubblico tenant-scoped per la community.
+     * - viewer normale: vede solo profili del proprio tenant
+     * - super_admin (tenantId=null): vede qualsiasi profilo, stats sul tenant del target
+     * - email esposta SOLO se isSelf=true (no email harvesting cross-utenti del tenant)
+     * - isFollowing scoped per tenant (no leak cross-tenant)
+     * - 4 COUNT consolidati in 1 sola query per ridurre RTT al DB
+     */
+    async getPublicProfile(targetUserId, tenantId, viewerId) {
+        const isSuperAdmin = tenantId === null || tenantId === undefined;
+
+        // Lookup target — se viewer super_admin niente filtro tenant
+        const targetSql = isSuperAdmin
+            ? `SELECT id, first_name, last_name, email, role, avatar_url, bio, city, tenant_id
+               FROM users WHERE id = ? AND status = 'active'`
+            : `SELECT id, first_name, last_name, email, role, avatar_url, bio, city, tenant_id
+               FROM users WHERE id = ? AND tenant_id = ? AND status = 'active'`;
+        const targetParams = isSuperAdmin ? [targetUserId] : [targetUserId, tenantId];
+        const rows = await query(targetSql, targetParams);
+        if (rows.length === 0) return null;
+        const u = rows[0];
+
+        // Stats sul tenant del target (per super_admin) o del viewer (per altri).
+        // Tutte e 4 le COUNT in un singolo SELECT — riduce RTT da 4 a 1.
+        const statsTenant = isSuperAdmin ? u.tenant_id : tenantId;
+        const [statsRow] = await query(
+            `SELECT
+                (SELECT COUNT(*) FROM community_posts WHERE author_id = ? AND tenant_id = ? AND is_active = TRUE) AS posts,
+                (SELECT COUNT(*) FROM user_follows WHERE followee_id = ? AND tenant_id = ?) AS followers,
+                (SELECT COUNT(*) FROM user_follows WHERE follower_id = ? AND tenant_id = ?) AS following,
+                (SELECT COUNT(*) FROM user_follows WHERE follower_id = ? AND followee_id = ? AND tenant_id = ?) AS is_following`,
+            [
+                targetUserId, statsTenant,
+                targetUserId, statsTenant,
+                targetUserId, statsTenant,
+                viewerId, targetUserId, statsTenant
+            ]
+        );
+
+        const isSelf = viewerId === u.id;
+
+        return {
+            user: {
+                id: u.id,
+                firstName: u.first_name,
+                lastName: u.last_name,
+                // Email esposta SOLO al profilo del proprio utente (no harvesting cross-utenti)
+                ...(isSelf ? { email: u.email } : {}),
+                role: u.role,
+                avatarUrl: u.avatar_url,
+                bio: u.bio,
+                city: u.city,
+                isVerified: ['tenant_owner', 'staff', 'super_admin'].includes(u.role)
+            },
+            stats: {
+                posts: statsRow.posts,
+                followers: statsRow.followers,
+                following: statsRow.following
+            },
+            isFollowing: statsRow.is_following > 0,
+            isSelf
+        };
+    }
+
+    /**
+     * Segui un utente (idempotente). Restituisce { ok, followers, message?, status? }.
+     */
+    async followUser(followerId, followeeId, tenantId) {
+        // Verifica che il followee esista nel medesimo tenant (sicurezza)
+        const targetRows = await query(
+            `SELECT 1 FROM users WHERE id = ? AND tenant_id = ? AND status = 'active'`,
+            [followeeId, tenantId]
+        );
+        if (targetRows.length === 0) {
+            return { ok: false, status: 404, message: 'Utente non trovato nel tenant' };
+        }
+        await query(
+            `INSERT IGNORE INTO user_follows (tenant_id, follower_id, followee_id)
+             VALUES (?, ?, ?)`,
+            [tenantId, followerId, followeeId]
+        );
+        const [followers] = await query(
+            `SELECT COUNT(*) AS c FROM user_follows WHERE followee_id = ? AND tenant_id = ?`,
+            [followeeId, tenantId]
+        );
+        return { ok: true, followers: followers.c };
+    }
+
+    /**
+     * Smetti di seguire (idempotente).
+     */
+    async unfollowUser(followerId, followeeId, tenantId) {
+        await query(
+            `DELETE FROM user_follows
+             WHERE follower_id = ? AND followee_id = ? AND tenant_id = ?`,
+            [followerId, followeeId, tenantId]
+        );
+        const [followers] = await query(
+            `SELECT COUNT(*) AS c FROM user_follows WHERE followee_id = ? AND tenant_id = ?`,
+            [followeeId, tenantId]
+        );
+        return { followers: followers.c };
+    }
 }
 
 module.exports = new UserService();

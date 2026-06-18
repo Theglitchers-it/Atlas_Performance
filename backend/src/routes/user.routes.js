@@ -23,6 +23,16 @@ const uploadLimiter = rateLimit({
     }
 });
 
+// Rate limit follow/unfollow (30 azioni / 1 min) per ridurre abuso/flood follower-bombing
+const followLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: {
+        success: false,
+        message: 'Troppe richieste di follow, riprova tra un minuto'
+    }
+});
+
 // Tutte le route richiedono autenticazione
 router.use(verifyToken);
 
@@ -89,6 +99,82 @@ router.get('/me/business', userController.getBusinessInfo);
  *         description: Info aggiornate
  */
 router.put('/me/business', userController.updateBusinessInfo);
+
+/**
+ * @swagger
+ * /users/me/profile:
+ *   put:
+ *     tags: [Users]
+ *     summary: Aggiorna il proprio profilo pubblico (Community)
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName: { type: string }
+ *               lastName: { type: string }
+ *               bio: { type: string, nullable: true }
+ *               city: { type: string, nullable: true }
+ *     responses:
+ *       200: { description: Profilo aggiornato }
+ */
+router.put('/me/profile', userController.updateMyProfile);
+
+// ===== Public profile + Follow (per Community) =====
+
+/**
+ * @swagger
+ * /users/{id}/profile:
+ *   get:
+ *     tags: [Users]
+ *     summary: Profilo pubblico (Community) tenant-scoped
+ *     description: Restituisce avatar, bio, città, role, stats (post/follower/following) e isFollowing per il viewer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200: { description: Profilo pubblico }
+ *       404: { description: Utente non trovato nel tenant }
+ */
+router.get('/:id/profile', userController.getPublicProfile);
+
+/**
+ * @swagger
+ * /users/{id}/follow:
+ *   post:
+ *     tags: [Users]
+ *     summary: Segui utente (idempotente)
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       201: { description: Follow creato }
+ *       400: { description: Non puoi seguire te stesso }
+ *       404: { description: Utente non trovato }
+ *   delete:
+ *     tags: [Users]
+ *     summary: Smetti di seguire (idempotente)
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Unfollow ok }
+ */
+router.post('/:id/follow', followLimiter, userController.followUser);
+router.delete('/:id/follow', followLimiter, userController.unfollowUser);
 
 /**
  * @swagger

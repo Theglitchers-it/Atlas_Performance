@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useNotificationStore } from "@/store/notification";
+import EmptyState from "@/components/ui/EmptyState.vue";
 import {
   BellIcon,
   BellSlashIcon,
@@ -18,6 +19,18 @@ const notificationStore = useNotificationStore();
 
 const activeFilter = ref("all"); // 'all' | 'unread' | 'read'
 const isInitialized = ref(false);
+
+const emptyNotificationsTitle = computed(() => {
+  if (activeFilter.value === "unread") return "Nessuna notifica non letta";
+  if (activeFilter.value === "read") return "Nessuna notifica letta";
+  return "Nessuna notifica";
+});
+
+const emptyNotificationsDescription = computed(() => {
+  if (activeFilter.value === "unread") return "Ottimo! Sei in pari con tutte le notifiche.";
+  if (activeFilter.value === "read") return "Non hai ancora letto nessuna notifica.";
+  return "Le notifiche appariranno qui quando riceverai aggiornamenti.";
+});
 
 // Computed
 const notifications = computed(() => notificationStore.notifications);
@@ -276,32 +289,12 @@ const sortedGroups = computed(() => {
     </div>
 
     <!-- Empty state -->
-    <div
+    <EmptyState
       v-else-if="filteredNotifications.length === 0"
-      class="flex flex-col items-center justify-center py-20"
-    >
-      <div
-        class="w-20 h-20 bg-habit-card rounded-2xl flex items-center justify-center mb-4 border border-habit-border"
-      >
-        <BellSlashIcon class="w-10 h-10 text-habit-text-subtle" />
-      </div>
-      <h3 class="text-habit-text font-semibold text-lg mb-1">
-        <span v-if="activeFilter === 'all'">Nessuna notifica</span>
-        <span v-else-if="activeFilter === 'unread'"
-          >Nessuna notifica non letta</span
-        >
-        <span v-else>Nessuna notifica letta</span>
-      </h3>
-      <p class="text-habit-text-muted text-sm">
-        <span v-if="activeFilter === 'all'"
-          >Le notifiche appariranno qui quando riceverai aggiornamenti</span
-        >
-        <span v-else-if="activeFilter === 'unread'"
-          >Ottimo! Sei in pari con tutte le notifiche</span
-        >
-        <span v-else>Non hai ancora letto nessuna notifica</span>
-      </p>
-    </div>
+      :icon="BellSlashIcon"
+      :title="emptyNotificationsTitle"
+      :description="emptyNotificationsDescription"
+    />
 
     <!-- Notification list grouped by date -->
     <div v-else class="space-y-6">

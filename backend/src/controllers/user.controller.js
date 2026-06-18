@@ -4,6 +4,9 @@
  */
 
 const userService = require('../services/user.service');
+const { userHasAnyRole } = require('../middlewares/auth');
+
+const AVATAR_ADMIN_ROLES = ['tenant_owner', 'staff', 'super_admin', 'gym_admin'];
 const { getFileUrl } = require('../middlewares/upload');
 const audit = require('../services/audit.service');
 
@@ -117,13 +120,33 @@ class UserController {
 
     /**
      * PUT /api/users/:id/avatar
+     * Solo il proprietario del profilo (req.user.id === id) o ruoli admin del tenant
+     * possono modificare l'avatar. Previene IDOR su altri user del tenant.
      */
     async updateAvatar(req, res, next) {
         try {
+            const targetId = parseInt(req.params.id, 10);
+            if (!Number.isInteger(targetId) || targetId <= 0) {
+                return res.status(400).json({ success: false, message: 'id non valido' });
+            }
+
+            const isOwner = req.user.id === targetId;
+            if (!isOwner && !userHasAnyRole(req.user, AVATAR_ADMIN_ROLES)) {
+                return res.status(403).json({ success: false, message: 'Non autorizzato a modificare questo profilo' });
+            }
+
             const { avatarUrl } = req.body;
+            if (avatarUrl !== null && avatarUrl !== undefined) {
+                if (typeof avatarUrl !== 'string' || avatarUrl.length > 500) {
+                    return res.status(400).json({ success: false, message: 'avatarUrl non valido' });
+                }
+                if (!/^(https?:\/\/|\/uploads\/)/i.test(avatarUrl)) {
+                    return res.status(400).json({ success: false, message: 'avatarUrl deve essere http(s) o path /uploads/' });
+                }
+            }
 
             const user = await userService.updateAvatar(
-                parseInt(req.params.id),
+                targetId,
                 req.user.tenantId,
                 avatarUrl
             );
@@ -190,6 +213,92 @@ class UserController {
             }
             const info = await userService.updateBusinessInfo(req.user.tenantId, req.body);
             res.json({ success: true, message: 'Info business aggiornate', data: info });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/users/me/profile
+     * Aggiorna i campi pubblici del proprio profilo (bio, city, firstName, lastName)
+     */
+    async updateMyProfile(req, res, next) {
+        try {
+            const updated = await userService.updateMyProfile(req.user.id, req.body);
+            if (!updated) {
+                return res.status(404).json({ success: false, message: 'Utente non trovato' });
+            }
+            res.json({ success: true, data: updated });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/users/:id/profile
+     * Profilo pubblico tenant-scoped: avatar, bio, città, stats follower/following/posts, isFollowing
+     */
+    async getPublicProfile(req, res, next) {
+        try {
+            const targetId = parseInt(req.params.id, 10);
+            if (!Number.isInteger(targetId)) {
+                return res.status(400).json({ success: false, message: 'ID non valido' });
+            }
+            const profile = await userService.getPublicProfile(
+                targetId,
+                req.user.tenantId,
+                req.user.id
+            );
+            if (!profile) {
+                return res.status(404).json({ success: false, message: 'Utente non trovato' });
+            }
+            res.json({ success: true, data: profile });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/users/:id/follow
+     */
+    async followUser(req, res, next) {
+        try {
+            const targetId = parseInt(req.params.id, 10);
+            if (!Number.isInteger(targetId)) {
+                return res.status(400).json({ success: false, message: 'ID non valido' });
+            }
+            if (targetId === req.user.id) {
+                return res.status(400).json({ success: false, message: 'Non puoi seguire te stesso' });
+            }
+            const result = await userService.followUser(
+                req.user.id,
+                targetId,
+                req.user.tenantId
+            );
+            if (!result.ok) {
+                return res.status(result.status || 400).json({ success: false, message: result.message });
+            }
+            res.status(201).json({ success: true, data: { isFollowing: true, followers: result.followers } });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * DELETE /api/users/:id/follow
+     */
+    async unfollowUser(req, res, next) {
+        try {
+            const targetId = parseInt(req.params.id, 10);
+            if (!Number.isInteger(targetId)) {
+                return res.status(400).json({ success: false, message: 'ID non valido' });
+            }
+            const result = await userService.unfollowUser(
+                req.user.id,
+                targetId,
+                req.user.tenantId
+            );
+            res.json({ success: true, data: { isFollowing: false, followers: result.followers } });
         } catch (error) {
             next(error);
         }
