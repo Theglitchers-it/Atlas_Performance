@@ -12,6 +12,28 @@ const VALID_PROVIDERS = ['google', 'github', 'discord'];
 
 class OAuthController {
     /**
+     * GET /api/auth/oauth/providers
+     * Restituisce la lista dei provider OAuth realmente configurati
+     * (credenziali presenti nel .env, no placeholder). Endpoint pubblico:
+     * il frontend lo usa per mostrare/nascondere i bottoni social.
+     */
+    async getEnabledProviders(req, res, next) {
+        try {
+            const enabled = oauthService.getEnabledProviders();
+            const providers = VALID_PROVIDERS.map((name) => ({
+                provider: name,
+                enabled: enabled.includes(name)
+            }));
+            res.json({
+                success: true,
+                data: { providers, enabled }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * GET /api/auth/oauth/:provider
      * Restituisce l'URL di autorizzazione per il provider
      */
@@ -80,9 +102,23 @@ class OAuthController {
      * Build HTML page for popup postMessage communication
      */
     buildCallbackHTML(success, data, errorMessage) {
+        // Escape anti-XSS: errorMessage può derivare da query string NON fidate
+        // (error_description del provider) su una route pubblica. Due sink da proteggere:
+        // il body HTML e il JSON iniettato dentro <script>.
+        const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+        // JSON.stringify NON neutralizza la sequenza "</script>": escapando '<' si impedisce
+        // il breakout dal blocco <script>.
+        const jsonForScript = (obj) => JSON.stringify(obj).replace(/</g, '\\u003c');
+
         const payload = success
-            ? JSON.stringify({ type: 'oauth-callback', success: true, data })
-            : JSON.stringify({ type: 'oauth-callback', success: false, error: errorMessage });
+            ? jsonForScript({ type: 'oauth-callback', success: true, data })
+            : jsonForScript({ type: 'oauth-callback', success: false, error: errorMessage });
+
+        // postMessage deve usare l'origin del frontend (non del backend) altrimenti il listener
+        // del frontend (su porta diversa in dev) rifiuta il messaggio per origin mismatch.
+        const frontendOrigin = JSON.stringify(process.env.FRONTEND_URL || 'http://localhost:5173');
 
         return `<!DOCTYPE html>
 <html>
@@ -122,14 +158,14 @@ class OAuthController {
     <div class="container">
         ${success
             ? '<div class="spinner"></div><p>Accesso effettuato! Chiusura...</p>'
-            : `<p class="error">⚠️ ${errorMessage || 'Errore sconosciuto'}</p><p>Questa finestra si chiuderà tra poco...</p>`
+            : `<p class="error">⚠️ ${escapeHtml(errorMessage || 'Errore sconosciuto')}</p><p>Questa finestra si chiuderà tra poco...</p>`
         }
     </div>
     <script>
         (function() {
             try {
                 if (window.opener) {
-                    window.opener.postMessage(${payload}, window.location.origin);
+                    window.opener.postMessage(${payload}, ${frontendOrigin});
                 }
             } catch(e) {
                 console.error('PostMessage error:', e);

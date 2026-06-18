@@ -15,21 +15,6 @@ interface DemoAccount {
   desc: string;
 }
 
-interface Testimonial {
-  name: string;
-  role: string;
-  text: string;
-  rating: number;
-  avatar: string;
-}
-
-interface StatItem {
-  value: number;
-  suffix: string;
-  label: string;
-  color: string;
-}
-
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
@@ -63,7 +48,7 @@ const demoAccounts: DemoAccount[] = import.meta.env.DEV
       {
         role: "tenant_owner",
         label: "Personal Trainer",
-        email: "admin@demo.local",
+        email: "personaltrainer@demo.local",
         password: "demo1234",
         icon: "💪",
         color: "#ff4c00",
@@ -99,7 +84,7 @@ const fillDemoCredentials = (account: DemoAccount) => {
 
 // ── Typing Animation ──
 const typingPhrases: string[] = [
-  "Gestisci i tuoi clienti con facilita",
+  "Gestisci i tuoi clienti con facilità",
   "Traccia i progressi in tempo reale",
   "Fai crescere il tuo business fitness",
   "Crea schede personalizzate in secondi",
@@ -141,96 +126,44 @@ const typeNextChar = () => {
   }
 };
 
-// ── Testimonials ──
-const testimonials: Testimonial[] = [
-  {
-    name: "Marco R.",
-    role: "Personal Trainer, Roma",
-    text: "Atlas Performance ha rivoluzionato il modo in cui gestisco i miei 30+ clienti. Risparmo ore ogni settimana!",
-    rating: 5,
-    avatar: "MR",
-  },
-  {
-    name: "Sara L.",
-    role: "PT & Nutrizionista, Milano",
-    text: "Le schede personalizzate e il tracking progressi sono incredibili. I miei clienti adorano l'app.",
-    rating: 5,
-    avatar: "SL",
-  },
-  {
-    name: "Andrea B.",
-    role: "Studio Fitness, Napoli",
-    text: "Dalla gestione appuntamenti alla fatturazione, tutto in un unico posto. Consigliatissimo.",
-    rating: 5,
-    avatar: "AB",
-  },
-];
-const currentTestimonial = ref<number>(0);
-let testimonialTimer: ReturnType<typeof setInterval> | null = null;
-
-const nextTestimonial = () => {
-  currentTestimonial.value =
-    (currentTestimonial.value + 1) % testimonials.length;
-};
-
-const setTestimonial = (index: number) => {
-  currentTestimonial.value = index;
-  resetTestimonialTimer();
-};
-
-const resetTestimonialTimer = () => {
-  if (testimonialTimer) clearInterval(testimonialTimer);
-  testimonialTimer = setInterval(nextTestimonial, 5000);
-};
-
-// ── Stats Counter ──
-const stats: StatItem[] = [
-  { value: 1200, suffix: "+", label: "Personal Trainer", color: "#ff4c00" },
-  { value: 50000, suffix: "+", label: "Clienti attivi", color: "#0283a7" },
-  { value: 1, suffix: "M+", label: "Workout creati", color: "#22c55e" },
-];
-const countersVisible = ref<boolean>(false);
-const animatedValues = ref<number[]>([0, 0, 0]);
-
-const animateCounters = () => {
-  if (countersVisible.value) return;
-  countersVisible.value = true;
-
-  stats.forEach((stat, index) => {
-    const duration = 2000;
-    const steps = 60;
-    let step = 0;
-
-    const timer = setInterval(() => {
-      step++;
-      const progress = step / steps;
-      const eased = 1 - Math.pow(1 - progress, 3);
-      animatedValues.value[index] = Math.round(stat.value * eased);
-
-      if (step >= steps) {
-        animatedValues.value[index] = stat.value;
-        clearInterval(timer);
-      }
-    }, duration / steps);
-  });
-};
-
-const formatNumber = (num: number): string => {
-  if (num >= 1000) return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + "K";
-  return num.toString();
-};
-
 // ── Lifecycle ──
 onMounted(() => {
   typeNextChar();
-  resetTestimonialTimer();
-  setTimeout(animateCounters, 1200);
+
+  // Anti-autofill: alcuni browser/password manager riempiono i campi
+  // anche con autocomplete=off. Forziamo clear dopo il primo paint.
+  setTimeout(() => {
+    email.value = "";
+    password.value = "";
+  }, 100);
+
+  authStore.loadOAuthProviders();
 });
+
+const googleEnabled = computed(() => authStore.isOAuthProviderEnabled('google'));
+const discordEnabled = computed(() => authStore.isOAuthProviderEnabled('discord'));
+
+const onSocialClick = (provider: string) => {
+  const enabled = authStore.isOAuthProviderEnabled(provider.toLowerCase());
+  if (!enabled) {
+    toast.info(`${provider} OAuth non è configurato. Aggiungi le credenziali nel file .env per abilitarlo.`);
+    return;
+  }
+  socialLogin(provider);
+};
+
+// Trick readonly→editable: i browser non autofillano i campi readonly.
+// Rimuoviamo readonly al primo focus o interazione utente.
+const onFieldInteract = (e: FocusEvent | MouseEvent) => {
+  const target = e.target as HTMLInputElement;
+  if (target && target.hasAttribute("readonly")) {
+    target.removeAttribute("readonly");
+  }
+};
 
 onUnmounted(() => {
   if (typingTimer) clearTimeout(typingTimer);
   if (pauseTimeout) clearTimeout(pauseTimeout);
-  if (testimonialTimer) clearInterval(testimonialTimer);
 });
 
 // ── Auth ──
@@ -289,7 +222,14 @@ const socialLogin = async (provider: string) => {
 </script>
 
 <template>
-  <div class="auth-gradient-bg py-8 px-4 sm:px-6 lg:px-8">
+  <div class="auth-gradient-bg py-8 px-3 sm:px-6 lg:px-8">
+    <!-- Aurora background (3 blur-blobs animati, prefers-reduced-motion safe) -->
+    <div class="auth-aurora-layer" aria-hidden="true">
+      <div class="auth-aurora-blob blob-1"></div>
+      <div class="auth-aurora-blob blob-2"></div>
+      <div class="auth-aurora-blob blob-3"></div>
+    </div>
+
     <!-- Navigating: show only logo + spinner -->
     <div v-if="navigating" class="max-w-md w-full relative z-10 flex flex-col items-center justify-center" style="min-height: 60vh;">
       <h1 class="text-3xl sm:text-4xl font-display font-bold mb-4">
@@ -303,10 +243,13 @@ const socialLogin = async (provider: string) => {
     </div>
 
     <template v-else>
-    <AuthThemeToggle />
     <div class="max-w-md w-full relative z-10">
       <!-- Logo & Title -->
-      <div class="text-center mb-6">
+      <div class="relative text-center mb-6">
+        <!-- Theme toggle integrato in alto a destra del riquadro -->
+        <div class="absolute top-0 right-0">
+          <AuthThemeToggle inline />
+        </div>
         <h1 class="text-3xl sm:text-4xl font-display font-bold">
           <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
         </h1>
@@ -320,34 +263,45 @@ const socialLogin = async (provider: string) => {
         </div>
       </div>
 
-      <!-- Glass Card -->
-      <div
-        class="auth-glass-card p-8"
-        :class="{ 'auth-form-shake': formShake }"
-      >
+      <!-- Glass Card con outline gradient 2026 -->
+      <div class="auth-glass-shell">
+        <div
+          class="auth-glass-card p-8"
+          :class="{ 'auth-form-shake': formShake }"
+        >
         <div v-if="showSuccess" class="auth-success-flash"></div>
-        <!-- Session Expired Alert -->
+        <!-- Session Expired Alert (premium 2026) -->
         <div
           v-if="route.query.expired"
-          role="alert"
-          class="mb-5 p-3.5 bg-[#ff4c00]/10 border border-[#ff4c00]/25 rounded-xl flex items-center gap-3"
+          role="status"
+          aria-live="polite"
+          class="auth-expired-banner mb-5 flex items-start gap-3"
         >
-          <svg
-            class="w-5 h-5 text-[#ff4c00] flex-shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          <div
+            class="auth-expired-icon flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff4c00]/20 to-red-500/15 border border-[#ff4c00]/30 flex items-center justify-center"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <p class="text-sm text-[#ff4c00]">
-            La tua sessione e' scaduta. Effettua nuovamente l'accesso.
-          </p>
+            <svg
+              class="w-5 h-5 text-[#ff4c00]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l2.5 1.5M12 3a9 9 0 100 18 9 9 0 000-18z"
+              />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-[#ff4c00] leading-tight">
+              Sessione scaduta
+            </p>
+            <p class="text-xs text-habit-text/55 mt-0.5 leading-snug">
+              Per la tua sicurezza ti abbiamo disconnesso. Effettua di nuovo l'accesso.
+            </p>
+          </div>
         </div>
 
         <!-- Error Alert -->
@@ -386,7 +340,9 @@ const socialLogin = async (provider: string) => {
           <button
             type="button"
             @click="showDemoAccounts = !showDemoAccounts"
-            class="w-full flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#ff4c00]/10 to-[#0283a7]/10 border border-[#ff4c00]/20 rounded-xl text-sm text-habit-text/70 hover:text-habit-text hover:border-[#ff4c00]/40 transition-all duration-200"
+            :aria-expanded="showDemoAccounts ? 'true' : 'false'"
+            aria-controls="atlas-demo-accounts-panel"
+            class="w-full flex items-center justify-between px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-[#ff4c00]/10 to-[#0283a7]/10 border border-[#ff4c00]/20 rounded-xl text-sm text-habit-text/70 hover:text-habit-text hover:border-[#ff4c00]/40 active:scale-[0.99] transition-all duration-200"
           >
             <span class="flex items-center gap-2">
               <svg
@@ -429,7 +385,7 @@ const socialLogin = async (provider: string) => {
             leave-from-class="opacity-100"
             leave-to-class="opacity-0"
           >
-            <div v-if="showDemoAccounts" class="mt-3 grid grid-cols-2 gap-2">
+            <div v-if="showDemoAccounts" id="atlas-demo-accounts-panel" class="mt-3 grid grid-cols-2 gap-2">
               <div
                 v-for="account in demoAccounts"
                 :key="account.role"
@@ -457,11 +413,29 @@ const socialLogin = async (provider: string) => {
           </Transition>
         </div>
 
-        <form @submit.prevent="handleSubmit" class="space-y-5">
+        <form @submit.prevent="handleSubmit" class="space-y-5" autocomplete="off" :aria-busy="isLoading ? 'true' : 'false'">
+          <!-- Honeypot: i password manager riempiono questi (primi nel form, nomi standard) e ignorano i campi reali sotto -->
+          <input
+            type="text"
+            name="username"
+            autocomplete="username"
+            tabindex="-1"
+            aria-hidden="true"
+            style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none"
+          />
+          <input
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            tabindex="-1"
+            aria-hidden="true"
+            style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none"
+          />
+
           <!-- Email -->
           <div class="auth-input-group">
             <label
-              for="email"
+              for="atlas-login-id"
               class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
               >Email</label
             >
@@ -480,14 +454,20 @@ const socialLogin = async (provider: string) => {
                 />
               </svg>
               <input
-                id="email"
+                id="atlas-login-id"
                 v-model="email"
                 type="email"
-                autocomplete="email"
+                name="atlas-login-id"
+                autocomplete="off"
+                data-lpignore="true"
+                data-form-type="other"
+                data-1p-ignore="true"
+                readonly
                 required
                 class="w-full pl-11 pr-4 py-3 text-sm"
                 placeholder="nome@esempio.com"
-                @focus="focusedField = 'email'"
+                @focus="onFieldInteract($event); focusedField = 'email'"
+                @mousedown="onFieldInteract"
                 @blur="focusedField = ''"
               />
             </div>
@@ -496,7 +476,7 @@ const socialLogin = async (provider: string) => {
           <!-- Password -->
           <div class="auth-input-group">
             <label
-              for="password"
+              for="atlas-login-secret"
               class="block text-xs font-medium text-habit-text/50 uppercase tracking-wider mb-2"
               >Password</label
             >
@@ -515,14 +495,20 @@ const socialLogin = async (provider: string) => {
                 />
               </svg>
               <input
-                id="password"
+                id="atlas-login-secret"
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
-                autocomplete="current-password"
+                name="atlas-login-secret"
+                autocomplete="new-password"
+                data-lpignore="true"
+                data-form-type="other"
+                data-1p-ignore="true"
+                readonly
                 required
                 class="w-full pl-11 pr-12 py-3 text-sm"
                 placeholder="La tua password"
-                @focus="focusedField = 'password'"
+                @focus="onFieldInteract($event); focusedField = 'password'"
+                @mousedown="onFieldInteract"
                 @blur="focusedField = ''"
               />
               <button
@@ -531,6 +517,7 @@ const socialLogin = async (provider: string) => {
                 :aria-label="
                   showPassword ? 'Nascondi password' : 'Mostra password'
                 "
+                :aria-pressed="showPassword ? 'true' : 'false'"
                 class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-habit-text/30 hover:text-[#0283a7] transition-colors duration-200 focus:outline-none focus:ring-0"
               >
                 <svg
@@ -596,14 +583,15 @@ const socialLogin = async (provider: string) => {
           <button
             type="submit"
             :disabled="isLoading"
-            class="auth-btn-gradient w-full flex justify-center items-center py-3.5 px-4 text-sm relative focus:outline-none focus:ring-2 focus:ring-[#ff4c00]/40 focus:ring-offset-0"
+            class="auth-btn-gradient w-full inline-flex justify-center items-center gap-2 py-3.5 px-4 text-sm font-semibold relative min-h-[48px] active:scale-[0.985] transition-transform focus:outline-none focus:ring-2 focus:ring-[#ff4c00]/40 focus:ring-offset-0"
           >
             <div v-if="isLoading" class="shimmer-overlay"></div>
             <svg
               v-if="isLoading"
-              class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+              class="animate-spin h-5 w-5 text-white"
               fill="none"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <circle
                 class="opacity-25"
@@ -619,7 +607,17 @@ const socialLogin = async (provider: string) => {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            {{ isLoading ? "Accesso in corso..." : "Accedi" }}
+            <span>{{ isLoading ? "Accesso in corso…" : "Accedi" }}</span>
+            <svg
+              v-if="!isLoading"
+              class="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5-5 5M5 12h13" />
+            </svg>
           </button>
         </form>
 
@@ -629,11 +627,13 @@ const socialLogin = async (provider: string) => {
         </div>
 
         <!-- Social Login -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
-            @click="socialLogin('Google')"
+            @click="onSocialClick('Google')"
+            :disabled="!googleEnabled"
+            :title="googleEnabled ? '' : 'Google OAuth non configurato. Aggiungi GOOGLE_CLIENT_ID nel file .env'"
             type="button"
-            class="auth-social-btn auth-social-google focus:outline-none focus:ring-0"
+            class="auth-social-btn auth-social-google focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg class="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -656,21 +656,11 @@ const socialLogin = async (provider: string) => {
             Google
           </button>
           <button
-            @click="socialLogin('GitHub')"
+            @click="onSocialClick('Discord')"
+            :disabled="!discordEnabled"
+            :title="discordEnabled ? '' : 'Discord OAuth non configurato. Aggiungi DISCORD_CLIENT_ID nel file .env'"
             type="button"
-            class="auth-social-btn auth-social-github focus:outline-none focus:ring-0"
-          >
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
-              />
-            </svg>
-            GitHub
-          </button>
-          <button
-            @click="socialLogin('Discord')"
-            type="button"
-            class="auth-social-btn auth-social-discord focus:outline-none focus:ring-0"
+            class="auth-social-btn auth-social-discord focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="#5865F2">
               <path
@@ -693,80 +683,12 @@ const socialLogin = async (provider: string) => {
             </router-link>
           </p>
         </div>
-      </div>
-
-      <!-- Testimonial Carousel -->
-      <div class="mt-6">
-        <div class="auth-testimonial-card">
-          <div class="flex items-start gap-3">
-            <!-- Avatar -->
-            <div
-              class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff4c00] to-[#ff8c00] flex items-center justify-center"
-            >
-              <span class="text-white text-xs font-bold">{{
-                testimonials[currentTestimonial].avatar
-              }}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-semibold text-habit-text/90">{{
-                  testimonials[currentTestimonial].name
-                }}</span>
-                <div class="flex gap-0.5">
-                  <svg
-                    v-for="s in testimonials[currentTestimonial].rating"
-                    :key="s"
-                    class="w-3 h-3 text-[#ff8c00]"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <p class="text-xs text-habit-text/40">
-                {{ testimonials[currentTestimonial].role }}
-              </p>
-              <p class="text-sm text-habit-text/60 mt-2 leading-relaxed italic">
-                "{{ testimonials[currentTestimonial].text }}"
-              </p>
-            </div>
-          </div>
-
-          <!-- Dots -->
-          <div class="flex items-center justify-center gap-2 mt-4">
-            <div
-              v-for="(_, idx) in testimonials"
-              :key="idx"
-              @click="setTestimonial(idx)"
-              class="auth-testimonial-dot"
-              :class="{ active: currentTestimonial === idx }"
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stats Counter -->
-      <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div v-for="(stat, idx) in stats" :key="idx" class="auth-stat-card">
-          <div class="text-2xl font-bold" :style="{ color: stat.color }">
-            {{
-              stat.value >= 1000000
-                ? (animatedValues[idx] / 1000000).toFixed(
-                    animatedValues[idx] === stat.value ? 0 : 1,
-                  )
-                : formatNumber(animatedValues[idx])
-            }}{{ stat.suffix }}
-          </div>
-          <div class="text-[11px] text-habit-text/40 mt-1">{{ stat.label }}</div>
         </div>
       </div>
 
       <!-- Footer -->
       <p class="mt-6 text-center text-xs text-habit-text/25">
-        &copy; 2025 Atlas Performance. Tutti i diritti riservati.
+        &copy; {{ new Date().getFullYear() }} Atlas Performance. Tutti i diritti riservati.
       </p>
     </div>
     </template>

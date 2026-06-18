@@ -48,7 +48,31 @@ const PROVIDERS = {
     }
 };
 
+function isCredentialConfigured(value) {
+    if (!value || typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (trimmed.length < 6) return false;
+    // Riconosci i tipici placeholder dei file .env.example
+    if (/^your[-_]/i.test(trimmed)) return false;
+    if (/placeholder/i.test(trimmed)) return false;
+    return true;
+}
+
 class OAuthService {
+
+    // ═══════════════════════════════════════════════
+    // Provider enablement
+    // ═══════════════════════════════════════════════
+
+    isProviderEnabled(provider) {
+        const config = PROVIDERS[provider];
+        if (!config) return false;
+        return isCredentialConfigured(config.getClientId()) && isCredentialConfigured(config.getClientSecret());
+    }
+
+    getEnabledProviders() {
+        return Object.keys(PROVIDERS).filter((p) => this.isProviderEnabled(p));
+    }
 
     // ═══════════════════════════════════════════════
     // Generate Auth URL
@@ -59,7 +83,11 @@ class OAuthService {
         if (!config) throw { status: 400, message: `Provider "${provider}" non supportato` };
 
         const clientId = config.getClientId();
-        if (!clientId) throw { status: 500, message: `${config.name} OAuth non configurato. Aggiungi le credenziali nel file .env` };
+        if (!isCredentialConfigured(clientId) || !isCredentialConfigured(config.getClientSecret())) {
+            // 400 (non 503): è una condizione attesa (provider non abilitato), non un guasto del server.
+            // Così non rientra nei RETRY_STATUS_CODES dell'interceptor (niente retry storm) e non viene loggato come error.
+            throw { status: 400, message: `${config.name} OAuth non configurato. Aggiungi le credenziali nel file .env` };
+        }
 
         // Generate CSRF state
         const state = uuidv4();
@@ -192,6 +220,13 @@ class OAuthService {
         const data = await response.json();
 
         if (provider === 'google') {
+            if (!data.email) {
+                throw { status: 400, message: 'Impossibile ottenere l\'email dal tuo account Google.' };
+            }
+            // Google userinfo include verified_email: rifiutiamo email non verificate per evitare bypass della verifica.
+            if (data.verified_email === false) {
+                throw { status: 403, message: 'L\'email del tuo account Google non è verificata. Verificala su Google e riprova.' };
+            }
             return {
                 providerId: String(data.id),
                 email: data.email,
@@ -228,6 +263,10 @@ class OAuthService {
         if (provider === 'discord') {
             if (!data.email) {
                 throw { status: 400, message: 'Impossibile ottenere l\'email dal tuo account Discord. Assicurati di avere un\'email verificata.' };
+            }
+            // Discord espone `verified` boolean: blocchiamo email non verificate.
+            if (data.verified === false) {
+                throw { status: 403, message: 'L\'email del tuo account Discord non è verificata. Verificala su Discord e riprova.' };
             }
 
             const nameParts = (data.global_name || data.username || 'Utente Discord').split(' ');

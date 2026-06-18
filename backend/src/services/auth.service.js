@@ -69,14 +69,27 @@ class AuthService {
                 [tenantId, email, passwordHash, firstName, lastName, phone || null]
             );
 
+            // Fase 1 multi-role: il tenant owner è gym_admin del proprio tenant (anche se è studio personale solo)
+            try {
+                await connection.execute(
+                    `INSERT INTO user_roles (tenant_id, user_id, role, is_primary, granted_at)
+                     VALUES (?, ?, 'gym_admin', TRUE, NOW())`,
+                    [tenantId, userResult.insertId]
+                );
+            } catch (e) {
+                // Migration 024 non applicata: ignora, register funziona comunque
+            }
+
             return {
                 tenantId,
                 userId: userResult.insertId
             };
         });
 
+        const roles = await this._loadUserRoles(result.userId);
+
         // Genera tokens
-        const tokens = this.generateTokens(result.userId, result.tenantId, 'tenant_owner');
+        const tokens = this.generateTokens({ userId: result.userId, tenantId: result.tenantId, role: 'tenant_owner', roles });
 
         // Salva refresh token
         await this.saveRefreshToken(result.userId, tokens.refreshToken);
@@ -88,7 +101,8 @@ class AuthService {
                 email,
                 firstName,
                 lastName,
-                role: 'tenant_owner'
+                role: 'tenant_owner',
+                roles
             },
             ...tokens
         };
@@ -168,8 +182,10 @@ class AuthService {
             [user.id]
         );
 
+        const roles = await this._loadUserRoles(user.id);
+
         // Genera tokens
-        const tokens = this.generateTokens(user.id, user.tenant_id, user.role);
+        const tokens = this.generateTokens({ userId: user.id, tenantId: user.tenant_id, role: user.role, roles });
 
         // Salva refresh token
         await this.saveRefreshToken(user.id, tokens.refreshToken);
@@ -182,6 +198,7 @@ class AuthService {
             firstName: user.first_name,
             lastName: user.last_name,
             role: user.role,
+            roles,
             phone: user.phone || null,
             avatarUrl: user.avatar_url,
             status: user.status,
@@ -239,12 +256,15 @@ class AuthService {
         // Elimina vecchio refresh token
         await query('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]);
 
+        const roles = await this._loadUserRoles(tokenData.user_id);
+
         // Genera nuovi tokens
-        const newTokens = this.generateTokens(
-            tokenData.user_id,
-            tokenData.tenant_id,
-            tokenData.role
-        );
+        const newTokens = this.generateTokens({
+            userId: tokenData.user_id,
+            tenantId: tokenData.tenant_id,
+            role: tokenData.role,
+            roles
+        });
 
         // Salva nuovo refresh token
         await this.saveRefreshToken(tokenData.user_id, newTokens.refreshToken);
@@ -257,6 +277,7 @@ class AuthService {
                 firstName: tokenData.first_name,
                 lastName: tokenData.last_name,
                 role: tokenData.role,
+                roles,
                 phone: tokenData.phone || null,
                 avatarUrl: tokenData.avatar_url,
                 status: tokenData.status,
@@ -303,6 +324,7 @@ class AuthService {
         }
 
         const user = users[0];
+        const roles = await this._loadUserRoles(user.id);
         const userData = {
             id: user.id,
             tenantId: user.tenant_id,
@@ -310,6 +332,7 @@ class AuthService {
             firstName: user.first_name,
             lastName: user.last_name,
             role: user.role,
+            roles,
             phone: user.phone || null,
             avatarUrl: user.avatar_url,
             status: user.status,
@@ -337,12 +360,34 @@ class AuthService {
     }
 
     /**
-     * Genera access e refresh token
+     * Carica i ruoli aggiuntivi dell'utente dalla tabella user_roles.
+     * Ritorna array vuoto solo se la tabella non esiste (migration 024 non applicata);
+     * altri errori vengono loggati e propagati per non mascherare problemi reali in prod.
      */
-    generateTokens(userId, tenantId, role) {
+    async _loadUserRoles(userId) {
+        try {
+            const rows = await query(
+                `SELECT role FROM user_roles
+                 WHERE user_id = ? AND (expires_at IS NULL OR expires_at > NOW())`,
+                [userId]
+            );
+            return rows.map(r => r.role);
+        } catch (err) {
+            if (err.code === 'ER_NO_SUCH_TABLE') return [];
+            const { createServiceLogger } = require('../config/logger');
+            createServiceLogger('AUTH').error('_loadUserRoles failed', { userId, code: err.code, message: err.message });
+            throw err;
+        }
+    }
+
+    /**
+     * Genera access e refresh token.
+     * roles[] viene incluso nel payload JWT per autorizzazione multi-ruolo.
+     */
+    generateTokens({ userId, tenantId, role, roles = [] }) {
         const jti = uuidv4();
         const accessToken = jwt.sign(
-            { userId, tenantId, role, jti },
+            { userId, tenantId, role, roles, jti },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
         );

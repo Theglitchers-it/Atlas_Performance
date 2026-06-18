@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useToast } from "vue-toastification";
 import { useAuthStore } from "@/store/auth";
 import type { RegisterForm } from "@/types";
 import AuthThemeToggle from "@/components/auth/AuthThemeToggle.vue";
@@ -15,6 +16,7 @@ interface PasswordChecks {
 
 const router = useRouter();
 const authStore = useAuthStore();
+const toast = useToast();
 
 const formData = ref<RegisterForm & { confirmPassword: string }>({
   firstName: "",
@@ -144,6 +146,22 @@ const socialLogin = async (provider: string) => {
   }
 };
 
+const googleEnabled = computed(() => authStore.isOAuthProviderEnabled('google'));
+const discordEnabled = computed(() => authStore.isOAuthProviderEnabled('discord'));
+
+const onSocialClick = (provider: string) => {
+  const enabled = authStore.isOAuthProviderEnabled(provider.toLowerCase());
+  if (!enabled) {
+    toast.info(`${provider} OAuth non è configurato. Aggiungi le credenziali nel file .env per abilitarlo.`);
+    return;
+  }
+  socialLogin(provider);
+};
+
+onMounted(() => {
+  authStore.loadOAuthProviders();
+});
+
 const nextStep = () => {
   errors.value = {};
   if (!formData.value.firstName) {
@@ -173,7 +191,6 @@ const prevStep = () => {
 
 <template>
   <div class="auth-gradient-bg py-8 px-4 sm:px-6 lg:px-8">
-    <AuthThemeToggle />
     <!-- Floating Orbs -->
     <div class="auth-orb auth-orb-1 hidden sm:block"></div>
     <div class="auth-orb auth-orb-2 hidden sm:block"></div>
@@ -181,7 +198,11 @@ const prevStep = () => {
 
     <div class="max-w-md w-full relative z-10">
       <!-- Logo & Title -->
-      <div class="text-center mb-6">
+      <div class="relative text-center mb-6">
+        <!-- Theme toggle integrato in alto a destra del riquadro -->
+        <div class="absolute top-0 right-0">
+          <AuthThemeToggle inline />
+        </div>
         <h1 class="text-3xl sm:text-4xl font-display font-bold">
           <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
         </h1>
@@ -507,11 +528,13 @@ const prevStep = () => {
               </div>
 
               <!-- Social Login -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
-                  @click="socialLogin('Google')"
+                  @click="onSocialClick('Google')"
+                  :disabled="!googleEnabled"
+                  :title="googleEnabled ? '' : 'Google OAuth non configurato. Aggiungi GOOGLE_CLIENT_ID nel file .env'"
                   type="button"
-                  class="auth-social-btn auth-social-google focus:outline-none focus:ring-0"
+                  class="auth-social-btn auth-social-google focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path
@@ -534,21 +557,11 @@ const prevStep = () => {
                   Google
                 </button>
                 <button
-                  @click="socialLogin('GitHub')"
+                  @click="onSocialClick('Discord')"
+                  :disabled="!discordEnabled"
+                  :title="discordEnabled ? '' : 'Discord OAuth non configurato. Aggiungi DISCORD_CLIENT_ID nel file .env'"
                   type="button"
-                  class="auth-social-btn auth-social-github focus:outline-none focus:ring-0"
-                >
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
-                    />
-                  </svg>
-                  GitHub
-                </button>
-                <button
-                  @click="socialLogin('Discord')"
-                  type="button"
-                  class="auth-social-btn auth-social-discord focus:outline-none focus:ring-0"
+                  class="auth-social-btn auth-social-discord focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg class="w-5 h-5" viewBox="0 0 24 24" fill="#5865F2">
                     <path
@@ -1040,32 +1053,6 @@ const prevStep = () => {
               Accedi
             </router-link>
           </p>
-        </div>
-      </div>
-
-      <!-- Features Banner -->
-      <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div
-          class="bg-habit-text/5 backdrop-blur-sm border border-habit-text/10 rounded-2xl p-3 text-center"
-        >
-          <div
-            class="text-2xl font-bold bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent"
-          >
-            14
-          </div>
-          <div class="text-[11px] text-habit-text/40 mt-0.5">Giorni di prova</div>
-        </div>
-        <div
-          class="bg-habit-text/5 backdrop-blur-sm border border-habit-text/10 rounded-2xl p-3 text-center"
-        >
-          <div class="text-2xl font-bold text-[#0283a7]">5</div>
-          <div class="text-[11px] text-habit-text/40 mt-0.5">Clienti inclusi</div>
-        </div>
-        <div
-          class="bg-habit-text/5 backdrop-blur-sm border border-habit-text/10 rounded-2xl p-3 text-center"
-        >
-          <div class="text-2xl font-bold text-emerald-400">0</div>
-          <div class="text-[11px] text-habit-text/40 mt-0.5">Costi nascosti</div>
         </div>
       </div>
 

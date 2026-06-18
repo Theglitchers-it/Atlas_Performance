@@ -12,7 +12,7 @@ const accessTokenOptions = () => ({
     httpOnly: true,
     secure: isProd(),
     sameSite: isProd() ? 'strict' : 'lax',
-    path: '/api',
+    path: '/',
     maxAge: 15 * 60 * 1000 // 15 minuti
 });
 
@@ -34,6 +34,9 @@ const refreshTokenOptions = () => ({
  * @param {string} refreshToken - JWT refresh token
  */
 const setAuthCookies = (res, accessToken, refreshToken) => {
+    // Cleanup di eventuale cookie legacy (access_token con path='/api')
+    // Necessario per browser che hanno fatto login prima del cambio path.
+    res.clearCookie('access_token', { path: '/api' });
     res.cookie('access_token', accessToken, accessTokenOptions());
     res.cookie('refresh_token', refreshToken, refreshTokenOptions());
 };
@@ -43,7 +46,7 @@ const setAuthCookies = (res, accessToken, refreshToken) => {
  * @param {Object} res - Express response
  */
 const clearAuthCookies = (res) => {
-    res.clearCookie('access_token', { path: '/api' });
+    res.clearCookie('access_token', { path: '/' });
     res.clearCookie('refresh_token', { path: '/api/auth' });
 };
 

@@ -68,6 +68,9 @@ export const useAuthStore = defineStore('auth', () => {
     const loading = ref(false)
     const error = ref<string | null>(null)
     const initialAuthChecked = ref(false)
+    const oauthProvidersLoaded = ref(false)
+    const enabledOAuthProviders = ref<string[]>([])
+    let oauthProvidersPromise: Promise<string[]> | null = null
 
     // Getters
     const isAuthenticated = computed(() => !!user.value)
@@ -76,6 +79,45 @@ export const useAuthStore = defineStore('auth', () => {
     const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
     const userRole = computed(() => user.value?.role || null)
     const tenantId = computed(() => user.value?.tenantId || null)
+
+    // ===== Fase 1: Multi-role getters (user_roles) =====
+    const roles = computed(() => user.value?.roles || [])
+    const hasRole = (role: string): boolean => roles.value.includes(role as any)
+    const hasAnyRole = (...candidates: string[]): boolean =>
+        candidates.some(c => roles.value.includes(c as any))
+    const isGymAdmin = computed(() => hasRole('gym_admin') || user.value?.role === 'tenant_owner')
+    const isNutritionist = computed(() => hasRole('nutritionist'))
+    const isAppTrainer = computed(() => hasRole('trainer') || hasRole('gym_admin'))
+    const isMultiRole = computed(() => roles.value.length > 1)
+
+    // Mappa ruoli V2 (user_roles) -> ruoli legacy usati nel gating di route/UI.
+    const ROLE_V2_TO_LEGACY: Record<string, string> = {
+        gym_admin: 'tenant_owner',
+        trainer: 'staff',
+        nutritionist: 'staff',
+        front_desk: 'staff',
+        accountant: 'staff',
+        community_moderator: 'staff',
+        client: 'client'
+    }
+    // Ruoli "effettivi": ruolo primario legacy + roles[] V2 mappati. Allinea il gating
+    // frontend a userHasAnyRole del backend (array-aware), evitando che un utente
+    // autorizzato dal backend via roles[] venga bloccato dal router/UI.
+    const effectiveRoles = computed<string[]>(() => {
+        const set = new Set<string>()
+        if (user.value?.role) set.add(user.value.role)
+        for (const r of (user.value?.roles || [])) {
+            set.add(r as string)
+            const legacy = ROLE_V2_TO_LEGACY[r as string]
+            if (legacy) set.add(legacy)
+        }
+        return [...set]
+    })
+    const canAccessRoles = (allowed?: string[] | null): boolean => {
+        if (!allowed || allowed.length === 0) return true
+        return allowed.some(r => effectiveRoles.value.includes(r))
+    }
+    const canModerate = computed(() => canAccessRoles(['tenant_owner', 'staff', 'super_admin']))
 
     // Actions
 
@@ -182,12 +224,46 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    const loadOAuthProviders = async (force = false): Promise<string[]> => {
+        if (!force && oauthProvidersLoaded.value) return enabledOAuthProviders.value
+        if (oauthProvidersPromise && !force) return oauthProvidersPromise
+        oauthProvidersPromise = (async () => {
+            try {
+                const response = await api.get('/auth/oauth/providers')
+                const enabled = response.data?.data?.enabled
+                enabledOAuthProviders.value = Array.isArray(enabled) ? enabled : []
+                oauthProvidersLoaded.value = true
+            } catch {
+                // Non memoizzare il fallimento: lasciamo oauthProvidersLoaded=false così
+                // la prossima chiamata ritenta. enabledOAuthProviders resta com'era (default []).
+            } finally {
+                oauthProvidersPromise = null
+            }
+            return enabledOAuthProviders.value
+        })()
+        return oauthProvidersPromise
+    }
+
+    const isOAuthProviderEnabled = (provider: string): boolean =>
+        enabledOAuthProviders.value.includes(provider.toLowerCase())
+
     const socialLogin = async (provider: string): Promise<AuthResult> => {
+        // Lock anti doppio-click: se un flow OAuth è già in corso, ignora la richiesta successiva
+        // (evita 2 popup, 2 listener postMessage, 2 pollTimer concorrenti).
+        if (loading.value) {
+            return { success: false, message: 'Login già in corso, attendere…' }
+        }
+
+        const normalized = provider.toLowerCase()
+        if (oauthProvidersLoaded.value && !enabledOAuthProviders.value.includes(normalized)) {
+            return { success: false, message: 'Provider non configurato. Contatta l’amministratore.' }
+        }
+
         loading.value = true
         error.value = null
 
         try {
-            const response = await api.get(`/auth/oauth/${provider}`)
+            const response = await api.get(`/auth/oauth/${normalized}`)
             const { url } = response.data.data
 
             const allowedHosts = ['accounts.google.com', 'github.com', 'discord.com', 'login.microsoftonline.com']
@@ -293,12 +369,28 @@ export const useAuthStore = defineStore('auth', () => {
         isSuperAdmin,
         userRole,
         tenantId,
+        // Fase 1 multi-role
+        roles,
+        hasRole,
+        hasAnyRole,
+        isGymAdmin,
+        isNutritionist,
+        isAppTrainer,
+        isMultiRole,
+        effectiveRoles,
+        canAccessRoles,
+        canModerate,
+        // Actions
         login,
         register,
         socialLogin,
         logout,
         checkAuth,
         updateProfile,
-        changePassword
+        changePassword,
+        loadOAuthProviders,
+        isOAuthProviderEnabled,
+        enabledOAuthProviders,
+        oauthProvidersLoaded
     }
 })

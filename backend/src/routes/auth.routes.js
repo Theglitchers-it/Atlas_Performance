@@ -108,6 +108,18 @@ router.post('/logout', authController.logout);
 
 /**
  * @swagger
+ * /auth/oauth/providers:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Elenco provider OAuth abilitati (credenziali configurate nel .env)
+ *     responses:
+ *       200:
+ *         description: Lista provider con flag enabled
+ */
+router.get('/oauth/providers', oauthController.getEnabledProviders.bind(oauthController));
+
+/**
+ * @swagger
  * /auth/oauth/{provider}:
  *   get:
  *     tags: [Auth]

@@ -80,40 +80,42 @@ const verifyToken = async (req, res, next) => {
             });
         }
 
-        // Verifica che l'utente esista ancora
-        const users = await query(
-            'SELECT id, tenant_id, email, role, status FROM users WHERE id = ? AND status = "active"',
+        // Un solo JOIN per validare user + tenant in una query (era 2 sequenziali).
+        const rows = await query(
+            `SELECT u.id, u.tenant_id, u.email, u.role, u.parent_user_id,
+                    t.subscription_status
+             FROM users u
+             LEFT JOIN tenants t ON t.id = u.tenant_id
+             WHERE u.id = ? AND u.status = 'active'`,
             [decoded.userId]
         );
 
-        if (users.length === 0) {
+        if (rows.length === 0) {
             return res.status(401).json({
                 success: false,
                 message: 'Utente non trovato o disattivato'
             });
         }
 
-        // Aggiungi info utente alla request
-        req.user = {
-            id: users[0].id,
-            tenantId: users[0].tenant_id,
-            email: users[0].email,
-            role: users[0].role
-        };
+        const user = rows[0];
 
-        // Validate tenant is active (skip for super_admin)
-        if (users[0].role !== 'super_admin' && users[0].tenant_id) {
-            const tenants = await query(
-                'SELECT id, subscription_status FROM tenants WHERE id = ?',
-                [users[0].tenant_id]
-            );
-            if (tenants.length === 0 || tenants[0].subscription_status === 'cancelled') {
+        if (user.role !== 'super_admin' && user.tenant_id) {
+            if (!user.subscription_status || user.subscription_status === 'cancelled') {
                 return res.status(403).json({
                     success: false,
                     message: 'Tenant non attivo o sospeso'
                 });
             }
         }
+
+        req.user = {
+            id: user.id,
+            tenantId: user.tenant_id,
+            email: user.email,
+            role: user.role,
+            roles: Array.isArray(decoded.roles) ? decoded.roles : [],
+            parentUserId: user.parent_user_id || null
+        };
 
         next();
     } catch (error) {
@@ -139,7 +141,20 @@ const verifyToken = async (req, res, next) => {
 };
 
 /**
- * Verifica ruoli specifici
+ * Helper: verifica se l'utente ha uno dei ruoli passati.
+ * Matcha sia il ruolo primario (legacy users.role) sia i ruoli multipli (user_roles).
+ */
+const userHasAnyRole = (user, allowedRoles) => {
+    if (!user) return false;
+    if (allowedRoles.includes(user.role)) return true;
+    if (Array.isArray(user.roles)) {
+        return user.roles.some(r => allowedRoles.includes(r));
+    }
+    return false;
+};
+
+/**
+ * Verifica ruoli specifici (array-aware: matcha sia users.role legacy sia user_roles[]).
  * @param {...string} roles - Ruoli permessi
  */
 const requireRole = (...roles) => {
@@ -151,7 +166,7 @@ const requireRole = (...roles) => {
             });
         }
 
-        if (!roles.includes(req.user.role)) {
+        if (!userHasAnyRole(req.user, roles)) {
             return res.status(403).json({
                 success: false,
                 message: 'Non hai i permessi per questa azione'
@@ -229,7 +244,8 @@ const optionalAuth = async (req, res, next) => {
                         id: users[0].id,
                         tenantId: users[0].tenant_id,
                         email: users[0].email,
-                        role: users[0].role
+                        role: users[0].role,
+                        roles: Array.isArray(decoded.roles) ? decoded.roles : []
                     };
                 }
             }
@@ -241,7 +257,7 @@ const optionalAuth = async (req, res, next) => {
     next();
 };
 
-// Costanti ruoli
+// Costanti ruoli legacy (users.role ENUM)
 const ROLES = {
     SUPER_ADMIN: 'super_admin',
     TENANT_OWNER: 'tenant_owner',
@@ -249,13 +265,31 @@ const ROLES = {
     CLIENT: 'client'
 };
 
+// Costanti ruoli Fase 1 (user_roles.role ENUM, multi-ruolo)
+const ROLES_V2 = {
+    GYM_ADMIN: 'gym_admin',
+    TRAINER: 'trainer',
+    NUTRITIONIST: 'nutritionist',
+    CLIENT: 'client',
+    FRONT_DESK: 'front_desk',
+    ACCOUNTANT: 'accountant'
+};
+
+// Helper preconfezionati per evitare requireRole(...) ripetuto nelle routes
+const requireGymAdmin = requireRole('gym_admin', 'tenant_owner', 'super_admin');
+const requireStaff = requireRole('gym_admin', 'tenant_owner', 'super_admin', 'trainer', 'staff');
+
 module.exports = {
     verifyToken,
     requireRole,
     requireTenantOwner,
     requireSuperAdmin,
+    requireGymAdmin,
+    requireStaff,
     optionalAuth,
     extractToken,
     blacklistToken,
-    ROLES
+    userHasAnyRole,
+    ROLES,
+    ROLES_V2
 };
