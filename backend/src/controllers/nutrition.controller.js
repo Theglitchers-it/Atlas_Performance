@@ -3,6 +3,7 @@
  */
 
 const nutritionService = require('../services/nutrition.service');
+const { assertClientAccess } = require('../utils/clientAccess');
 
 class NutritionController {
     // ==================== MEAL PLANS ====================
@@ -30,6 +31,10 @@ class NutritionController {
             );
             if (!plan) {
                 return res.status(404).json({ success: false, message: 'Piano non trovato' });
+            }
+            // Ownership: un client accede solo ai piani del proprio profilo (i trainer a tutti).
+            if (plan.client_id) {
+                await assertClientAccess(plan.client_id, req.user.tenantId, req.user);
             }
             res.json({ success: true, data: { plan } });
         } catch (error) {

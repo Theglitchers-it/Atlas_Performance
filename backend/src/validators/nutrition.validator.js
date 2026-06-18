@@ -18,14 +18,18 @@ const createMealPlanSchema = Joi.object({
     targetProteinG: Joi.number().min(0).allow(null),
     targetCarbsG: Joi.number().min(0).allow(null),
     targetFatG: Joi.number().min(0).allow(null),
-    startDate: Joi.date().min('now').allow(null, '').messages({
-        'date.min': 'La data di inizio non può essere nel passato'
-    }),
-    endDate: Joi.date().min('now').allow(null, '').messages({
-        'date.min': 'La data di fine non può essere nel passato'
-    }),
+    startDate: Joi.date().allow(null, ''),
+    endDate: Joi.date().allow(null, ''),
     notes: Joi.string().max(2000).allow('', null)
 }).custom((value) => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (value.startDate && new Date(value.startDate) < startOfToday) {
+        throw new Error('La data di inizio non può essere nel passato');
+    }
+    if (value.endDate && new Date(value.endDate) < startOfToday) {
+        throw new Error('La data di fine non può essere nel passato');
+    }
     if (value.startDate && value.endDate && value.endDate < value.startDate) {
         throw new Error('La data di fine deve essere uguale o successiva alla data di inizio');
     }
@@ -42,15 +46,19 @@ const updateMealPlanSchema = Joi.object({
     targetProteinG: Joi.number().min(0).allow(null),
     targetCarbsG: Joi.number().min(0).allow(null),
     targetFatG: Joi.number().min(0).allow(null),
-    startDate: Joi.date().min('now').allow(null, '').messages({
-        'date.min': 'La data di inizio non può essere nel passato'
-    }),
-    endDate: Joi.date().min('now').allow(null, '').messages({
-        'date.min': 'La data di fine non può essere nel passato'
-    }),
+    startDate: Joi.date().allow(null, ''),
+    endDate: Joi.date().allow(null, ''),
     status: Joi.string().valid('draft', 'active', 'archived').allow(null),
     notes: Joi.string().max(2000).allow('', null)
 }).custom((value) => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (value.startDate && new Date(value.startDate) < startOfToday) {
+        throw new Error('La data di inizio non può essere nel passato');
+    }
+    if (value.endDate && new Date(value.endDate) < startOfToday) {
+        throw new Error('La data di fine non può essere nel passato');
+    }
     if (value.startDate && value.endDate && value.endDate < value.startDate) {
         throw new Error('La data di fine deve essere uguale o successiva alla data di inizio');
     }

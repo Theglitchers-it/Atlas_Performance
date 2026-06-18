@@ -61,21 +61,38 @@ class NutritionService {
             [planId]
         );
 
-        for (const day of days) {
+        // Carica meals e items in 2 query batch (evita N+1 annidato days→meals→items),
+        // poi ricostruisce la struttura annidata identica.
+        if (days.length > 0) {
+            const dayIds = days.map(d => d.id);
+            const dayPh = dayIds.map(() => '?').join(',');
             const meals = await query(
-                `SELECT * FROM meals WHERE plan_day_id = ? ORDER BY order_index`,
-                [day.id]
+                `SELECT * FROM meals WHERE plan_day_id IN (${dayPh}) ORDER BY plan_day_id, order_index`,
+                dayIds
             );
-
-            for (const meal of meals) {
-                const items = await query(
-                    `SELECT * FROM meal_items WHERE meal_id = ? ORDER BY id`,
-                    [meal.id]
+            let items = [];
+            if (meals.length > 0) {
+                const mealIds = meals.map(m => m.id);
+                const mealPh = mealIds.map(() => '?').join(',');
+                items = await query(
+                    `SELECT * FROM meal_items WHERE meal_id IN (${mealPh}) ORDER BY meal_id, id`,
+                    mealIds
                 );
-                meal.items = items;
             }
-
-            day.meals = meals;
+            const itemsByMeal = new Map();
+            for (const it of items) {
+                if (!itemsByMeal.has(it.meal_id)) itemsByMeal.set(it.meal_id, []);
+                itemsByMeal.get(it.meal_id).push(it);
+            }
+            const mealsByDay = new Map();
+            for (const m of meals) {
+                m.items = itemsByMeal.get(m.id) || [];
+                if (!mealsByDay.has(m.plan_day_id)) mealsByDay.set(m.plan_day_id, []);
+                mealsByDay.get(m.plan_day_id).push(m);
+            }
+            for (const day of days) {
+                day.meals = mealsByDay.get(day.id) || [];
+            }
         }
 
         plan.days = days;
