@@ -12,7 +12,9 @@ const { createServiceLogger } = require('../config/logger');
 const logger = createServiceLogger('LOCATION_ROUTES');
 
 router.use(verifyToken);
-router.use(requireRole('tenant_owner', 'staff', 'super_admin'));
+
+const requireManageLocations = requireRole('tenant_owner', 'staff', 'super_admin');
+const requireViewLocations = requireRole('tenant_owner', 'staff', 'super_admin', 'client');
 
 /**
  * @swagger
@@ -20,7 +22,7 @@ router.use(requireRole('tenant_owner', 'staff', 'super_admin'));
  *   get:
  *     tags: [Locations]
  *     summary: Lista sedi
- *     description: Restituisce tutte le sedi del tenant. Solo trainer e admin.
+ *     description: Restituisce le sedi del tenant. I client vedono solo sedi attive senza note interne.
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -33,19 +35,22 @@ router.use(requireRole('tenant_owner', 'staff', 'super_admin'));
  *       500:
  *         description: Errore server
  */
-router.get('/', async (req, res) => {
+router.get('/', requireViewLocations, async (req, res) => {
     try {
-        const rows = await query(
-            'SELECT id, name, address, city, phone, notes, status, created_at, updated_at FROM locations WHERE tenant_id = ? ORDER BY name',
-            [req.user.tenantId]
-        );
+        const isClient = req.user.role === 'client';
+        const baseSelect = isClient
+            ? 'SELECT id, name, location_type, address, city, postal_code, province, country, phone, email, capacity, status FROM locations WHERE tenant_id = ?'
+            : 'SELECT id, name, location_type, address, city, postal_code, province, country, phone, email, capacity, notes, status, created_at, updated_at FROM locations WHERE tenant_id = ?';
+        const sql = isClient
+            ? `${baseSelect} AND status = 'active' ORDER BY name`
+            : `${baseSelect} ORDER BY name`;
+        const rows = await query(sql, [req.user.tenantId]);
         const locations = rows.map(({ status, ...loc }) => ({
             ...loc,
             is_active: status === 'active'
         }));
         res.json({ success: true, data: { locations } });
     } catch (error) {
-        // Se la tabella non esiste, ritorna array vuoto
         if (error.code === 'ER_NO_SUCH_TABLE' || error.errno === 1146) {
             return res.json({ success: true, data: { locations: [] } });
         }
@@ -53,6 +58,17 @@ router.get('/', async (req, res) => {
         res.status(500).json({ success: false, message: 'Errore nel recupero sedi' });
     }
 });
+
+const LOCATION_TYPES = ['main', 'branch', 'popup', 'external'];
+function normalizeLocationType(value) {
+    return LOCATION_TYPES.includes(value) ? value : 'main';
+}
+function normalizeCapacity(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const n = parseInt(value, 10);
+    if (Number.isNaN(n) || n < 0) return null;
+    return n;
+}
 
 /**
  * @swagger
@@ -96,16 +112,29 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Errore server
  */
-router.post('/', async (req, res) => {
+router.post('/', requireManageLocations, async (req, res) => {
     try {
-        const { name, address, city, phone, notes, is_active } = req.body;
+        const { name, address, city, postal_code, province, phone, email, capacity, location_type, notes, is_active } = req.body;
         if (!name || !name.trim()) {
             return res.status(400).json({ success: false, message: 'Nome sede obbligatorio' });
         }
         const status = is_active !== false ? 'active' : 'inactive';
         const result = await query(
-            'INSERT INTO locations (tenant_id, name, address, city, phone, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.user.tenantId, name.trim(), address || null, city || null, phone || null, notes || null, status]
+            'INSERT INTO locations (tenant_id, name, location_type, address, city, postal_code, province, phone, email, capacity, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                req.user.tenantId,
+                name.trim(),
+                normalizeLocationType(location_type),
+                address || null,
+                city || null,
+                postal_code || null,
+                province || null,
+                phone || null,
+                email || null,
+                normalizeCapacity(capacity),
+                notes || null,
+                status
+            ]
         );
         res.status(201).json({ success: true, data: { id: result.insertId, message: 'Sede creata' } });
     } catch (error) {
@@ -161,16 +190,30 @@ router.post('/', async (req, res) => {
  *       500:
  *         description: Errore server
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireManageLocations, async (req, res) => {
     try {
-        const { name, address, city, phone, notes, is_active } = req.body;
+        const { name, address, city, postal_code, province, phone, email, capacity, location_type, notes, is_active } = req.body;
         if (!name || !name.trim()) {
             return res.status(400).json({ success: false, message: 'Nome sede obbligatorio' });
         }
         const status = is_active !== false ? 'active' : 'inactive';
         const result = await query(
-            'UPDATE locations SET name = ?, address = ?, city = ?, phone = ?, notes = ?, status = ? WHERE id = ? AND tenant_id = ?',
-            [name.trim(), address || null, city || null, phone || null, notes || null, status, req.params.id, req.user.tenantId]
+            'UPDATE locations SET name = ?, location_type = ?, address = ?, city = ?, postal_code = ?, province = ?, phone = ?, email = ?, capacity = ?, notes = ?, status = ? WHERE id = ? AND tenant_id = ?',
+            [
+                name.trim(),
+                normalizeLocationType(location_type),
+                address || null,
+                city || null,
+                postal_code || null,
+                province || null,
+                phone || null,
+                email || null,
+                normalizeCapacity(capacity),
+                notes || null,
+                status,
+                req.params.id,
+                req.user.tenantId
+            ]
         );
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'Sede non trovata' });
@@ -210,7 +253,7 @@ router.put('/:id', async (req, res) => {
  *       500:
  *         description: Errore server
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireManageLocations, async (req, res) => {
     try {
         const result = await query(
             'UPDATE locations SET status = ? WHERE id = ? AND tenant_id = ?',
