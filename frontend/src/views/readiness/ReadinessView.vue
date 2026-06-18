@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useReadinessStore } from "@/store/readiness";
+import { useAuthStore } from "@/store/auth";
 import ChartWidget from "@/components/ui/ChartWidget.vue";
 import HeatmapGrid from "@/components/ui/HeatmapGrid.vue";
 import api from "@/services/api";
 import { useNative } from "@/composables/useNative";
 
 const store = useReadinessStore();
+const authStore = useAuthStore();
 const { isMobile } = useNative();
+
+const isClient = computed(() => authStore.user?.role === "client");
 
 // Cast store data to any to avoid narrow type errors
 const checkin = computed(() => store.todayCheckin as any);
@@ -459,16 +463,17 @@ onMounted(() => {
                 />
               </svg>
             </div>
-            Readiness Check-in
+            {{ isClient ? 'Il tuo Check-in' : 'Readiness Check-in' }}
           </h1>
           <p class="text-habit-text-subtle text-sm mt-1 ml-[52px]">
-            Monitora la prontezza giornaliera dei tuoi clienti
+            {{ isClient ? 'Monitora la tua prontezza giornaliera per allenarti al meglio' : 'Monitora la prontezza giornaliera dei tuoi clienti' }}
           </p>
         </div>
       </div>
 
-      <!-- Client Selector -->
+      <!-- Client Selector (solo staff/trainer/admin) -->
       <div
+        v-if="!isClient"
         class="bg-habit-card border border-habit-border rounded-2xl p-4 mb-6"
       >
         <label
@@ -491,9 +496,9 @@ onMounted(() => {
         </select>
       </div>
 
-      <!-- No client selected -->
+      <!-- No client selected (solo staff) -->
       <div
-        v-if="!store.selectedClientId"
+        v-if="!isClient && !store.selectedClientId"
         class="bg-habit-card border border-habit-border rounded-2xl p-8 sm:p-16 text-center"
       >
         <div
@@ -1399,15 +1404,17 @@ onMounted(() => {
                   </button>
                   <button
                     @click="handleSubmit"
-                    :disabled="saving"
+                    :disabled="saving || !store.selectedClientId"
                     class="flex-1 sm:flex-none px-8 py-2.5 bg-gradient-to-r from-habit-cyan to-blue-600 text-white rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-semibold shadow-lg shadow-habit-cyan/20"
                   >
                     {{
-                      saving
-                        ? "Salvataggio..."
-                        : editing
-                          ? "Aggiorna Check-in"
-                          : "Salva Check-in"
+                      !store.selectedClientId
+                        ? "Caricamento…"
+                        : saving
+                          ? "Salvataggio..."
+                          : editing
+                            ? "Aggiorna Check-in"
+                            : "Salva Check-in"
                     }}
                   </button>
                 </div>

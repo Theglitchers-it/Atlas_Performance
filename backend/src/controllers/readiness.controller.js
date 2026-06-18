@@ -4,12 +4,16 @@
 
 const readinessService = require('../services/readiness.service');
 
+// Il clientId è validato e autorizzato a monte dal param handler requireClientAccess
+// (vedi readiness.routes.js): qui si usa req.clientId, l'intero già verificato per
+// ownership/tenant. Niente più parse locale (404 coerente al posto del vecchio 400).
+
 class ReadinessController {
     async getToday(req, res, next) {
         try {
             const today = new Date().toISOString().split('T')[0];
             const checkin = await readinessService.getCheckin(
-                parseInt(req.params.clientId),
+                req.clientId,
                 req.user.tenantId,
                 today
             );
@@ -27,7 +31,7 @@ class ReadinessController {
                 limit: parseInt(req.query.limit) || 30
             };
             const checkins = await readinessService.getHistory(
-                parseInt(req.params.clientId),
+                req.clientId,
                 req.user.tenantId,
                 options
             );
@@ -40,14 +44,14 @@ class ReadinessController {
     async saveCheckin(req, res, next) {
         try {
             const checkin = await readinessService.saveCheckin(
-                parseInt(req.params.clientId),
+                req.clientId,
                 req.user.tenantId,
                 req.body
             );
 
             // Check for alerts
             await readinessService.checkReadinessAlerts(
-                parseInt(req.params.clientId),
+                req.clientId,
                 req.user.tenantId
             );
 
@@ -61,7 +65,7 @@ class ReadinessController {
         try {
             const days = parseInt(req.query.days) || 7;
             const average = await readinessService.getAverageReadiness(
-                parseInt(req.params.clientId),
+                req.clientId,
                 req.user.tenantId,
                 days
             );

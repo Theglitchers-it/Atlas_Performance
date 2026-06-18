@@ -4,8 +4,9 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/store/auth'
 import type { Client, ReadinessCheckin } from '@/types'
 
 interface ReadinessAverages {
@@ -111,6 +112,11 @@ export const useReadinessStore = defineStore('readiness', () => {
 
     const saveCheckin = async (data: CheckinData): Promise<ActionResult> => {
         error.value = null
+        // Guard anti-race: senza clientId valido NON inviare. Evita POST a /readiness/null.
+        if (selectedClientId.value == null || isNaN(Number(selectedClientId.value))) {
+            error.value = 'Cliente non disponibile, riprova tra un istante'
+            return { success: false, message: error.value }
+        }
         try {
             const response = await api.post(`/readiness/${selectedClientId.value}`, data)
             todayCheckin.value = response.data.data.checkin
@@ -135,6 +141,39 @@ export const useReadinessStore = defineStore('readiness', () => {
     }
 
     const initialize = async (): Promise<void> => {
+        const auth = useAuthStore()
+        // Anti-race: se l'auth non ha ancora completato il primo checkAuth,
+        // attendi per evitare di cadere nel branch staff con user=null → 403 su /clients.
+        if (!auth.initialAuthChecked) {
+            await new Promise<void>(resolve => {
+                const stop = watch(
+                    () => auth.initialAuthChecked,
+                    (ready) => {
+                        if (ready) {
+                            stop()
+                            resolve()
+                        }
+                    },
+                    { immediate: true }
+                )
+            })
+        }
+        // Utente non autenticato: niente da inizializzare (router redirige a /login).
+        if (!auth.user) return
+
+        const role = (auth.user as any).role
+        const roles: string[] = ((auth.user as any).roles || []) as string[]
+        const isClientRole = role === 'client' || roles.includes('client')
+
+        // Role=client (anche multi-role): deriva clientId dal token (fetchClients ritornerebbe 403)
+        if (isClientRole) {
+            const myClientId = (auth.user as any).clientId
+            if (myClientId != null && !isNaN(Number(myClientId))) {
+                await setClient(Number(myClientId))
+            }
+            return
+        }
+        // Staff/trainer/admin: lista clienti + auto-select primo
         await fetchClients()
         if (clients.value.length > 0 && !selectedClientId.value) {
             await setClient(clients.value[0].id)

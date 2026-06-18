@@ -288,10 +288,6 @@ const toggleDifficultyDropdown = () => {
   showDifficultyDropdown.value = !showDifficultyDropdown.value;
   showMuscleDropdown.value = false;
 };
-const closeDropdowns = () => {
-  showMuscleDropdown.value = false;
-  showDifficultyDropdown.value = false;
-};
 
 const handleFilterMuscleGroup = (val: string | null) => {
   exerciseStore.setFilter("muscleGroup", val);
@@ -395,7 +391,7 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
-              type="text" autocomplete="off" placeholder="Cerca esercizio..."
+              type="search" name="exercises-search-q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore placeholder="Cerca esercizio..."
               :value="filters.search" @input="handleSearch"
               class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
             />
@@ -573,7 +569,7 @@ const handleNextPage = () => { if (pagination.value.page < pagination.value.tota
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input ref="mobileSearchInput" type="text" autocomplete="off" placeholder="Cerca esercizio..."
+                <input ref="mobileSearchInput" type="search" name="exercises-search-q-mobile" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore placeholder="Cerca esercizio..."
                   :value="filters.search" @input="handleSearch"
                   class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
                 />

@@ -8,8 +8,12 @@ const router = express.Router();
 
 const volumeController = require('../controllers/volume.controller');
 const { verifyToken } = require('../middlewares/auth');
+const { requireClientAccess } = require('../utils/clientAccess');
 
 router.use(verifyToken);
+// :clientId → validazione + ownership centralizzati: previene IDOR su volume/priorità
+// muscolari di altri clienti e l'uso di id non validi.
+router.param('clientId', requireClientAccess);
 
 /**
  * @swagger

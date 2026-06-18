@@ -201,12 +201,20 @@ export const useProgramStore = defineStore('program', () => {
         await fetchPrograms()
     }
 
+    const initClientScope = async (clientId: number): Promise<void> => {
+        filters.value.clientId = clientId
+        filters.value.status = null
+        pagination.value.page = 1
+        await fetchPrograms()
+    }
+
     return {
         clients, programs, currentProgram, workoutTemplates,
         loading, detailLoading, error, pagination, filters,
         fetchClients, fetchPrograms, fetchProgramById, createProgram,
         updateProgram, deleteProgram, updateStatus, fetchWorkoutTemplates,
         addWorkout, removeWorkout,
-        setFilter, resetFilters, setPage, clearCurrentProgram, initialize
+        setFilter, resetFilters, setPage, clearCurrentProgram, initialize,
+        initClientScope
     }
 })

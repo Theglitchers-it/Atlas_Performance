@@ -5,9 +5,11 @@
 const Joi = require('joi');
 
 const startSessionSchema = Joi.object({
-    clientId: Joi.number().integer().required()
-        .messages({ 'any.required': 'Cliente obbligatorio' }),
+    // clientId: opzionale. Per role=client viene derivato server-side via getOwnClientId().
+    // Per ruoli trusted (staff/admin/trainer) viene validato via assertClientAccess().
+    clientId: Joi.number().integer().allow(null),
     templateId: Joi.number().integer().allow(null),
+    programWorkoutId: Joi.number().integer().allow(null),
     programId: Joi.number().integer().allow(null),
     notes: Joi.string().max(1000).allow('', null)
 });

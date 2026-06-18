@@ -8,8 +8,16 @@ const router = express.Router();
 
 const anthropometricController = require('../controllers/anthropometric.controller');
 const { verifyToken } = require('../middlewares/auth');
+const { requireClientAccess } = require('../utils/clientAccess');
+const { validate } = require('../middlewares/validate');
+// Riuso degli schemi unificati di measurement (stessi campi del service anthropometric):
+// validano gli input numerici → 400 invece di 500 su valori non validi.
+const { anthropometricSchema, skinfoldSchema, circumferenceSchema, biaMeasurementSchema } = require('../validators/measurement.validator');
 
 router.use(verifyToken);
+// :clientId → validazione + ownership centralizzati (previene IDOR su antropometria,
+// plicometria, circonferenze e BIA di altri clienti).
+router.param('clientId', requireClientAccess);
 
 // ============================================
 // PANORAMICA COMPOSIZIONE CORPOREA
@@ -153,7 +161,7 @@ router.get('/:clientId/dates', anthropometricController.getAvailableDates.bind(a
  *       500:
  *         description: Errore server
  */
-router.post('/:clientId', anthropometricController.saveAnthropometric.bind(anthropometricController));
+router.post('/:clientId', validate(anthropometricSchema), anthropometricController.saveAnthropometric.bind(anthropometricController));
 
 /**
  * @swagger
@@ -287,7 +295,7 @@ router.delete('/record/:id', anthropometricController.deleteAnthropometric.bind(
  *       500:
  *         description: Errore server
  */
-router.post('/:clientId/skinfold', anthropometricController.saveSkinfold.bind(anthropometricController));
+router.post('/:clientId/skinfold', validate(skinfoldSchema), anthropometricController.saveSkinfold.bind(anthropometricController));
 
 /**
  * @swagger
@@ -449,7 +457,7 @@ router.delete('/skinfold/:id', anthropometricController.deleteSkinfold.bind(anth
  *       500:
  *         description: Errore server
  */
-router.post('/:clientId/circumference', anthropometricController.saveCircumference.bind(anthropometricController));
+router.post('/:clientId/circumference', validate(circumferenceSchema), anthropometricController.saveCircumference.bind(anthropometricController));
 
 /**
  * @swagger
@@ -580,7 +588,7 @@ router.delete('/circumference/:id', anthropometricController.deleteCircumference
  *       500:
  *         description: Errore server
  */
-router.post('/:clientId/bia', anthropometricController.saveBia.bind(anthropometricController));
+router.post('/:clientId/bia', validate(biaMeasurementSchema), anthropometricController.saveBia.bind(anthropometricController));
 
 /**
  * @swagger

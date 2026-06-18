@@ -5,12 +5,43 @@
 
 const { query, transaction } = require('../config/database');
 const clientService = require('./client.service');
+const { isTrusted, getOwnClientId, assertClientAccess } = require('../utils/clientAccess');
+
+// Helper: per role=client risolve clientId server-side, per trusted valida ownership tenant.
+// Throws 403/404 se non autorizzato. Ritorna clientId effettivo.
+async function resolveClientId(user, tenantId, requestedClientId) {
+    if (!isTrusted(user)) {
+        const ownId = await getOwnClientId(user.id, tenantId);
+        if (!ownId) {
+            const err = new Error('Profilo cliente non trovato per questo utente');
+            err.status = 404;
+            throw err;
+        }
+        return ownId;
+    }
+    if (!requestedClientId) {
+        const err = new Error('clientId obbligatorio per utenti staff');
+        err.status = 400;
+        throw err;
+    }
+    await assertClientAccess(requestedClientId, tenantId, user);
+    return requestedClientId;
+}
 
 class SessionService {
     /**
-     * Ottieni sessioni per cliente
+     * Ottieni sessioni per cliente.
+     * Se user è passato e non-trusted, forza ownership (clientId == ownClientId).
      */
-    async getByClient(clientId, tenantId, options = {}) {
+    async getByClient(clientId, tenantId, options = {}, user = null) {
+        if (user && !isTrusted(user)) {
+            const ownId = await getOwnClientId(user.id, tenantId);
+            if (!ownId || ownId !== Number(clientId)) {
+                const err = new Error('Non autorizzato');
+                err.status = 403;
+                throw err;
+            }
+        }
         const { status, startDate, endDate, page = 1, limit = 20 } = options;
         const offset = (page - 1) * limit;
 
@@ -53,9 +84,10 @@ class SessionService {
     }
 
     /**
-     * Ottieni sessione per ID
+     * Ottieni sessione per ID.
+     * Se user è passato e non-trusted, verifica session.client_id == ownClientId.
      */
-    async getById(id, tenantId) {
+    async getById(id, tenantId, user = null) {
         const sessions = await query(`
             SELECT ws.*, wt.name as template_name,
                    c.first_name as client_first_name, c.last_name as client_last_name
@@ -71,6 +103,15 @@ class SessionService {
 
         const session = sessions[0];
 
+        if (user && !isTrusted(user)) {
+            const ownId = await getOwnClientId(user.id, tenantId);
+            if (!ownId || ownId !== session.client_id) {
+                const err = new Error('Sessione non autorizzata');
+                err.status = 403;
+                throw err;
+            }
+        }
+
         // Load exercises
         const exercises = await query(`
             SELECT wse.*, e.name as exercise_name, e.video_url, e.image_url
@@ -80,14 +121,23 @@ class SessionService {
             ORDER BY wse.order_index ASC
         `, [id]);
 
-        // Load sets for each exercise
-        for (const exercise of exercises) {
-            const sets = await query(`
+        // Load sets per tutti gli exercise in UNA query (evita N+1), poi raggruppa per exercise.
+        if (exercises.length > 0) {
+            const exIds = exercises.map(e => e.id);
+            const placeholders = exIds.map(() => '?').join(',');
+            const allSets = await query(`
                 SELECT * FROM exercise_set_logs
-                WHERE session_exercise_id = ?
-                ORDER BY set_number ASC
-            `, [exercise.id]);
-            exercise.sets = sets;
+                WHERE session_exercise_id IN (${placeholders})
+                ORDER BY session_exercise_id, set_number ASC
+            `, exIds);
+            const byExercise = new Map();
+            for (const s of allSets) {
+                if (!byExercise.has(s.session_exercise_id)) byExercise.set(s.session_exercise_id, []);
+                byExercise.get(s.session_exercise_id).push(s);
+            }
+            for (const exercise of exercises) {
+                exercise.sets = byExercise.get(exercise.id) || [];
+            }
         }
 
         session.exercises = exercises;
@@ -96,10 +146,27 @@ class SessionService {
     }
 
     /**
-     * Inizia nuova sessione
+     * Inizia nuova sessione.
+     * - Per role=client: clientId derivato server-side (ignora body).
+     * - Per trusted: clientId del body validato via assertClientAccess.
+     * - Idempotenza: se esiste già sessione in_progress per stesso client+template nelle ultime 6h, ritorna quella.
      */
-    async start(tenantId, sessionData) {
-        const { clientId, templateId, programWorkoutId } = sessionData;
+    async start(tenantId, user, sessionData) {
+        const { templateId, programWorkoutId } = sessionData;
+        const clientId = await resolveClientId(user, tenantId, sessionData.clientId);
+
+        // Idempotenza anti-doppio-click: stessa sessione in_progress nelle ultime 6h
+        const existing = await query(`
+            SELECT id FROM workout_sessions
+            WHERE tenant_id = ? AND client_id = ?
+              AND status = 'in_progress'
+              AND ((template_id <=> ?) AND (program_workout_id <=> ?))
+              AND started_at > DATE_SUB(NOW(), INTERVAL 6 HOUR)
+            ORDER BY started_at DESC LIMIT 1
+        `, [tenantId, clientId, templateId || null, programWorkoutId || null]);
+        if (existing.length > 0) {
+            return { sessionId: existing[0].id, resumed: true };
+        }
 
         return await transaction(async (connection) => {
             // Create session
@@ -136,11 +203,11 @@ class SessionService {
     /**
      * Log set eseguito
      */
-    async logSet(sessionId, tenantId, setData) {
+    async logSet(sessionId, tenantId, setData, user = null) {
         const { sessionExerciseId, setNumber, repsCompleted, weightUsed, rpe, isWarmup, isFailure, notes } = setData;
 
-        // Verify session exists and belongs to tenant
-        await this.getById(sessionId, tenantId);
+        // Verify session exists and belongs to tenant + client (se non-trusted)
+        await this.getById(sessionId, tenantId, user);
 
         const result = await query(`
             INSERT INTO exercise_set_logs
@@ -154,11 +221,11 @@ class SessionService {
     /**
      * Aggiorna set esistente
      */
-    async updateSet(sessionId, tenantId, setId, setData) {
+    async updateSet(sessionId, tenantId, setId, setData, user = null) {
         const { repsCompleted, weightUsed, rpe, isWarmup, isFailure, notes } = setData;
 
-        // Verify session belongs to tenant
-        await this.getById(sessionId, tenantId);
+        // Verify session belongs to tenant + client (se non-trusted)
+        await this.getById(sessionId, tenantId, user);
 
         await query(`
             UPDATE exercise_set_logs SET
@@ -177,8 +244,8 @@ class SessionService {
     /**
      * Elimina set
      */
-    async deleteSet(sessionId, tenantId, setId) {
-        await this.getById(sessionId, tenantId);
+    async deleteSet(sessionId, tenantId, setId, user = null) {
+        await this.getById(sessionId, tenantId, user);
 
         const result = await query('DELETE FROM exercise_set_logs WHERE id = ?', [setId]);
         return result.affectedRows > 0;
@@ -187,8 +254,8 @@ class SessionService {
     /**
      * Completa sessione
      */
-    async complete(sessionId, tenantId, completionData = {}) {
-        const session = await this.getById(sessionId, tenantId);
+    async complete(sessionId, tenantId, completionData = {}, user = null) {
+        const session = await this.getById(sessionId, tenantId, user);
 
         if (session.status === 'completed') {
             throw { status: 400, message: 'Sessione gia completata' };
@@ -225,14 +292,27 @@ class SessionService {
         // Update client streak
         await clientService.updateStreak(session.client_id, tenantId);
 
-        return this.getById(sessionId, tenantId);
+        return this.getById(sessionId, tenantId, user);
+    }
+
+    /**
+     * Elimina sessione (HARD delete). Cascade FK pulisce session_exercises + set_logs.
+     */
+    async delete(sessionId, tenantId, user = null) {
+        // Ownership + tenant check
+        await this.getById(sessionId, tenantId, user);
+        const result = await query(
+            'DELETE FROM workout_sessions WHERE id = ? AND tenant_id = ?',
+            [sessionId, tenantId]
+        );
+        return { success: result.affectedRows > 0 };
     }
 
     /**
      * Salta sessione
      */
-    async skip(sessionId, tenantId, reason) {
-        await this.getById(sessionId, tenantId);
+    async skip(sessionId, tenantId, reason, user = null) {
+        await this.getById(sessionId, tenantId, user);
 
         await query(`
             UPDATE workout_sessions SET
@@ -247,7 +327,15 @@ class SessionService {
     /**
      * Statistiche sessioni
      */
-    async getStats(clientId, tenantId, period = 'month') {
+    async getStats(clientId, tenantId, period = 'month', user = null) {
+        if (user && !isTrusted(user)) {
+            const ownId = await getOwnClientId(user.id, tenantId);
+            if (!ownId || ownId !== Number(clientId)) {
+                const err = new Error('Non autorizzato');
+                err.status = 403;
+                throw err;
+            }
+        }
         let dateCondition = '';
         if (period === 'week') {
             dateCondition = 'AND ws.started_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';

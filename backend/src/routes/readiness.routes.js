@@ -7,10 +7,14 @@ const router = express.Router();
 
 const readinessController = require('../controllers/readiness.controller');
 const { verifyToken } = require('../middlewares/auth');
+const { requireClientAccess } = require('../utils/clientAccess');
 const { validate } = require('../middlewares/validate');
 const { checkinSchema } = require('../validators/readiness.validator');
 
 router.use(verifyToken);
+// Ogni route ha :clientId → validazione + ownership in un punto solo (previene IDOR:
+// un client non può leggere/scrivere la readiness di altri clienti del tenant).
+router.param('clientId', requireClientAccess);
 
 /**
  * @swagger

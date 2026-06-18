@@ -44,13 +44,24 @@ class VolumeService {
 
         const program = activeProgram[0] || {};
 
-        // Upsert per ogni gruppo muscolare
-        for (const row of volumeData) {
+        // Upsert di tutti i gruppi muscolari in UN batch (evita N+1: era 1 query per gruppo).
+        if (volumeData.length > 0) {
+            const rowPlaceholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            const placeholders = volumeData.map(() => rowPlaceholder).join(', ');
+            const params = [];
+            for (const row of volumeData) {
+                params.push(
+                    tenantId, clientId, program.program_id || null, program.mesocycle_id || null,
+                    program.week_number || 1, weekStart,
+                    row.muscle_group_id, row.total_sets, row.total_reps || 0,
+                    row.total_volume || 0, row.avg_rpe || null, row.avg_weight || null
+                );
+            }
             await query(`
                 INSERT INTO weekly_volume_analytics
                 (tenant_id, client_id, program_id, mesocycle_id, week_number, week_start,
                  muscle_group_id, total_sets, total_reps, total_volume, avg_rpe, avg_weight)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ${placeholders}
                 ON DUPLICATE KEY UPDATE
                     total_sets = VALUES(total_sets),
                     total_reps = VALUES(total_reps),
@@ -59,12 +70,7 @@ class VolumeService {
                     avg_weight = VALUES(avg_weight),
                     program_id = VALUES(program_id),
                     mesocycle_id = VALUES(mesocycle_id)
-            `, [
-                tenantId, clientId, program.program_id || null, program.mesocycle_id || null,
-                program.week_number || 1, weekStart,
-                row.muscle_group_id, row.total_sets, row.total_reps || 0,
-                row.total_volume || 0, row.avg_rpe || null, row.avg_weight || null
-            ]);
+            `, params);
         }
 
         return volumeData;

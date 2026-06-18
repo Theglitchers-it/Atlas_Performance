@@ -4,6 +4,9 @@
  */
 
 const progressService = require('../services/progress.service');
+const { getFileUrl } = require('../middlewares/upload');
+const { assertClientAccess, getOwnClientId } = require('../utils/clientAccess');
+const { query } = require('../config/database');
 
 class ProgressController {
 
@@ -14,7 +17,7 @@ class ProgressController {
      */
     async getPhotos(req, res, next) {
         try {
-            const { clientId } = req.params;
+            const clientId = await assertClientAccess(req.params.clientId, req.user.tenantId, req.user);
             const { photoType, startDate, endDate, limit, page } = req.query;
             const data = await progressService.getPhotos(clientId, req.user.tenantId, {
                 photoType, startDate, endDate,
@@ -28,13 +31,36 @@ class ProgressController {
     }
 
     /**
-     * POST /api/progress/:clientId/photos - Aggiungi foto
+     * POST /api/progress/:clientId/photos - Aggiungi foto (multipart upload)
      */
     async addPhoto(req, res, next) {
         try {
-            const { clientId } = req.params;
-            const data = await progressService.addPhoto(clientId, req.user.tenantId, req.body);
-            res.status(201).json({ success: true, data });
+            const clientId = await assertClientAccess(req.params.clientId, req.user.tenantId, req.user);
+            const files = req.files || [];
+            if (files.length === 0) {
+                return res.status(400).json({ success: false, message: 'Nessun file caricato' });
+            }
+
+            const { photoType, takenAt, notes, bodyWeight, bodyFatPct } = req.body;
+            const baseData = {
+                photoType,
+                takenAt,
+                notes,
+                bodyWeight: bodyWeight ? parseFloat(bodyWeight) : null,
+                bodyFatPct: bodyFatPct ? parseFloat(bodyFatPct) : null
+            };
+
+            const created = await Promise.all(files.map(async (file) => {
+                const photoUrl = getFileUrl(file.path);
+                const result = await progressService.addPhoto(clientId, req.user.tenantId, {
+                    ...baseData,
+                    photoUrl,
+                    thumbnailUrl: null
+                });
+                return { id: result.id, photoUrl };
+            }));
+
+            res.status(201).json({ success: true, data: { photos: created, count: created.length } });
         } catch (error) {
             next(error);
         }
@@ -46,10 +72,16 @@ class ProgressController {
     async deletePhoto(req, res, next) {
         try {
             const { photoId } = req.params;
-            const deleted = await progressService.deletePhoto(photoId, req.user.tenantId);
-            if (!deleted) {
+            // Risolvi client_id della foto, poi verifica ownership (client non può cancellare foto di altri)
+            const rows = await query(
+                'SELECT client_id FROM progress_photos WHERE id = ? AND tenant_id = ?',
+                [parseInt(photoId, 10), req.user.tenantId]
+            );
+            if (!rows[0]) {
                 return res.status(404).json({ success: false, message: 'Foto non trovata' });
             }
+            await assertClientAccess(rows[0].client_id, req.user.tenantId, req.user);
+            await progressService.deletePhoto(photoId, req.user.tenantId);
             res.json({ success: true });
         } catch (error) {
             next(error);
@@ -61,7 +93,7 @@ class ProgressController {
      */
     async comparePhotos(req, res, next) {
         try {
-            const { clientId } = req.params;
+            const clientId = await assertClientAccess(req.params.clientId, req.user.tenantId, req.user);
             const { date1, date2, photoType } = req.query;
             if (!date1 || !date2) {
                 return res.status(400).json({ success: false, message: 'date1 e date2 richiesti' });
@@ -80,7 +112,20 @@ class ProgressController {
      */
     async getRecords(req, res, next) {
         try {
-            const { clientId } = req.params;
+            let { clientId } = req.params;
+            // Alias 'me': risolve al profilo cliente dell'utente loggato.
+            // Staff/owner non hanno un profilo cliente → nessun record (lista vuota, non un 500).
+            if (clientId === 'me') {
+                const ownClientId = await getOwnClientId(req.user.id, req.user.tenantId);
+                if (!ownClientId) {
+                    return res.json({ success: true, data: [] });
+                }
+                // getOwnClientId garantisce già che il profilo è dell'utente:
+                // evitiamo la seconda query ridondante di assertClientAccess.
+                clientId = ownClientId;
+            } else {
+                clientId = await assertClientAccess(clientId, req.user.tenantId, req.user);
+            }
             const { exerciseId, recordType, limit } = req.query;
             const data = await progressService.getRecords(clientId, req.user.tenantId, {
                 exerciseId: exerciseId ? parseInt(exerciseId) : undefined,
@@ -98,7 +143,7 @@ class ProgressController {
      */
     async addRecord(req, res, next) {
         try {
-            const { clientId } = req.params;
+            const clientId = await assertClientAccess(req.params.clientId, req.user.tenantId, req.user);
             const data = await progressService.addRecord(clientId, req.user.tenantId, req.body);
             res.status(201).json({ success: true, data });
         } catch (error) {
@@ -111,7 +156,7 @@ class ProgressController {
      */
     async getPersonalBests(req, res, next) {
         try {
-            const { clientId } = req.params;
+            const clientId = await assertClientAccess(req.params.clientId, req.user.tenantId, req.user);
             const data = await progressService.getPersonalBests(clientId, req.user.tenantId);
             res.json({ success: true, data });
         } catch (error) {
@@ -124,7 +169,8 @@ class ProgressController {
      */
     async getRecordHistory(req, res, next) {
         try {
-            const { clientId, exerciseId } = req.params;
+            const { exerciseId } = req.params;
+            const clientId = await assertClientAccess(req.params.clientId, req.user.tenantId, req.user);
             const { recordType } = req.query;
             const data = await progressService.getRecordHistory(clientId, req.user.tenantId, exerciseId, recordType);
             res.json({ success: true, data });
@@ -139,6 +185,16 @@ class ProgressController {
     async deleteRecord(req, res, next) {
         try {
             const { recordId } = req.params;
+            // Risolvi il client del record e verifica ownership: un client non può
+            // cancellare record di performance di altri (stesso pattern di deletePhoto).
+            const rows = await query(
+                'SELECT client_id FROM performance_records WHERE id = ? AND tenant_id = ?',
+                [parseInt(recordId, 10), req.user.tenantId]
+            );
+            if (!rows[0]) {
+                return res.status(404).json({ success: false, message: 'Record non trovato' });
+            }
+            await assertClientAccess(rows[0].client_id, req.user.tenantId, req.user);
             const deleted = await progressService.deleteRecord(recordId, req.user.tenantId);
             if (!deleted) {
                 return res.status(404).json({ success: false, message: 'Record non trovato' });

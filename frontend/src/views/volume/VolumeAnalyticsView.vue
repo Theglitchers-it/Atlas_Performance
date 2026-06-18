@@ -2,8 +2,16 @@
 import { ref, onMounted, watch } from "vue";
 import api from "@/services/api";
 import { useToast } from "vue-toastification";
+import { useAuthStore } from "@/store/auth";
 
 const toast = useToast();
+const authStore = useAuthStore();
+
+// Vista trainer/staff/admin only: se un client la monta accidentalmente
+// (link diretto, cache router stale) evita 403 in console.
+const ALLOWED_ROLES = ["tenant_owner", "staff", "super_admin", "gym_admin"];
+const canAccess = (): boolean =>
+  ALLOWED_ROLES.includes(authStore.userRole || "");
 
 const clients = ref<any[]>([]);
 const selectedClientId = ref("");
@@ -31,6 +39,7 @@ const getWeekStart = (): string => {
 };
 
 onMounted(async () => {
+  if (!canAccess()) return;
   try {
     const res = await api.get("/clients", { params: { limit: 100 } });
     clients.value = res.data.data?.clients || [];
@@ -208,7 +217,7 @@ const priorityClassMap: Record<string, string> = {
       <!-- Volume Tab -->
       <div
         v-else-if="activeTab === 'volume'"
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit"
+        class="gam-glass-card rounded-xl sm:rounded-habit"
       >
         <div
           v-if="volumeData.length === 0"
@@ -262,7 +271,7 @@ const priorityClassMap: Record<string, string> = {
             + Aggiungi Priorita
           </button>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit">
+        <div class="gam-glass-card rounded-xl sm:rounded-habit">
           <div
             v-if="priorities.length === 0"
             class="p-8 sm:p-12 text-center text-habit-text-subtle"
@@ -321,7 +330,7 @@ const priorityClassMap: Record<string, string> = {
       <!-- Plateau Tab -->
       <div
         v-else-if="activeTab === 'plateau'"
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit"
+        class="gam-glass-card rounded-xl sm:rounded-habit"
       >
         <div
           v-if="plateauAlerts.length === 0"
@@ -384,7 +393,7 @@ const priorityClassMap: Record<string, string> = {
     <!-- Empty State -->
     <div
       v-else
-      class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-8 sm:p-12 text-center text-habit-text-subtle"
+      class="gam-glass-card rounded-xl sm:rounded-habit p-8 sm:p-12 text-center text-habit-text-subtle"
     >
       <svg
         class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4"

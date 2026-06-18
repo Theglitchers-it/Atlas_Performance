@@ -18,7 +18,8 @@ class SessionController {
             const result = await sessionService.getByClient(
                 parseInt(req.params.clientId),
                 req.user.tenantId,
-                options
+                options,
+                req.user
             );
             res.json({ success: true, data: result });
         } catch (error) {
@@ -28,7 +29,7 @@ class SessionController {
 
     async getById(req, res, next) {
         try {
-            const session = await sessionService.getById(parseInt(req.params.id), req.user.tenantId);
+            const session = await sessionService.getById(parseInt(req.params.id), req.user.tenantId, req.user);
             res.json({ success: true, data: { session } });
         } catch (error) {
             next(error);
@@ -37,9 +38,11 @@ class SessionController {
 
     async start(req, res, next) {
         try {
-            const result = await sessionService.start(req.user.tenantId, req.body);
-            const session = await sessionService.getById(result.sessionId, req.user.tenantId);
-            res.status(201).json({ success: true, message: 'Sessione iniziata', data: { session } });
+            const result = await sessionService.start(req.user.tenantId, req.user, req.body);
+            const session = await sessionService.getById(result.sessionId, req.user.tenantId, req.user);
+            const status = result.resumed ? 200 : 201;
+            const message = result.resumed ? 'Sessione ripresa' : 'Sessione iniziata';
+            res.status(status).json({ success: true, message, data: { session, resumed: !!result.resumed } });
         } catch (error) {
             next(error);
         }
@@ -50,7 +53,8 @@ class SessionController {
             const result = await sessionService.logSet(
                 parseInt(req.params.id),
                 req.user.tenantId,
-                req.body
+                req.body,
+                req.user
             );
             res.json({ success: true, data: result });
         } catch (error) {
@@ -64,7 +68,8 @@ class SessionController {
                 parseInt(req.params.id),
                 req.user.tenantId,
                 parseInt(req.params.setId),
-                req.body
+                req.body,
+                req.user
             );
             res.json({ success: true, message: 'Set aggiornato' });
         } catch (error) {
@@ -77,7 +82,8 @@ class SessionController {
             await sessionService.deleteSet(
                 parseInt(req.params.id),
                 req.user.tenantId,
-                parseInt(req.params.setId)
+                parseInt(req.params.setId),
+                req.user
             );
             res.json({ success: true, message: 'Set eliminato' });
         } catch (error) {
@@ -90,7 +96,8 @@ class SessionController {
             const session = await sessionService.complete(
                 parseInt(req.params.id),
                 req.user.tenantId,
-                req.body
+                req.body,
+                req.user
             );
             res.json({ success: true, message: 'Sessione completata', data: { session } });
         } catch (error) {
@@ -100,8 +107,17 @@ class SessionController {
 
     async skip(req, res, next) {
         try {
-            await sessionService.skip(parseInt(req.params.id), req.user.tenantId, req.body.reason);
+            await sessionService.skip(parseInt(req.params.id), req.user.tenantId, req.body.reason, req.user);
             res.json({ success: true, message: 'Sessione saltata' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async delete(req, res, next) {
+        try {
+            const result = await sessionService.delete(parseInt(req.params.id), req.user.tenantId, req.user);
+            res.json({ success: true, message: 'Sessione eliminata', data: result });
         } catch (error) {
             next(error);
         }
@@ -112,7 +128,8 @@ class SessionController {
             const stats = await sessionService.getStats(
                 parseInt(req.params.clientId),
                 req.user.tenantId,
-                req.query.period || 'month'
+                req.query.period || 'month',
+                req.user
             );
             res.json({ success: true, data: { stats } });
         } catch (error) {

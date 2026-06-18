@@ -28,7 +28,7 @@
           <p class="text-habit-text-subtle text-sm">{{ formattedDate }}</p>
         </div>
         <div class="flex gap-2">
-          <button class="btn-icon btn-ghost" @click="$emit('prev-day')">
+          <button class="btn-icon btn-ghost" aria-label="Giorno precedente" @click="$emit('prev-day')">
             <svg
               class="w-5 h-5"
               fill="none"
@@ -43,7 +43,7 @@
               />
             </svg>
           </button>
-          <button class="btn-icon btn-ghost" @click="$emit('next-day')">
+          <button class="btn-icon btn-ghost" aria-label="Giorno successivo" @click="$emit('next-day')">
             <svg
               class="w-5 h-5"
               fill="none"

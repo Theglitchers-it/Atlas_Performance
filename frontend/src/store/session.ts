@@ -219,6 +219,20 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     /**
+     * Elimina sessione (hard delete, cascade FK su esercizi + set logs)
+     */
+    const deleteSession = async (sessionId: number): Promise<ActionResult> => {
+        error.value = null
+        try {
+            await api.delete(`/sessions/${sessionId}`)
+            return { success: true }
+        } catch (err: any) {
+            error.value = err.response?.data?.message || 'Errore nell\'eliminazione della sessione'
+            return { success: false, message: error.value as string }
+        }
+    }
+
+    /**
      * Seleziona cliente e carica dati
      */
     const setClient = async (clientId: number | string | null): Promise<void> => {
@@ -404,6 +418,7 @@ export const useSessionStore = defineStore('session', () => {
         fetchWorkoutTemplates,
         startSession,
         skipSession,
+        deleteSession,
         setClient,
         setFilter,
         resetFilters,

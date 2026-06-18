@@ -88,11 +88,38 @@ watch(
   { deep: true },
 );
 
+// Pre-set difficolta dal fitness_level del cliente se viene passato in query (?clientId=X)
+const prefillDifficultyFromClient = async () => {
+  const clientId = route.query.clientId;
+  if (!clientId) return;
+  try {
+    const res = await api.get(`/clients/${clientId}`);
+    const lvl = res.data?.data?.client?.fitness_level;
+    // Mappa fitness_level (beginner/intermediate/advanced/elite) a difficulty (beginner/intermediate/advanced)
+    const mapped =
+      lvl === "elite" ? "advanced" : lvl === "advanced" ? "advanced"
+      : lvl === "intermediate" ? "intermediate" : "beginner";
+    formData.value.difficulty = mapped;
+    if (res.data?.data?.client) {
+      preselectedClient.value = {
+        id: Number(clientId),
+        firstName: res.data.data.client.first_name,
+        lastName: res.data.data.client.last_name,
+        fitnessLevel: lvl,
+      };
+    }
+  } catch { /* ignore */ }
+};
+
+const preselectedClient = ref<{ id: number; firstName: string; lastName: string; fitnessLevel: string } | null>(null);
+
 // Lifecycle
 onMounted(async () => {
   await exerciseStore.initialize();
   if (isEditMode.value) {
     await loadTemplate();
+  } else {
+    await prefillDifficultyFromClient();
   }
   // Auto-add exercise from library (?addExercise=ID)
   const addExerciseId = route.query.addExercise;

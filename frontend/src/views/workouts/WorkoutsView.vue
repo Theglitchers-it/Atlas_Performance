@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
 import api from "@/services/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import { ClipboardDocumentListIcon } from "@heroicons/vue/24/outline";
 
 const router = useRouter();
 const toast = useToast();
@@ -267,15 +269,16 @@ const formatDate = (dateStr: any) => {
 
 <template>
   <div class="min-h-screen bg-habit-bg space-y-4 sm:space-y-5">
-    <!-- Header -->
-    <div
-      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-    >
+    <!-- Header (glass-mesh 2026) -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.04)] p-4 sm:p-5">
+      <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-habit-orange/15 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-habit-cyan/10 blur-3xl"></div>
+      <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
+        <h1 class="text-xl sm:text-2xl font-bold text-habit-text tracking-tight">
           Schede Allenamento
         </h1>
-        <p class="text-habit-text-subtle mt-1">
+        <p class="text-habit-text-subtle mt-1 text-sm">
           Gestisci i template delle schede allenamento
         </p>
       </div>
@@ -319,19 +322,20 @@ const formatDate = (dateStr: any) => {
           Nuova Scheda
         </router-link>
       </div>
+      </div>
     </div>
 
     <!-- Filters -->
     <div class="mb-4">
 
       <!-- === DESKTOP (sm+) === -->
-      <div class="hidden sm:block bg-habit-bg border border-habit-border rounded-habit p-3">
+      <div class="hidden sm:block bg-habit-bg border border-habit-border rounded-2xl p-3">
         <div class="flex items-center gap-2">
           <div class="relative max-w-xs group/search">
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input v-model="searchQuery" type="text" autocomplete="off" placeholder="Cerca scheda..."
+            <input v-model="searchQuery" type="search" name="workouts-search-q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore placeholder="Cerca scheda..."
               class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
             />
           </div>
@@ -366,7 +370,7 @@ const formatDate = (dateStr: any) => {
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input ref="mobileSearchInput" v-model="searchQuery" type="text" autocomplete="off" placeholder="Cerca scheda..."
+                <input ref="mobileSearchInput" v-model="searchQuery" type="search" name="workouts-search-q-mobile" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore placeholder="Cerca scheda..."
                   class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
                 />
                 <button @click="toggleMobileSearch"
@@ -431,58 +435,14 @@ const formatDate = (dateStr: any) => {
       </div>
 
       <!-- Empty State -->
-      <div
+      <EmptyState
         v-else-if="workouts.length === 0"
-        class="bg-habit-bg border border-habit-border rounded-habit p-8 text-center"
-      >
-        <svg
-          class="w-16 h-16 mx-auto mb-4 text-habit-text-subtle"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-          />
-        </svg>
-        <h3 class="text-lg font-medium text-habit-text mb-2">
-          {{
-            searchQuery || categoryFilter || difficultyFilter
-              ? "Nessun risultato"
-              : "Nessuna scheda"
-          }}
-        </h3>
-        <p class="text-habit-text-subtle mb-4">
-          {{
-            searchQuery || categoryFilter || difficultyFilter
-              ? "Prova a modificare i filtri di ricerca"
-              : "Inizia creando la tua prima scheda allenamento"
-          }}
-        </p>
-        <router-link
-          v-if="!searchQuery && !categoryFilter && !difficultyFilter"
-          to="/workouts/builder"
-          class="inline-flex items-center px-4 py-2 bg-habit-cyan text-white rounded-habit hover:bg-habit-orange transition-all duration-300"
-        >
-          <svg
-            class="w-5 h-5 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          Crea Scheda
-        </router-link>
-      </div>
+        :icon="ClipboardDocumentListIcon"
+        :title="searchQuery || categoryFilter || difficultyFilter ? 'Nessun risultato' : 'Nessuna scheda'"
+        :description="searchQuery || categoryFilter || difficultyFilter ? 'Prova a modificare i filtri di ricerca.' : 'Inizia creando la tua prima scheda allenamento.'"
+        :action-text="!searchQuery && !categoryFilter && !difficultyFilter ? 'Crea Scheda' : ''"
+        action-to="/workouts/builder"
+      />
 
       <!-- Cards Grid -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

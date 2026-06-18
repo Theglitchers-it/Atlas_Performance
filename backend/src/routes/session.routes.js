@@ -264,4 +264,28 @@ router.post('/:id/complete', validate(completeSessionSchema), sessionController.
  */
 router.post('/:id/skip', sessionController.skip);
 
+/**
+ * @swagger
+ * /sessions/{id}:
+ *   delete:
+ *     tags: [Sessions]
+ *     summary: Elimina sessione (cascade su esercizi e set logs)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Sessione eliminata
+ *       403:
+ *         description: Non autorizzato
+ *       404:
+ *         description: Sessione non trovata
+ */
+router.delete('/:id', sessionController.delete);
+
 module.exports = router;

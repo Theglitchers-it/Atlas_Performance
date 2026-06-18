@@ -119,13 +119,17 @@ class ProgressService {
 
     async addRecord(clientId, tenantId, recordData) {
         const { exerciseId, recordType, value, sessionId, notes } = recordData;
+        // Default valido per l'ENUM record_type (weight/reps/time/distance): il vecchio
+        // '1rm' veniva troncato da MySQL ("Data truncated") causando un 500 sui POST
+        // senza recordType esplicito. Normalizzato una volta e usato in entrambe le query.
+        const rt = recordType || 'weight';
 
         // Get previous record for this exercise/type
         const prevRecords = await query(`
             SELECT value FROM performance_records
             WHERE client_id = ? AND tenant_id = ? AND exercise_id = ? AND record_type = ?
             ORDER BY recorded_at DESC LIMIT 1
-        `, [clientId, tenantId, exerciseId, recordType]);
+        `, [clientId, tenantId, exerciseId, rt]);
 
         const previousValue = prevRecords.length > 0 ? prevRecords[0].value : null;
 
@@ -134,7 +138,7 @@ class ProgressService {
             (tenant_id, client_id, exercise_id, record_type, value, previous_value, recorded_at, session_id, notes)
             VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, ?)
         `, [
-            tenantId, clientId, exerciseId, recordType || '1rm',
+            tenantId, clientId, exerciseId, rt,
             value, previousValue, sessionId || null, notes || null
         ]);
 
@@ -162,7 +166,7 @@ class ProgressService {
         return pbs;
     }
 
-    async getRecordHistory(clientId, tenantId, exerciseId, recordType = '1rm') {
+    async getRecordHistory(clientId, tenantId, exerciseId, recordType = 'weight') {
         return await query(`
             SELECT pr.*, e.name as exercise_name
             FROM performance_records pr
