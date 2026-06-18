@@ -13,9 +13,10 @@ class SearchService {
      * @param {number} tenantId - ID tenant
      * @param {string} query - Stringa di ricerca
      * @param {string} role - Ruolo utente (tenant_owner, staff, client)
+     * @param {number} userId - ID utente loggato (richiesto per role=client per filtrare client_programs)
      * @returns {Object} Risultati raggruppati per categoria
      */
-    async globalSearch(tenantId, query, role) {
+    async globalSearch(tenantId, query, role, userId) {
         const db = getPool();
         const searchTerm = `%${query.replace(/[%_]/g, '\\$&')}%`;
 
@@ -23,7 +24,7 @@ class SearchService {
         const [clients, exercises, workouts] = await Promise.all([
             this.searchClients(db, tenantId, searchTerm, role),
             this.searchExercises(db, tenantId, searchTerm),
-            this.searchWorkouts(db, tenantId, searchTerm, role)
+            this.searchWorkouts(db, tenantId, searchTerm, role, userId)
         ]);
 
         return { clients, exercises, workouts };
@@ -75,22 +76,31 @@ class SearchService {
     }
 
     /**
-     * Cerca workout templates
+     * Cerca workout / schede.
+     * - role=client: cerca i propri client_programs assegnati (active/draft/paused)
+     * - altri ruoli: cerca workout_templates del tenant
      */
-    async searchWorkouts(db, tenantId, searchTerm, role) {
+    async searchWorkouts(db, tenantId, searchTerm, role, userId) {
         try {
             let query;
             let params;
 
             if (role === 'client') {
-                // Client vede solo i propri workout assegnati
-                query = `SELECT wt.id, wt.name
-                         FROM workout_templates wt
-                         WHERE wt.tenant_id = ?
-                           AND wt.name LIKE ?
-                         ORDER BY wt.name ASC
+                // Il cliente vede solo le proprie schede assegnate (client_programs)
+                // Lookup client_id via clients.user_id per evitare di esporre id altrui
+                query = `SELECT cp.id, cp.name
+                         FROM client_programs cp
+                         INNER JOIN clients c ON c.id = cp.client_id
+                         WHERE cp.tenant_id = ?
+                           AND c.tenant_id = ?
+                           AND c.user_id = ?
+                           AND cp.status IN ('active','draft','paused')
+                           AND cp.name LIKE ?
+                         ORDER BY
+                           CASE cp.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+                           cp.start_date DESC
                          LIMIT 5`;
-                params = [tenantId, searchTerm];
+                params = [tenantId, tenantId, userId, searchTerm];
             } else {
                 query = `SELECT id, name
                          FROM workout_templates
@@ -104,7 +114,13 @@ class SearchService {
             const [rows] = await db.execute(query, params);
             return rows;
         } catch (err) {
-            logger.error('Errore ricerca workout', { error: err.message });
+            logger.error('Errore ricerca workout', {
+                error: err.message,
+                code: err.code,
+                sqlMessage: err.sqlMessage,
+                role,
+                userId
+            });
             return [];
         }
     }

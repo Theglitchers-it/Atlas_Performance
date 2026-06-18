@@ -24,6 +24,8 @@ const totalPages = ref<number>(1);
 const totalCount = ref<number>(0);
 const filterAction = ref<string>("");
 const filterUser = ref<string>("");
+const filterStartDate = ref<string>("");
+const filterEndDate = ref<string>("");
 const searchDebounce = ref<any>(null);
 const perPage = 30;
 
@@ -35,7 +37,23 @@ const mobileSearchInput = ref<HTMLInputElement | null>(null);
 const activeFilterCount = computed(() => {
   let count = 0;
   if (filterAction.value) count++;
+  if (filterStartDate.value) count++;
+  if (filterEndDate.value) count++;
   return count;
+});
+
+const resetDateFilters = () => {
+  filterStartDate.value = "";
+  filterEndDate.value = "";
+};
+
+watch([filterStartDate, filterEndDate], () => {
+  // Validazione: se entrambi presenti, start <= end
+  if (filterStartDate.value && filterEndDate.value && filterStartDate.value > filterEndDate.value) {
+    return; // ignora finché l'utente non corregge
+  }
+  currentPage.value = 1;
+  loadLogs();
 });
 
 const toggleMobileSearch = () => {
@@ -81,6 +99,8 @@ const loadLogs = async () => {
     };
     if (filterAction.value) params.action = filterAction.value;
     if (filterUser.value) params.search = filterUser.value;
+    if (filterStartDate.value) params.startDate = filterStartDate.value;
+    if (filterEndDate.value) params.endDate = filterEndDate.value;
 
     const res = await api.get("/admin/audit-logs", { params });
     logs.value = res.data.data?.logs || [];
@@ -198,7 +218,7 @@ const resourceTypeLabel = (type: string | undefined): string => {
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input v-model="filterUser" type="text" autocomplete="off" placeholder="Cerca per utente o email..."
+          <input v-model="filterUser" type="search" name="audit-search-q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore placeholder="Cerca per utente o email..."
             class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
           />
         </div>
@@ -227,6 +247,33 @@ const resourceTypeLabel = (type: string | undefined): string => {
             <option value="TENANT_PLAN_CHANGE">Cambio piano</option>
           </optgroup>
         </select>
+
+        <!-- Date range filter -->
+        <div class="flex items-center gap-1">
+          <label class="text-[10px] uppercase tracking-wider text-habit-text-subtle font-semibold">Da</label>
+          <input
+            v-model="filterStartDate"
+            type="date"
+            :max="filterEndDate || undefined"
+            class="px-2 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-xs text-habit-text focus:outline-none focus:border-habit-cyan/30 transition-all"
+          />
+          <label class="text-[10px] uppercase tracking-wider text-habit-text-subtle font-semibold ml-1">A</label>
+          <input
+            v-model="filterEndDate"
+            type="date"
+            :min="filterStartDate || undefined"
+            class="px-2 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-xs text-habit-text focus:outline-none focus:border-habit-cyan/30 transition-all"
+          />
+          <button
+            v-if="filterStartDate || filterEndDate"
+            @click="resetDateFilters"
+            type="button"
+            aria-label="Reset date filtro"
+            class="px-1.5 py-1 text-habit-text-subtle hover:text-habit-orange transition-colors text-xs"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <!-- === MOBILE (<sm) === -->
@@ -247,7 +294,7 @@ const resourceTypeLabel = (type: string | undefined): string => {
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input ref="mobileSearchInput" v-model="filterUser" type="text" autocomplete="off" placeholder="Cerca utente o email..."
+                <input ref="mobileSearchInput" v-model="filterUser" type="search" name="audit-search-q-mobile" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore placeholder="Cerca utente o email..."
                   class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
                 />
                 <button @click="toggleMobileSearch"

@@ -25,15 +25,26 @@ class SearchController {
 
             const tenantId = req.user.tenantId;
             const role = req.user.role;
+            const userId = req.user.id;
 
-            const results = await searchService.globalSearch(tenantId, q.trim(), role);
+            const results = await searchService.globalSearch(tenantId, q.trim(), role, userId);
 
             res.json({
                 success: true,
                 data: results
             });
         } catch (error) {
-            logger.error('Errore ricerca globale', { error: error.message });
+            logger.error('Errore ricerca globale', {
+                error: error.message,
+                code: error.code,
+                sqlState: error.sqlState,
+                sqlMessage: error.sqlMessage,
+                stack: error.stack,
+                userId: req.user?.id,
+                role: req.user?.role,
+                tenantId: req.user?.tenantId,
+                query: req.query?.q
+            });
             res.status(500).json({
                 success: false,
                 message: 'Errore durante la ricerca'

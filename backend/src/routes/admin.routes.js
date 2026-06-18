@@ -259,7 +259,7 @@ router.get('/audit-logs', async (req, res) => {
         const safePage = Math.max(1, parseInt(req.query.page) || 1);
         const safeLimit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 30));
         const offset = (safePage - 1) * safeLimit;
-        const { action, search } = req.query;
+        const { action, search, startDate, endDate } = req.query;
 
         const conditions = [];
         const params = [];
@@ -272,6 +272,16 @@ router.get('/audit-logs', async (req, res) => {
             const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
             conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
             params.push(`%${sanitizedSearch}%`, `%${sanitizedSearch}%`, `%${sanitizedSearch}%`);
+        }
+        // Date range filter: validate ISO date format YYYY-MM-DD
+        const isValidIsoDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+        if (isValidIsoDate(startDate)) {
+            conditions.push('al.created_at >= ?');
+            params.push(`${startDate} 00:00:00`);
+        }
+        if (isValidIsoDate(endDate)) {
+            conditions.push('al.created_at <= ?');
+            params.push(`${endDate} 23:59:59`);
         }
 
         const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';

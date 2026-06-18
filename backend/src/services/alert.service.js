@@ -20,22 +20,80 @@ class AlertService {
     async runAllChecks(clientId, tenantId) {
         const alerts = [];
 
-        const [a1, a2, a3, a4, a5, a6] = await Promise.allSettled([
+        const results = await Promise.allSettled([
             this.checkLowReadiness(clientId, tenantId),
             this.checkVolumePlateau(clientId, tenantId),
             this.checkRecoveryLow(clientId, tenantId),
             this.checkOvertrainingRisk(clientId, tenantId),
             this.checkFatigueAccumulation(clientId, tenantId),
-            this.checkDeloadSuggested(clientId, tenantId)
+            this.checkDeloadSuggested(clientId, tenantId),
+            this.checkDormantClient(clientId, tenantId)
         ]);
 
-        for (const result of [a1, a2, a3, a4, a5, a6]) {
+        for (const result of results) {
             if (result.status === 'fulfilled' && result.value) {
                 alerts.push(result.value);
             }
         }
 
         return alerts;
+    }
+
+    /**
+     * 7. DORMANT CLIENT — cliente con tag 'dormiente' (sub scaduta >30gg senza rinnovo).
+     * Crea un alert per il trainer cosi appare nel widget SmartAlerts della dashboard.
+     */
+    /**
+     * Event-driven: alert quando la fase dieta passa a 'cut' o 'bulk'.
+     * Segnala il cambio al trainer per adeguare il volume allenamento.
+     */
+    async onDietPhaseChanged(clientId, tenantId, newPhase, oldPhase = null) {
+        if (!newPhase || newPhase === oldPhase || newPhase === 'free') return null;
+
+        const rows = await query(
+            `SELECT first_name, last_name FROM clients WHERE id = ? AND tenant_id = ?`,
+            [clientId, tenantId]
+        );
+        if (!rows[0]) return null;
+
+        const messages = {
+            cut: `${rows[0].first_name} ${rows[0].last_name} è in deficit calorico (cut). Valuta di ridurre il volume di allenamento.`,
+            bulk: `${rows[0].first_name} ${rows[0].last_name} è in surplus calorico (bulk). Puoi aumentare volume/intensità.`,
+            normocaloric: `${rows[0].first_name} ${rows[0].last_name} è in mantenimento (normocalorica).`
+        };
+
+        return this.createAlert(tenantId, clientId, {
+            alertType: 'diet_phase_changed',
+            severity: newPhase === 'cut' ? 'medium' : 'low',
+            title: `Fase dieta → ${newPhase}`,
+            message: messages[newPhase] || `Nuova fase: ${newPhase}`,
+            data: { oldPhase, newPhase }
+        });
+    }
+
+    async checkDormantClient(clientId, tenantId) {
+        const rows = await query(`
+            SELECT c.first_name, c.last_name,
+                   lt.days_since_last_end,
+                   (SELECT COUNT(*) FROM client_tags WHERE client_id = c.id AND tenant_id = c.tenant_id AND tag = 'dormiente') AS is_dormant
+            FROM clients c
+            LEFT JOIN (
+                SELECT client_id, DATEDIFF(CURDATE(), MAX(end_date)) AS days_since_last_end
+                FROM client_subscriptions WHERE tenant_id = ? GROUP BY client_id
+            ) lt ON c.id = lt.client_id
+            WHERE c.id = ? AND c.tenant_id = ?
+        `, [tenantId, clientId, tenantId]);
+
+        if (!rows[0] || !rows[0].is_dormant) return null;
+
+        const days = rows[0].days_since_last_end;
+        return this.createAlert(tenantId, clientId, {
+            alertType: 'dormant_client',
+            severity: 'medium',
+            title: 'Cliente dormiente',
+            message: `${rows[0].first_name} ${rows[0].last_name} non rinnova l'abbonamento da ${days} giorni. Invia un messaggio di recupero.`,
+            data: { daysSinceLastSubEnd: days }
+        });
     }
 
     /**
@@ -310,7 +368,7 @@ class AlertService {
         const alerts = await query(sql, params);
         return alerts.map(a => ({
             ...a,
-            data: a.data ? JSON.parse(a.data) : null
+            data: typeof a.data === 'string' ? JSON.parse(a.data) : (a.data || null)
         }));
     }
 

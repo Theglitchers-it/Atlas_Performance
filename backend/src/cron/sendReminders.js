@@ -22,21 +22,24 @@ async function sendAppointmentReminders() {
     let count = 0;
 
     try {
+        // Schema: appointments(start_datetime DATETIME, end_datetime DATETIME, appointment_type, status ENUM('scheduled','completed','cancelled','no_show'))
+        // Finestra 2.5h-3.5h da adesso. Confronto su DATETIME diretto per gestire correttamente l'attraversamento della mezzanotte.
+        // Usa NOT EXISTS invece di NOT IN per evitare il pitfall di SQL NULL con JSON_EXTRACT.
         const appointments = await query(`
-            SELECT a.id, a.tenant_id, a.client_id, a.date, a.start_time,
-                   a.type, c.user_id, u.first_name, u.last_name, u.email
+            SELECT a.id, a.tenant_id, a.client_id,
+                   DATE(a.start_datetime) AS appt_date,
+                   TIME(a.start_datetime) AS appt_time,
+                   a.appointment_type, c.user_id, u.first_name, u.last_name, u.email
             FROM appointments a
             JOIN clients c ON a.client_id = c.id
             JOIN users u ON c.user_id = u.id
-            WHERE a.status = 'confirmed'
-              AND a.date = CURDATE()
-              AND a.start_time BETWEEN ADDTIME(CURTIME(), '02:30:00') AND ADDTIME(CURTIME(), '03:30:00')
-              AND a.id NOT IN (
-                  SELECT CAST(JSON_EXTRACT(metadata, '$.appointment_id') AS UNSIGNED)
-                  FROM notifications
-                  WHERE type = 'appointment_reminder'
-                    AND DATE(created_at) = CURDATE()
-                    AND JSON_EXTRACT(metadata, '$.appointment_id') IS NOT NULL
+            WHERE a.status = 'scheduled'
+              AND a.start_datetime BETWEEN DATE_ADD(NOW(), INTERVAL 150 MINUTE) AND DATE_ADD(NOW(), INTERVAL 210 MINUTE)
+              AND NOT EXISTS (
+                  SELECT 1 FROM notifications n
+                  WHERE n.type = 'appointment_reminder'
+                    AND n.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                    AND CAST(JSON_EXTRACT(n.metadata, '$.appointment_id') AS UNSIGNED) = a.id
               )
         `);
 
@@ -48,7 +51,7 @@ async function sendAppointmentReminders() {
                     userId: appt.user_id,
                     type: 'appointment_reminder',
                     title: 'Promemoria Appuntamento',
-                    message: `Hai un appuntamento oggi alle ${appt.start_time}`,
+                    message: `Hai un appuntamento oggi alle ${appt.appt_time}`,
                     actionUrl: '/calendar',
                     metadata: { appointment_id: appt.id },
                     priority: 'high'
@@ -59,9 +62,9 @@ async function sendAppointmentReminders() {
                     emailService.sendAppointmentReminder({
                         to: appt.email,
                         clientName: `${appt.first_name} ${appt.last_name}`,
-                        date: new Date(appt.date).toLocaleDateString('it-IT'),
-                        time: appt.start_time,
-                        type: appt.type
+                        date: new Date(appt.appt_date).toLocaleDateString('it-IT'),
+                        time: appt.appt_time,
+                        type: appt.appointment_type
                     }).catch(err => logger.error(`Email appointment ${appt.id}`, { error: err.message }));
                 }
 
@@ -84,32 +87,58 @@ async function sendPaymentReminders() {
     let count = 0;
 
     try {
+        // Schema: client_subscriptions(start_date, end_date, status, billing_cycle ENUM('monthly','quarterly','yearly'), plan_type, amount).
+        // Logica: reminder 3gg prima del prossimo pagamento ricorrente. Calcoliamo le date di rinnovo
+        // tra start_date e end_date in base al billing_cycle e flagghiamo quelle a -3gg da oggi.
+        // Dedup via NOT EXISTS (più sicuro di NOT IN con JSON_EXTRACT che fallisce su NULL).
         const subscriptions = await query(`
-            SELECT cs.id, cs.tenant_id, cs.client_id, cs.next_payment_date,
-                   cs.amount, cs.plan_type, c.user_id, u.first_name, u.last_name, u.email
+            SELECT cs.id, cs.tenant_id, cs.client_id, cs.start_date, cs.end_date, cs.billing_cycle,
+                   cs.amount, cs.plan_type, c.user_id, u.first_name, u.last_name, u.email,
+                   /* Calcola la prossima data di pagamento aggiungendo il numero corretto di cicli a start_date */
+                   CASE cs.billing_cycle
+                       WHEN 'monthly'   THEN DATE_ADD(cs.start_date, INTERVAL TIMESTAMPDIFF(MONTH,  cs.start_date, DATE_ADD(CURDATE(), INTERVAL 3 DAY)) MONTH)
+                       WHEN 'quarterly' THEN DATE_ADD(cs.start_date, INTERVAL TIMESTAMPDIFF(MONTH,  cs.start_date, DATE_ADD(CURDATE(), INTERVAL 3 DAY)) / 3 * 3 MONTH)
+                       WHEN 'yearly'    THEN DATE_ADD(cs.start_date, INTERVAL TIMESTAMPDIFF(YEAR,   cs.start_date, DATE_ADD(CURDATE(), INTERVAL 3 DAY)) YEAR)
+                       ELSE cs.end_date
+                   END AS next_due_date
             FROM client_subscriptions cs
             JOIN clients c ON cs.client_id = c.id
             JOIN users u ON c.user_id = u.id
             WHERE cs.status = 'active'
-              AND cs.next_payment_date = DATE_ADD(CURDATE(), INTERVAL 3 DAY)
-              AND cs.id NOT IN (
-                  SELECT CAST(JSON_EXTRACT(metadata, '$.subscription_id') AS UNSIGNED)
-                  FROM notifications
-                  WHERE type = 'payment_reminder'
-                    AND created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY)
-                    AND JSON_EXTRACT(metadata, '$.subscription_id') IS NOT NULL
+              AND cs.start_date IS NOT NULL
+              AND (cs.end_date IS NULL OR cs.end_date >= CURDATE())
+              AND (
+                  /* Caso 1: rinnovo periodico (monthly/quarterly/yearly) atteso fra 3 giorni */
+                  (cs.billing_cycle IN ('monthly','quarterly','yearly')
+                    AND CASE cs.billing_cycle
+                        WHEN 'monthly'   THEN DATE_ADD(cs.start_date, INTERVAL TIMESTAMPDIFF(MONTH,  cs.start_date, DATE_ADD(CURDATE(), INTERVAL 3 DAY)) MONTH)
+                        WHEN 'quarterly' THEN DATE_ADD(cs.start_date, INTERVAL TIMESTAMPDIFF(MONTH,  cs.start_date, DATE_ADD(CURDATE(), INTERVAL 3 DAY)) / 3 * 3 MONTH)
+                        WHEN 'yearly'    THEN DATE_ADD(cs.start_date, INTERVAL TIMESTAMPDIFF(YEAR,   cs.start_date, DATE_ADD(CURDATE(), INTERVAL 3 DAY)) YEAR)
+                    END = DATE_ADD(CURDATE(), INTERVAL 3 DAY))
+                  OR
+                  /* Caso 2: end_date assoluto fra 3 giorni (sub senza ciclo) */
+                  cs.end_date = DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM notifications n
+                  WHERE n.type = 'payment_reminder'
+                    AND n.created_at >= DATE_SUB(NOW(), INTERVAL 3 DAY)
+                    AND CAST(JSON_EXTRACT(n.metadata, '$.subscription_id') AS UNSIGNED) = cs.id
               )
         `);
 
         for (const sub of subscriptions) {
             try {
+                const dueDate = sub.next_due_date || sub.end_date;
+                const dueDateFormatted = dueDate ? new Date(dueDate).toLocaleDateString('it-IT') : '—';
+                const amountFormatted = (sub.amount != null) ? `€${sub.amount}` : 'l\'abbonamento';
                 // Notifica in-app + WebSocket + Web Push
                 await notificationService.create({
                     tenantId: sub.tenant_id,
                     userId: sub.user_id,
                     type: 'payment_reminder',
                     title: 'Pagamento in Scadenza',
-                    message: `Il tuo pagamento di €${sub.amount} scade il ${sub.next_payment_date}`,
+                    message: `Il tuo pagamento di ${amountFormatted} scade il ${dueDateFormatted}`,
                     actionUrl: '/payments',
                     metadata: { subscription_id: sub.id },
                     priority: 'high'
@@ -121,7 +150,7 @@ async function sendPaymentReminders() {
                         to: sub.email,
                         clientName: `${sub.first_name} ${sub.last_name}`,
                         amount: sub.amount,
-                        dueDate: new Date(sub.next_payment_date).toLocaleDateString('it-IT'),
+                        dueDate: dueDateFormatted,
                         planType: sub.plan_type
                     }).catch(err => logger.error(`Email payment sub ${sub.id}`, { error: err.message }));
                 }
@@ -160,12 +189,11 @@ async function sendWorkoutReminders() {
             JOIN workout_templates wt ON pw.workout_template_id = wt.id
             WHERE cp.status = 'active'
               AND pw.day_of_week = DAYOFWEEK(CURDATE())
-              AND cp.id NOT IN (
-                  SELECT CAST(JSON_EXTRACT(metadata, '$.program_id') AS UNSIGNED)
-                  FROM notifications
-                  WHERE type = 'workout_reminder'
-                    AND DATE(created_at) = CURDATE()
-                    AND JSON_EXTRACT(metadata, '$.program_id') IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM notifications n
+                  WHERE n.type = 'workout_reminder'
+                    AND DATE(n.created_at) = CURDATE()
+                    AND CAST(JSON_EXTRACT(n.metadata, '$.program_id') AS UNSIGNED) = cp.id
               )
         `);
 
@@ -219,16 +247,15 @@ async function sendCheckinReminders() {
             FROM clients c
             JOIN users u ON c.user_id = u.id
             WHERE c.status = 'active'
-              AND c.id NOT IN (
-                  SELECT client_id FROM daily_checkins
-                  WHERE DATE(checkin_date) = CURDATE()
+              AND NOT EXISTS (
+                  SELECT 1 FROM daily_checkins dc
+                  WHERE dc.client_id = c.id AND DATE(dc.checkin_date) = CURDATE()
               )
-              AND c.id NOT IN (
-                  SELECT CAST(JSON_EXTRACT(metadata, '$.client_id') AS UNSIGNED)
-                  FROM notifications
-                  WHERE type = 'checkin_reminder'
-                    AND DATE(created_at) = CURDATE()
-                    AND JSON_EXTRACT(metadata, '$.client_id') IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM notifications n
+                  WHERE n.type = 'checkin_reminder'
+                    AND DATE(n.created_at) = CURDATE()
+                    AND CAST(JSON_EXTRACT(n.metadata, '$.client_id') AS UNSIGNED) = c.id
               )
         `);
 

@@ -7,9 +7,12 @@ const express = require('express');
 const router = express.Router();
 
 const alertController = require('../controllers/alert.controller');
-const { verifyToken } = require('../middlewares/auth');
+const { verifyToken, requireRole } = require('../middlewares/auth');
 
 router.use(verifyToken);
+// Gli Smart Training Alerts sono una feature di monitoraggio per i trainer:
+// l'intero modulo è riservato ai ruoli trusted (previene IDOR via :clientId).
+router.use(requireRole('tenant_owner', 'staff', 'super_admin'));
 
 /**
  * @swagger

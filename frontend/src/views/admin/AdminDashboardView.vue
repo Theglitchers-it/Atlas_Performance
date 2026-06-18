@@ -116,29 +116,11 @@ const statusLabel = (status: string): string => {
 <template>
   <div class="min-h-screen bg-habit-bg space-y-4 sm:space-y-5">
     <!-- Header -->
-    <div
-      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-    >
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
-          Super Admin Panel
-        </h1>
-        <p class="text-habit-text-subtle mt-1">Panoramica della piattaforma</p>
-      </div>
-      <div class="flex gap-3">
-        <router-link
-          to="/admin/tenants"
-          class="inline-flex items-center px-4 py-2 bg-habit-card border border-habit-border text-habit-text rounded-habit hover:bg-habit-card-hover transition-all"
-        >
-          Gestisci Tenant
-        </router-link>
-        <router-link
-          to="/admin/billing"
-          class="inline-flex items-center px-4 py-2 bg-habit-orange text-white rounded-habit hover:bg-habit-cyan transition-all duration-300"
-        >
-          Fatturazione
-        </router-link>
-      </div>
+    <div>
+      <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
+        Super Admin Panel
+      </h1>
+      <p class="text-habit-text-subtle mt-1">Panoramica della piattaforma</p>
     </div>
 
     <!-- Stats Grid -->
