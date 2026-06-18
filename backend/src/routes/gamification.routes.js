@@ -289,4 +289,15 @@ router.post('/challenges/:id/join', gamificationController.joinChallenge.bind(ga
  */
 router.post('/challenges/:id/withdraw', gamificationController.withdrawFromChallenge.bind(gamificationController));
 
+// === Sparkline / Heatmap / Next Achievement / Ranking / Weekly Recap / Weekly Goals ===
+
+router.get('/xp-sparkline', gamificationController.getXPSparkline.bind(gamificationController));
+router.get('/streak-heatmap', gamificationController.getStreakHeatmap.bind(gamificationController));
+router.get('/next-achievement', gamificationController.getNextAchievement.bind(gamificationController));
+router.get('/ranking', gamificationController.getRanking.bind(gamificationController));
+router.get('/weekly-recap', gamificationController.getWeeklyRecap.bind(gamificationController));
+router.get('/weekly-goals', gamificationController.getWeeklyGoals.bind(gamificationController));
+router.post('/weekly-goals', gamificationController.upsertWeeklyGoal.bind(gamificationController));
+router.delete('/weekly-goals/:id', gamificationController.deleteWeeklyGoal.bind(gamificationController));
+
 module.exports = router;

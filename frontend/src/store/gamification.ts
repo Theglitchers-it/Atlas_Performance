@@ -12,7 +12,14 @@ import type {
   Challenge,
   Title,
   Client,
-  PaginationMeta
+  PaginationMeta,
+  XPSparkPoint,
+  StreakHeatmapDay,
+  NextAchievement,
+  RankingInfo,
+  WeeklyRecap,
+  WeeklyGoal,
+  WeeklyGoalType
 } from '@/types'
 
 interface ActionResult {
@@ -45,6 +52,16 @@ export const useGamificationStore = defineStore('gamification', () => {
   const isTrainerMode = ref<boolean>(false)
   const clients = ref<Client[]>([])
   const manageableTitles = ref<Title[]>([])
+
+  // Nuove feature
+  const xpSparkline = ref<XPSparkPoint[]>([])
+  const streakHeatmap = ref<StreakHeatmapDay[]>([])
+  const streakHeatmapYear = ref<number>(new Date().getFullYear())
+  const nextAchievement = ref<NextAchievement | null>(null)
+  const ranking = ref<RankingInfo | null>(null)
+  const weeklyRecap = ref<WeeklyRecap | null>(null)
+  const weeklyGoals = ref<WeeklyGoal[]>([])
+  const weeklyGoalsWeekStart = ref<string | null>(null)
 
   // Getters
   const levelProgress = computed<number>(() => dashboard.value?.xpProgress || 0)
@@ -133,11 +150,11 @@ export const useGamificationStore = defineStore('gamification', () => {
     }
   }
 
-  const fetchLeaderboard = async (page: number = 1): Promise<void> => {
+  const fetchLeaderboard = async (page: number = 1, locationId: number | null = null): Promise<void> => {
     try {
-      const response = await api.get('/gamification/leaderboard', {
-        params: { page, limit: leaderboardPagination.value.limit }
-      })
+      const params: Record<string, any> = { page, limit: leaderboardPagination.value.limit }
+      if (locationId) params.locationId = locationId
+      const response = await api.get('/gamification/leaderboard', { params })
       leaderboard.value = response.data.data.leaderboard || []
       leaderboardPagination.value = response.data.data.pagination || leaderboardPagination.value
     } catch (err: any) {
@@ -315,6 +332,93 @@ export const useGamificationStore = defineStore('gamification', () => {
     }
   }
 
+  // === Nuove feature: sparkline / heatmap / next / ranking / weekly ===
+
+  const clientParams = (clientId: number | null): Record<string, any> => clientId ? { clientId } : {}
+
+  const fetchXPSparkline = async (days: number = 30, clientId: number | null = null): Promise<void> => {
+    try {
+      const response = await api.get('/gamification/xp-sparkline', { params: { days, ...clientParams(clientId) } })
+      xpSparkline.value = response.data.data.sparkline || []
+    } catch (err: any) {
+      console.error('Errore fetchXPSparkline:', err)
+    }
+  }
+
+  const fetchStreakHeatmap = async (year?: number, clientId: number | null = null): Promise<void> => {
+    try {
+      const y = year || new Date().getFullYear()
+      const response = await api.get('/gamification/streak-heatmap', { params: { year: y, ...clientParams(clientId) } })
+      streakHeatmap.value = response.data.data.heatmap || []
+      streakHeatmapYear.value = response.data.data.year || y
+    } catch (err: any) {
+      console.error('Errore fetchStreakHeatmap:', err)
+    }
+  }
+
+  const fetchNextAchievement = async (clientId: number | null = null): Promise<void> => {
+    try {
+      const response = await api.get('/gamification/next-achievement', { params: clientParams(clientId) })
+      nextAchievement.value = response.data.data.next
+    } catch (err: any) {
+      console.error('Errore fetchNextAchievement:', err)
+    }
+  }
+
+  const fetchRanking = async (clientId: number | null = null): Promise<void> => {
+    try {
+      const response = await api.get('/gamification/ranking', { params: clientParams(clientId) })
+      ranking.value = response.data.data.ranking
+    } catch (err: any) {
+      console.error('Errore fetchRanking:', err)
+    }
+  }
+
+  const fetchWeeklyRecap = async (clientId: number | null = null): Promise<void> => {
+    try {
+      const response = await api.get('/gamification/weekly-recap', { params: clientParams(clientId) })
+      weeklyRecap.value = response.data.data.recap
+    } catch (err: any) {
+      console.error('Errore fetchWeeklyRecap:', err)
+    }
+  }
+
+  const fetchWeeklyGoals = async (clientId: number | null = null): Promise<void> => {
+    try {
+      const response = await api.get('/gamification/weekly-goals', { params: clientParams(clientId) })
+      weeklyGoals.value = response.data.data.goals || []
+      weeklyGoalsWeekStart.value = response.data.data.week_start || null
+    } catch (err: any) {
+      console.error('Errore fetchWeeklyGoals:', err)
+    }
+  }
+
+  const upsertWeeklyGoal = async (
+    goalType: WeeklyGoalType,
+    targetValue: number,
+    clientId: number | null = null
+  ): Promise<ActionResult> => {
+    try {
+      await api.post('/gamification/weekly-goals', { goal_type: goalType, target_value: targetValue }, { params: clientParams(clientId) })
+      await fetchWeeklyGoals(clientId)
+      return { success: true }
+    } catch (err: any) {
+      console.error('Errore upsertWeeklyGoal:', err)
+      return { success: false, message: err.response?.data?.message || 'Errore salvataggio goal' }
+    }
+  }
+
+  const deleteWeeklyGoal = async (goalId: number, clientId: number | null = null): Promise<ActionResult> => {
+    try {
+      await api.delete(`/gamification/weekly-goals/${goalId}`, { params: clientParams(clientId) })
+      await fetchWeeklyGoals(clientId)
+      return { success: true }
+    } catch (err: any) {
+      console.error('Errore deleteWeeklyGoal:', err)
+      return { success: false, message: err.response?.data?.message || 'Errore eliminazione goal' }
+    }
+  }
+
   return {
     // State
     dashboard, recentAchievements, achievementsByCategory, allAchievements,
@@ -322,6 +426,8 @@ export const useGamificationStore = defineStore('gamification', () => {
     challenges, challengesPagination, currentChallenge,
     xpHistory, xpHistoryPagination, titles, displayedTitle,
     loading, error, selectedClientId, clients, manageableTitles,
+    xpSparkline, streakHeatmap, streakHeatmapYear, nextAchievement,
+    ranking, weeklyRecap, weeklyGoals, weeklyGoalsWeekStart,
     // Getters
     levelProgress, unlockedAchievements,
     // Actions
@@ -332,6 +438,9 @@ export const useGamificationStore = defineStore('gamification', () => {
     joinChallenge, withdrawFromChallenge,
     fetchTitles, fetchDisplayedTitle, setDisplayedTitle,
     fetchManageableTitles, createTitle, updateTitle, deleteTitle,
-    setClient, loadDashboardData, initialize
+    setClient, loadDashboardData, initialize,
+    fetchXPSparkline, fetchStreakHeatmap, fetchNextAchievement,
+    fetchRanking, fetchWeeklyRecap, fetchWeeklyGoals,
+    upsertWeeklyGoal, deleteWeeklyGoal
   }
 })

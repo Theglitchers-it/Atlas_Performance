@@ -1,6 +1,19 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useGamificationStore } from "@/store/gamification";
+import { useAuthStore } from "@/store/auth";
+import api from "@/services/api";
+
+// Fase 6: tab switch Locale / Mondiale
+const activeTab = ref<'local' | 'world'>('local');
+
+const auth = useAuthStore();
+const isClient = computed(() => auth.user?.role === "client");
+
+// === Filtro sede ===
+const myPreferredLocationId = ref<number | null>(null);
+const onlyMyLocation = ref(false);
+const preferredLocationName = ref<string>("");
 
 interface RankMedal {
   emoji: string;
@@ -43,7 +56,28 @@ const getLevelColor = (level: number): string => {
   return "text-habit-text-subtle";
 };
 
+const loadPreferredLocation = async () => {
+  if (!isClient.value) return;
+  try {
+    const res = await api.get("/clients/me");
+    myPreferredLocationId.value = res.data?.data?.client?.preferred_location_id ?? null;
+    // Carica anche il nome della sede preferita per la label del toggle
+    if (myPreferredLocationId.value) {
+      try {
+        const locRes = await api.get(`/locations/${myPreferredLocationId.value}`);
+        preferredLocationName.value = locRes.data?.data?.location?.name || "";
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+};
+
+const toggleLocationFilter = async () => {
+  onlyMyLocation.value = !onlyMyLocation.value;
+  await gamification.fetchLeaderboard(1, onlyMyLocation.value ? myPreferredLocationId.value : null);
+};
+
 onMounted(async () => {
+  await loadPreferredLocation();
   await gamification.fetchLeaderboard(1);
 });
 </script>
@@ -69,6 +103,64 @@ onMounted(async () => {
         &larr; Gamification
       </router-link>
     </div>
+
+    <!-- Filtro per sede (visibile solo agli atleti con preferred_location_id) -->
+    <div v-if="isClient && myPreferredLocationId" class="mb-4">
+      <button
+        type="button"
+        @click="toggleLocationFilter"
+        class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-medium border transition-colors"
+        :class="onlyMyLocation
+          ? 'bg-habit-orange/15 text-habit-orange border-habit-orange/40'
+          : 'bg-habit-card text-habit-text-subtle border-habit-border hover:border-habit-text-subtle/40'"
+      >
+        <span>📍</span>
+        <span v-if="onlyMyLocation">
+          Classifica della mia sede{{ preferredLocationName ? ` (${preferredLocationName})` : '' }} &times;
+        </span>
+        <span v-else>
+          Filtra per la mia sede{{ preferredLocationName ? ` (${preferredLocationName})` : '' }}
+        </span>
+      </button>
+    </div>
+
+    <!-- Fase 6: Tab switch Locale / Mondiale -->
+    <div class="flex gap-2 mb-6 border-b border-habit-border">
+      <button
+        @click="activeTab = 'local'"
+        :class="[
+          'px-4 py-2 text-sm font-semibold border-b-2 transition',
+          activeTab === 'local'
+            ? 'border-habit-cyan text-habit-cyan'
+            : 'border-transparent text-habit-text-subtle hover:text-habit-text',
+        ]"
+      >
+        📍 Locale
+      </button>
+      <button
+        @click="activeTab = 'world'"
+        :class="[
+          'px-4 py-2 text-sm font-semibold border-b-2 transition',
+          activeTab === 'world'
+            ? 'border-habit-cyan text-habit-cyan'
+            : 'border-transparent text-habit-text-subtle hover:text-habit-text',
+        ]"
+      >
+        🌍 Mondiale
+      </button>
+    </div>
+
+    <!-- World tab: redirect link -->
+    <div v-if="activeTab === 'world'" class="world-card">
+      <p class="text-habit-text-muted">
+        La World Leaderboard ha la sua vista dedicata con filtri per esercizio e classe peso.
+      </p>
+      <router-link to="/leaderboard/world" class="btn-world">
+        Apri World Leaderboard →
+      </router-link>
+    </div>
+
+    <template v-if="activeTab === 'local'">
 
     <!-- Loading -->
     <div
@@ -295,5 +387,27 @@ onMounted(async () => {
         </button>
       </div>
     </div>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.world-card {
+  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(236,72,153,0.1));
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+}
+.btn-world {
+  display: inline-block;
+  margin-top: 16px;
+  background: linear-gradient(90deg, #6366f1, #ec4899);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+}
+.btn-world:hover { opacity: 0.9; }
+</style>

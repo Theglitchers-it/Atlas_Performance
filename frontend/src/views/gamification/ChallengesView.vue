@@ -20,7 +20,7 @@ interface StatusConfig {
 interface NewChallengeForm {
   name: string;
   description: string;
-  challengeType: string;
+  type: string;
   targetValue: number;
   startDate: string;
   endDate: string;
@@ -34,7 +34,7 @@ const isTrainer = computed(() =>
   ["tenant_owner", "staff", "super_admin"].includes(auth.user?.role as string),
 );
 
-const challengeTypes: Record<string, TypeConfig> = {
+const challengeTypeOptions: Record<string, TypeConfig> = {
   workout_count: {
     label: "N. Allenamenti",
     emoji: "\u{1F4AA}",
@@ -89,10 +89,10 @@ const statusFilters = [
   { value: "", label: "Tutte" },
 ];
 
-const getChallengeType = (t: string): TypeConfig =>
-  challengeTypes[t] || challengeTypes.custom;
-const getParticipantStatus = (s: string): StatusConfig =>
-  participantStatuses[s] || participantStatuses.active;
+const getChallengeType = (t: string | undefined): TypeConfig =>
+  challengeTypeOptions[t || 'custom'] || challengeTypeOptions.custom;
+const getParticipantStatus = (s: string | undefined): StatusConfig =>
+  participantStatuses[s || 'active'] || participantStatuses.active;
 
 // State
 const statusFilter = ref("active");
@@ -104,7 +104,7 @@ const loading = ref(false);
 const newChallenge = ref<NewChallengeForm>({
   name: "",
   description: "",
-  challengeType: "workout_count",
+  type: "workout_count",
   targetValue: 10,
   startDate: "",
   endDate: "",
@@ -131,7 +131,7 @@ const handleCreate = async () => {
     newChallenge.value = {
       name: "",
       description: "",
-      challengeType: "workout_count",
+      type: "workout_count",
       targetValue: 10,
       startDate: "",
       endDate: "",
@@ -471,11 +471,11 @@ onMounted(() => {
                   >Tipo</label
                 >
                 <select
-                  v-model="newChallenge.challengeType"
+                  v-model="newChallenge.type"
                   class="w-full bg-habit-bg border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan focus:outline-none"
                 >
                   <option
-                    v-for="(cfg, key) in challengeTypes"
+                    v-for="(cfg, key) in challengeTypeOptions"
                     :key="key"
                     :value="key"
                   >

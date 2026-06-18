@@ -37,8 +37,12 @@ class GamificationController {
     async getAchievements(req, res, next) {
         try {
             const tenantId = req.user.tenantId;
-            const { category, rarity, unlockedOnly } = req.query;
-            const achievements = await gamificationService.getAllAchievements(tenantId, req.user.id, { category, rarity, unlockedOnly: unlockedOnly === 'true' });
+            const { category, rarity, unlockedOnly, sort } = req.query;
+            const achievements = await gamificationService.getAllAchievements(tenantId, req.user.id, {
+                category, rarity,
+                unlockedOnly: unlockedOnly === 'true',
+                sort
+            });
             res.json({ success: true, data: { achievements } });
         } catch (error) {
             next(error);
@@ -117,10 +121,11 @@ class GamificationController {
     async getLeaderboard(req, res, next) {
         try {
             const tenantId = req.user.tenantId;
-            const { limit, page } = req.query;
+            const { limit, page, locationId } = req.query;
             const result = await gamificationService.getLeaderboard(tenantId, {
                 limit: parseInt(limit) || 20,
-                page: parseInt(page) || 1
+                page: parseInt(page) || 1,
+                locationId: locationId ? parseInt(locationId) : null
             });
             res.json({ success: true, data: result });
         } catch (error) {
@@ -209,6 +214,97 @@ class GamificationController {
         } catch (error) {
             next(error);
         }
+    }
+
+    // === Sparkline / Heatmap / Next Achievement / Ranking / Weekly / Goals ===
+
+    async getXPSparkline(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
+            const data = await gamificationService.getXPSparkline(req.user.tenantId, clientId, days);
+            res.json({ success: true, data: { sparkline: data } });
+        } catch (error) { next(error); }
+    }
+
+    async getStreakHeatmap(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const year = parseInt(req.query.year) || new Date().getFullYear();
+            const data = await gamificationService.getStreakHeatmap(req.user.tenantId, clientId, year);
+            res.json({ success: true, data: { year, heatmap: data } });
+        } catch (error) { next(error); }
+    }
+
+    async getNextAchievement(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            const userId = clientId
+                ? await gamificationService._getUserIdForClient(clientId)
+                : req.user.id;
+            if (!userId) return res.status(400).json({ success: false, message: 'User ID non risolvibile' });
+            const next = await gamificationService.getNextAchievement(req.user.tenantId, userId);
+            res.json({ success: true, data: { next } });
+        } catch (error) { next(error); }
+    }
+
+    async getRanking(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const ranking = await gamificationService.getRanking(req.user.tenantId, clientId);
+            if (!ranking) return res.status(404).json({ success: false, message: 'Cliente non trovato' });
+            res.json({ success: true, data: { ranking } });
+        } catch (error) { next(error); }
+    }
+
+    async getWeeklyRecap(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const recap = await gamificationService.getWeeklyRecap(req.user.tenantId, clientId);
+            res.json({ success: true, data: { recap } });
+        } catch (error) { next(error); }
+    }
+
+    async getWeeklyGoals(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const result = await gamificationService.getWeeklyGoals(req.user.tenantId, clientId);
+            res.json({ success: true, data: result });
+        } catch (error) { next(error); }
+    }
+
+    async upsertWeeklyGoal(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const { goal_type, target_value } = req.body;
+            const allowedTypes = ['xp', 'workouts', 'challenges', 'streak'];
+            if (!allowedTypes.includes(goal_type)) {
+                return res.status(400).json({ success: false, message: `goal_type deve essere uno di: ${allowedTypes.join(', ')}` });
+            }
+            const target = parseInt(target_value);
+            if (!Number.isInteger(target) || target <= 0) {
+                return res.status(400).json({ success: false, message: 'target_value deve essere intero positivo' });
+            }
+            const result = await gamificationService.upsertWeeklyGoal(req.user.tenantId, clientId, goal_type, target);
+            res.json({ success: true, data: result });
+        } catch (error) { next(error); }
+    }
+
+    async deleteWeeklyGoal(req, res, next) {
+        try {
+            const clientId = await this._resolveClientId(req);
+            if (!clientId) return res.status(400).json({ success: false, message: 'Client ID richiesto' });
+            const goalId = parseInt(req.params.id);
+            const ok = await gamificationService.deleteWeeklyGoal(req.user.tenantId, clientId, goalId);
+            if (!ok) return res.status(404).json({ success: false, message: 'Goal non trovato' });
+            res.json({ success: true });
+        } catch (error) { next(error); }
     }
 }
 

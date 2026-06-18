@@ -17,7 +17,7 @@ const createChallengeSchema = Joi.object({
     name: Joi.string().min(2).max(255).required()
         .messages({ 'any.required': 'Nome sfida obbligatorio' }),
     description: Joi.string().max(2000).allow('', null),
-    type: Joi.string().valid('workout_count', 'streak', 'volume', 'duration', 'custom').required(),
+    type: Joi.string().valid('workout_count', 'total_volume', 'consecutive_days', 'specific_exercise', 'streak', 'volume', 'duration', 'custom').required(),
     targetValue: Joi.number().positive().required(),
     unit: Joi.string().max(50).allow('', null),
     startDate: Joi.date().required(),
