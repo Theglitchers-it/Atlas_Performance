@@ -4,6 +4,7 @@
  */
 
 const bookingService = require('../services/booking.service');
+const { assertClientAccess } = require('../utils/clientAccess');
 
 class BookingController {
     /**
@@ -12,8 +13,8 @@ class BookingController {
      */
     async getAppointments(req, res, next) {
         try {
-            const { clientId, trainerId, status, startDate, endDate, limit, page } = req.query;
-            const options = { clientId, trainerId, status, startDate, endDate, limit, page };
+            const { clientId, trainerId, status, startDate, endDate, locationId, limit, page } = req.query;
+            const options = { clientId, trainerId, status, startDate, endDate, locationId, limit, page };
 
             // Client role: scope to own appointments only
             if (req.user.role === 'client') {
@@ -39,6 +40,10 @@ class BookingController {
         try {
             const appointment = await bookingService.getAppointmentById(req.params.id, req.user.tenantId);
             if (!appointment) return res.status(404).json({ success: false, message: 'Appuntamento non trovato' });
+            // Ownership: un client accede solo ai propri appuntamenti (i trainer a tutti).
+            if (appointment.client_id) {
+                await assertClientAccess(appointment.client_id, req.user.tenantId, req.user);
+            }
             res.json({ success: true, data: { appointment } });
         } catch (error) {
             next(error);

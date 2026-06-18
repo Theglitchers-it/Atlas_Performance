@@ -22,12 +22,13 @@ class ClassController {
     async getClasses(req, res, next) {
         try {
             const tenantId = req.user.tenantId;
-            const { page, limit, activeOnly, instructorId } = req.query;
+            const { page, limit, activeOnly, instructorId, locationId } = req.query;
             const result = await classService.getClasses(tenantId, {
                 page: parseInt(page) || 1,
                 limit: parseInt(limit) || 20,
                 activeOnly: activeOnly === 'true',
-                instructorId: instructorId ? parseInt(instructorId) : null
+                instructorId: instructorId ? parseInt(instructorId) : null,
+                locationId: locationId ? parseInt(locationId) : null
             });
             res.json({ success: true, data: result });
         } catch (error) {

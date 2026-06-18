@@ -10,16 +10,18 @@ class BookingService {
      * Ottieni appuntamenti per tenant con filtri
      */
     async getAppointments(tenantId, options = {}) {
-        const { clientId, trainerId, status, startDate, endDate, limit = 50, page = 1 } = options;
+        const { clientId, trainerId, status, startDate, endDate, locationId, limit = 50, page = 1 } = options;
         const offset = (page - 1) * limit;
 
         let sql = `
             SELECT a.*,
                    c.first_name as client_first_name, c.last_name as client_last_name,
-                   u.first_name as trainer_first_name, u.last_name as trainer_last_name
+                   u.first_name as trainer_first_name, u.last_name as trainer_last_name,
+                   l.name as location_name, l.city as location_city
             FROM appointments a
             LEFT JOIN clients c ON a.client_id = c.id
             LEFT JOIN users u ON a.trainer_id = u.id
+            LEFT JOIN locations l ON a.location_id = l.id
             WHERE a.tenant_id = ?
         `;
         const params = [tenantId];
@@ -43,6 +45,10 @@ class BookingService {
         if (endDate) {
             sql += ' AND a.end_datetime <= ?';
             params.push(endDate);
+        }
+        if (locationId !== null && locationId !== undefined && locationId !== '') {
+            sql += ' AND a.location_id = ?';
+            params.push(Number(locationId));
         }
 
         // Count

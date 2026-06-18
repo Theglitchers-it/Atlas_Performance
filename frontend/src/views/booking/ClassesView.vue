@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from "vue";
 import { useClassesStore } from "@/store/classes";
 import { useAuthStore } from "@/store/auth";
+import api from "@/services/api";
 
 interface StatusConfig {
   label: string;
@@ -30,12 +31,56 @@ const auth = useAuthStore();
 const isTrainer = computed(() =>
   ["tenant_owner", "staff", "super_admin"].includes(auth.user?.role as string),
 );
+const isClient = computed(() => auth.user?.role === "client");
 
 // Tab attiva
 const activeTab = ref<"sessions" | "classes" | "my">("sessions");
 
 // Filtri sessioni
 const sessionStatusFilter = ref("");
+
+// === Filtro sede ===
+interface LocationOption {
+  id: number;
+  name: string;
+  city: string | null;
+}
+const availableLocations = ref<LocationOption[]>([]);
+// null = "Tutte le sedi", number = filtra per quella sede
+const selectedLocationFilter = ref<number | null>(null);
+
+const loadAvailableLocations = async () => {
+  try {
+    const res = await api.get("/locations");
+    const list = res.data?.data?.locations || res.data?.data || [];
+    availableLocations.value = Array.isArray(list)
+      ? list.filter((l: any) => l.status === "active")
+      : [];
+  } catch (err) {
+    console.error("[ClassesView] errore caricamento sedi:", err);
+  }
+};
+
+// Per atleti pre-fill da clients.preferred_location_id
+const loadAthletePreferredLocation = async () => {
+  if (!isClient.value) return;
+  try {
+    const res = await api.get("/clients/me");
+    const pref = res.data?.data?.client?.preferred_location_id;
+    if (pref) selectedLocationFilter.value = pref;
+  } catch (err) {
+    /* ignore */
+  }
+};
+
+const onLocationFilterChange = () => {
+  // Ricarica solo la tab attualmente visibile
+  if (activeTab.value === "classes") {
+    store.fetchClasses({
+      locationId: selectedLocationFilter.value || undefined,
+    });
+  }
+};
 
 // Modali
 const showCreateClassModal = ref(false);
@@ -148,8 +193,11 @@ const handleStatusFilter = (status: string) => {
 const handleTabChange = (tab: "sessions" | "classes" | "my") => {
   activeTab.value = tab;
   if (tab === "sessions") loadSessions();
-  else if (tab === "classes") store.fetchClasses();
-  else if (tab === "my") store.fetchMyClasses();
+  else if (tab === "classes") {
+    store.fetchClasses({
+      locationId: selectedLocationFilter.value || undefined,
+    });
+  } else if (tab === "my") store.fetchMyClasses();
 };
 
 const handleCreateClass = async () => {
@@ -237,12 +285,17 @@ const handleClientChange = (e: Event) => {
   else loadSessions();
 };
 
-onMounted(() => {
+onMounted(async () => {
+  await loadAvailableLocations();
+  await loadAthletePreferredLocation();
   loadSessions();
   if (isTrainer.value) {
     store.fetchClients();
-    store.fetchClasses();
   }
+  // Carica subito le classi se la tab corrente le richiede oppure se atleta che ne avr&aacute; bisogno
+  store.fetchClasses({
+    locationId: selectedLocationFilter.value || undefined,
+  });
 });
 </script>
 
@@ -314,40 +367,46 @@ onMounted(() => {
 
     <!-- ========== TAB SESSIONI ========== -->
     <div v-if="activeTab === 'sessions'">
-      <!-- Filtri + Azioni -->
-      <div class="flex flex-wrap items-center gap-2 mb-6">
-        <button
-          @click="handleStatusFilter('')"
-          :class="[
-            'px-3 py-1.5 rounded-full text-xs font-medium transition',
-            !sessionStatusFilter
-              ? 'bg-habit-cyan text-habit-bg'
-              : 'bg-habit-card text-habit-text-subtle hover:text-habit-text border border-habit-border',
-          ]"
-        >
-          Tutte
-        </button>
-        <button
-          v-for="(cfg, key) in sessionStatusConfig"
-          :key="key"
-          @click="handleStatusFilter(key)"
-          :class="[
-            'px-3 py-1.5 rounded-full text-xs font-medium transition',
-            sessionStatusFilter === key
-              ? 'bg-habit-cyan text-habit-bg'
-              : 'bg-habit-card text-habit-text-subtle hover:text-habit-text border border-habit-border',
-          ]"
-        >
-          {{ cfg.label }}
-        </button>
-        <div class="ml-auto" v-if="isTrainer">
+      <!-- Filtri + Azione CTA: row su sm+, stack su mobile -->
+      <div class="flex flex-col sm:flex-row sm:items-start gap-3 mb-6">
+        <!-- Chip filter status (wrap nella loro riga) -->
+        <div class="flex flex-wrap items-center gap-2 flex-1 min-w-0">
           <button
-            @click="showCreateSessionModal = true"
-            class="px-4 py-1.5 rounded-habit text-xs font-medium bg-habit-cyan text-habit-bg hover:bg-habit-cyan/80 transition"
+            @click="handleStatusFilter('')"
+            :class="[
+              'px-3 py-1.5 rounded-full text-xs font-medium transition',
+              !sessionStatusFilter
+                ? 'bg-habit-cyan text-habit-bg'
+                : 'bg-habit-card text-habit-text-subtle hover:text-habit-text border border-habit-border',
+            ]"
           >
-            + Nuova Sessione
+            Tutte
+          </button>
+          <button
+            v-for="(cfg, key) in sessionStatusConfig"
+            :key="key"
+            @click="handleStatusFilter(key)"
+            :class="[
+              'px-3 py-1.5 rounded-full text-xs font-medium transition',
+              sessionStatusFilter === key
+                ? 'bg-habit-cyan text-habit-bg'
+                : 'bg-habit-card text-habit-text-subtle hover:text-habit-text border border-habit-border',
+            ]"
+          >
+            {{ cfg.label }}
           </button>
         </div>
+        <!-- CTA principale: full-width mobile, auto sm+, colore primario orange -->
+        <button
+          v-if="isTrainer"
+          @click="showCreateSessionModal = true"
+          class="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-habit text-sm font-medium bg-habit-orange text-white hover:bg-habit-orange/90 transition-colors shadow-sm"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+          </svg>
+          Nuova Sessione
+        </button>
       </div>
 
       <!-- Loading -->
@@ -497,7 +556,7 @@ onMounted(() => {
 
     <!-- ========== TAB GESTIONE CLASSI (trainer) ========== -->
     <div v-if="activeTab === 'classes' && isTrainer">
-      <div class="flex justify-between items-center mb-4">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
         <h2 class="text-lg font-semibold text-habit-text">
           Classi configurate
         </h2>
@@ -507,6 +566,21 @@ onMounted(() => {
         >
           + Nuova Classe
         </button>
+      </div>
+
+      <!-- Filtro sede (visibile se ci sono almeno 2 sedi) -->
+      <div v-if="availableLocations.length > 0" class="mb-4 flex items-center gap-2">
+        <label class="text-xs font-medium text-habit-text-subtle">Sede:</label>
+        <select
+          v-model="selectedLocationFilter"
+          @change="onLocationFilterChange"
+          class="text-xs bg-habit-card border border-habit-border rounded-lg px-3 py-1.5 text-habit-text focus:outline-none focus:border-habit-orange"
+        >
+          <option :value="null">Tutte le sedi</option>
+          <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id">
+            {{ loc.name }}<span v-if="loc.city"> &mdash; {{ loc.city }}</span>
+          </option>
+        </select>
       </div>
 
       <!-- Loading -->
@@ -574,7 +648,13 @@ onMounted(() => {
             </div>
             <div>&#128101; Max {{ cls.max_participants }} partecipanti</div>
             <div>&#9201; {{ cls.duration_min }} min</div>
-            <div v-if="cls.location">&#128205; {{ cls.location }}</div>
+            <div v-if="cls.location_name || cls.location">
+              &#128205;
+              <span v-if="cls.location_name" class="text-habit-text">
+                {{ cls.location_name }}<span v-if="cls.location_city"> &middot; {{ cls.location_city }}</span>
+              </span>
+              <span v-else>{{ cls.location }}</span>
+            </div>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-xs text-habit-text-subtle"

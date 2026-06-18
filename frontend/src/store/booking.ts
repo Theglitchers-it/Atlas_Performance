@@ -114,6 +114,7 @@ export const useBookingStore = defineStore('booking', () => {
             if (filters.value.clientId) params.clientId = filters.value.clientId
             if (filters.value.trainerId) params.trainerId = filters.value.trainerId
             if (filters.value.status) params.status = filters.value.status
+            if ((filters.value as any).locationId) params.locationId = (filters.value as any).locationId
 
             const response = await api.get('/booking/appointments', { params })
             appointments.value = response.data.data.appointments || []
@@ -216,7 +217,7 @@ export const useBookingStore = defineStore('booking', () => {
     }
 
     const resetFilters = (): void => {
-        filters.value = { clientId: null, trainerId: null, status: null }
+        filters.value = { clientId: null, trainerId: null, status: null, locationId: null }
         fetchAppointments()
     }
 

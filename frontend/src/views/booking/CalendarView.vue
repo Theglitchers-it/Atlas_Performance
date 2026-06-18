@@ -13,6 +13,7 @@ import CalendarSkeleton from "@/components/skeleton/CalendarSkeleton.vue";
 import { useSlowRequest } from "@/composables/useSlowRequest";
 import PullToRefresh from "@/components/mobile/PullToRefresh.vue";
 import type { Appointment, CreateAppointmentForm } from "@/types";
+import api from "@/services/api";
 
 const store = useBookingStore();
 const auth = useAuthStore();
@@ -540,6 +541,31 @@ const handleFilterClient = (e: Event) =>
   store.setFilter("clientId", (e.target as HTMLSelectElement).value || null);
 const handleFilterTrainer = (e: Event) =>
   store.setFilter("trainerId", (e.target as HTMLSelectElement).value || null);
+const handleFilterLocation = (e: Event) =>
+  store.setFilter("locationId" as any, (e.target as HTMLSelectElement).value || null);
+
+// === Sedi disponibili (selettore filtro) ===
+interface LocationOption { id: number; name: string; city: string | null }
+const availableLocations = ref<LocationOption[]>([]);
+const loadLocationsForCalendar = async () => {
+  try {
+    const res = await api.get("/locations");
+    const list = res.data?.data?.locations || res.data?.data || [];
+    availableLocations.value = Array.isArray(list)
+      ? list.filter((l: any) => l.status === "active")
+      : [];
+  } catch { /* ignore */ }
+};
+// Pre-fill atleta da preferred_location_id
+const isClient = computed(() => auth.user?.role === "client");
+const loadAthletePreferredLocation = async () => {
+  if (!isClient.value) return;
+  try {
+    const res = await api.get("/clients/me");
+    const pref = res.data?.data?.client?.preferred_location_id;
+    if (pref) store.setFilter("locationId" as any, pref);
+  } catch { /* ignore */ }
+};
 
 // --- Mobile filter toggle ---
 const showMobileFilters = ref(false);
@@ -576,29 +602,31 @@ const handlePullRefresh = async (done: () => void) => {
 };
 
 // --- Lifecycle ---
-onMounted(() => {
+onMounted(async () => {
+  await loadLocationsForCalendar();
+  await loadAthletePreferredLocation();
   store.initialize();
 });
 </script>
 
 <template>
   <div class="min-h-screen bg-habit-bg">
-    <!-- Header -->
-    <div
-      class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
-    >
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
-          Calendario
+    <!-- Header glass-mesh 2026 -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 p-5 sm:p-6 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-blue-500/15 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-habit-cyan/10 blur-3xl"></div>
+      <div class="relative">
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-habit-text tracking-tight leading-tight">
+          <span class="bg-gradient-to-r from-blue-500 to-habit-cyan bg-clip-text text-transparent">Calendario</span>
         </h1>
-        <p class="text-habit-text-subtle text-sm mt-1">
+        <p class="text-habit-text-muted text-sm mt-1.5">
           Gestisci appuntamenti e pianifica le sessioni
         </p>
       </div>
       <button
         v-if="isTrainer"
         @click="openCreateModal()"
-        class="px-4 py-2 bg-habit-cyan text-white rounded-habit hover:bg-cyan-500 transition-colors text-sm font-medium flex items-center gap-2"
+        class="relative px-4 py-2 bg-gradient-to-r from-habit-cyan to-blue-600 text-white rounded-2xl hover:shadow-lg hover:shadow-habit-cyan/30 transition-all text-sm font-semibold flex items-center gap-2"
       >
         <svg
           class="w-4 h-4"
@@ -620,14 +648,14 @@ onMounted(() => {
     <!-- Error -->
     <div
       v-if="error"
-      class="bg-red-500/10 border border-red-500/30 rounded-habit p-3 mb-4"
+      class="bg-red-500/10 border border-red-500/30 rounded-2xl p-3 mb-4"
     >
       <p class="text-red-400 text-sm">{{ error }}</p>
     </div>
 
     <!-- Toolbar -->
     <div
-      class="bg-habit-card border border-habit-border rounded-habit p-3 mb-6"
+      class="bg-habit-card border border-white/10 rounded-2xl p-3 mb-6"
     >
       <div
         class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
@@ -637,7 +665,7 @@ onMounted(() => {
           <div class="flex items-center gap-2">
             <button
               @click="navigatePrev()"
-              class="p-2 rounded-habit border border-habit-border text-habit-text-subtle hover:text-habit-text hover:border-habit-border transition-colors"
+              class="p-2 rounded-2xl border border-habit-border text-habit-text-subtle hover:text-habit-text hover:border-habit-border transition-colors"
             >
               <svg
                 class="w-4 h-4"
@@ -655,13 +683,13 @@ onMounted(() => {
             </button>
             <button
               @click="goToToday()"
-              class="px-3 py-1.5 text-xs text-habit-text-muted border border-habit-border rounded-habit hover:bg-habit-bg-light transition-colors"
+              class="px-3 py-1.5 text-xs text-habit-text-muted border border-white/10 rounded-2xl hover:bg-habit-bg-light transition-colors"
             >
               Oggi
             </button>
             <button
               @click="navigateNext()"
-              class="p-2 rounded-habit border border-habit-border text-habit-text-subtle hover:text-habit-text hover:border-habit-border transition-colors"
+              class="p-2 rounded-2xl border border-habit-border text-habit-text-subtle hover:text-habit-text hover:border-habit-border transition-colors"
             >
               <svg
                 class="w-4 h-4"
@@ -685,7 +713,7 @@ onMounted(() => {
           <button
             v-if="isTrainer"
             @click="showMobileFilters = !showMobileFilters"
-            class="sm:hidden p-2 rounded-habit border border-habit-border text-habit-text-subtle hover:text-habit-text transition-colors"
+            class="sm:hidden p-2 rounded-2xl border border-habit-border text-habit-text-subtle hover:text-habit-text transition-colors"
             :class="{ 'border-habit-cyan text-habit-cyan': showMobileFilters }"
           >
             <svg
@@ -707,7 +735,7 @@ onMounted(() => {
         <!-- Row 2: View toggle pills -->
         <div class="flex items-center justify-between gap-2">
           <div
-            class="flex rounded-habit border border-habit-border overflow-hidden"
+            class="flex rounded-2xl border border-habit-border overflow-hidden"
           >
             <button
               @click="setCalendarView('day')"
@@ -748,7 +776,7 @@ onMounted(() => {
             <select
               :value="filters.clientId || ''"
               @change="handleFilterClient"
-              class="bg-habit-bg-light border border-habit-border rounded-habit px-2 py-1.5 text-xs text-habit-text focus:border-habit-cyan outline-none"
+              class="bg-habit-bg-light border border-white/10 rounded-2xl px-2 py-1.5 text-xs text-habit-text focus:border-habit-cyan outline-none"
             >
               <option value="">Tutti i clienti</option>
               <option v-for="c in clients" :key="c.id" :value="c.id">
@@ -758,11 +786,35 @@ onMounted(() => {
             <select
               :value="filters.trainerId || ''"
               @change="handleFilterTrainer"
-              class="bg-habit-bg-light border border-habit-border rounded-habit px-2 py-1.5 text-xs text-habit-text focus:border-habit-cyan outline-none"
+              class="bg-habit-bg-light border border-white/10 rounded-2xl px-2 py-1.5 text-xs text-habit-text focus:border-habit-cyan outline-none"
             >
               <option value="">Tutti i trainer</option>
               <option v-for="t in trainers" :key="t.id" :value="t.id">
                 {{ t.first_name }} {{ t.last_name }}
+              </option>
+            </select>
+            <select
+              v-if="availableLocations.length > 0"
+              :value="(filters as any).locationId || ''"
+              @change="handleFilterLocation"
+              class="bg-habit-bg-light border border-white/10 rounded-2xl px-2 py-1.5 text-xs text-habit-text focus:border-habit-cyan outline-none"
+            >
+              <option value="">Tutte le sedi</option>
+              <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id">
+                {{ loc.name }}<span v-if="loc.city"> &mdash; {{ loc.city }}</span>
+              </option>
+            </select>
+          </div>
+          <!-- Client-only location filter (atleta vede sempre selector sede) -->
+          <div v-else-if="isClient && availableLocations.length > 0" class="hidden sm:flex items-center gap-2">
+            <select
+              :value="(filters as any).locationId || ''"
+              @change="handleFilterLocation"
+              class="bg-habit-bg-light border border-white/10 rounded-2xl px-2 py-1.5 text-xs text-habit-text focus:border-habit-cyan outline-none"
+            >
+              <option value="">Tutte le sedi</option>
+              <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id">
+                {{ loc.name }}<span v-if="loc.city"> &mdash; {{ loc.city }}</span>
               </option>
             </select>
           </div>
@@ -776,7 +828,7 @@ onMounted(() => {
           <select
             :value="filters.clientId || ''"
             @change="handleFilterClient"
-            class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-xs text-habit-text focus:border-habit-cyan outline-none"
+            class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-xs text-habit-text focus:border-habit-cyan outline-none"
           >
             <option value="">Tutti i clienti</option>
             <option v-for="c in clients" :key="c.id" :value="c.id">
@@ -786,7 +838,7 @@ onMounted(() => {
           <select
             :value="filters.trainerId || ''"
             @change="handleFilterTrainer"
-            class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-xs text-habit-text focus:border-habit-cyan outline-none"
+            class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-xs text-habit-text focus:border-habit-cyan outline-none"
           >
             <option value="">Tutti i trainer</option>
             <option v-for="t in trainers" :key="t.id" :value="t.id">
@@ -842,7 +894,7 @@ onMounted(() => {
           @click="showCreateModal = false"
         ></div>
         <div
-          class="relative bg-habit-card border border-habit-border rounded-habit p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+          class="relative bg-habit-card border border-white/10 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
         >
           <h3 class="text-habit-text font-semibold text-lg mb-4">
             Nuovo Appuntamento
@@ -856,7 +908,7 @@ onMounted(() => {
               >
               <select
                 v-model="createForm.clientId"
-                class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
               >
                 <option value="">Seleziona cliente</option>
                 <option v-for="c in clients" :key="c.id" :value="c.id">
@@ -872,7 +924,7 @@ onMounted(() => {
               >
               <select
                 v-model="createForm.trainerId"
-                class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
               >
                 <option value="">Seleziona trainer</option>
                 <option v-for="t in trainers" :key="t.id" :value="t.id">
@@ -889,7 +941,7 @@ onMounted(() => {
               <input
                 v-model="createForm.date"
                 type="date"
-                class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
               />
             </div>
 
@@ -902,7 +954,7 @@ onMounted(() => {
                 <input
                   v-model="createForm.startTime"
                   type="time"
-                  class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                  class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
                 />
               </div>
               <div>
@@ -913,7 +965,7 @@ onMounted(() => {
                 <input
                   v-model="createForm.endTime"
                   type="time"
-                  class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                  class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
                 />
               </div>
             </div>
@@ -925,7 +977,7 @@ onMounted(() => {
               >
               <select
                 v-model="createForm.appointmentType"
-                class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
               >
                 <option value="training">Allenamento</option>
                 <option value="assessment">Valutazione</option>
@@ -943,7 +995,7 @@ onMounted(() => {
                 v-model="createForm.location"
                 type="text"
                 placeholder="Palestra, online..."
-                class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
+                class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none"
               />
             </div>
 
@@ -956,7 +1008,7 @@ onMounted(() => {
                 v-model="createForm.notes"
                 rows="2"
                 placeholder="Note opzionali..."
-                class="w-full bg-habit-bg-light border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none resize-none"
+                class="w-full bg-habit-bg-light border border-white/10 rounded-2xl px-3 py-2 text-habit-text text-sm focus:border-habit-cyan outline-none resize-none"
               ></textarea>
             </div>
           </div>
@@ -964,7 +1016,7 @@ onMounted(() => {
           <div class="flex gap-3 mt-6">
             <button
               @click="showCreateModal = false"
-              class="flex-1 px-4 py-2 border border-habit-border text-habit-text-muted rounded-habit hover:bg-habit-bg-light transition-colors text-sm"
+              class="flex-1 px-4 py-2 border border-habit-border text-habit-text-muted rounded-2xl hover:bg-habit-bg-light transition-colors text-sm"
             >
               Annulla
             </button>
@@ -976,7 +1028,7 @@ onMounted(() => {
                 !createForm.trainerId ||
                 !createForm.date
               "
-              class="flex-1 px-4 py-2 bg-habit-cyan text-white rounded-habit hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              class="flex-1 px-4 py-2 bg-habit-cyan text-white rounded-2xl hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {{ isCreating ? "Creazione..." : "Crea" }}
             </button>
@@ -996,7 +1048,7 @@ onMounted(() => {
           @click="showDetailModal = false"
         ></div>
         <div
-          class="relative bg-habit-card border border-habit-border rounded-habit p-6 w-full max-w-sm"
+          class="relative bg-habit-card border border-white/10 rounded-2xl p-6 w-full max-w-sm"
         >
           <div class="flex items-start justify-between mb-4">
             <h3 class="text-habit-text font-semibold text-lg">
@@ -1094,7 +1146,7 @@ onMounted(() => {
             <button
               v-if="selectedAppointment.status === 'scheduled'"
               @click="handleStatusChange(selectedAppointment, 'confirmed')"
-              class="px-3 py-1.5 bg-blue-600 text-white rounded-habit hover:bg-blue-500 transition-colors text-xs"
+              class="px-3 py-1.5 bg-blue-600 text-white rounded-2xl hover:bg-blue-500 transition-colors text-xs"
             >
               Conferma
             </button>
@@ -1104,7 +1156,7 @@ onMounted(() => {
                 selectedAppointment.status === 'scheduled'
               "
               @click="handleStatusChange(selectedAppointment, 'completed')"
-              class="px-3 py-1.5 bg-emerald-600 text-white rounded-habit hover:bg-emerald-500 transition-colors text-xs"
+              class="px-3 py-1.5 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-500 transition-colors text-xs"
             >
               Completato
             </button>
@@ -1114,13 +1166,13 @@ onMounted(() => {
                 selectedAppointment.status !== 'completed'
               "
               @click="handleStatusChange(selectedAppointment, 'cancelled')"
-              class="px-3 py-1.5 border border-red-500/50 text-red-400 rounded-habit hover:bg-red-500/10 transition-colors text-xs"
+              class="px-3 py-1.5 border border-red-500/50 text-red-400 rounded-2xl hover:bg-red-500/10 transition-colors text-xs"
             >
               Annulla
             </button>
             <button
               @click="openDeleteModal(selectedAppointment)"
-              class="px-3 py-1.5 border border-habit-border text-habit-text-subtle rounded-habit hover:text-red-400 hover:border-red-500/50 transition-colors text-xs ml-auto"
+              class="px-3 py-1.5 border border-habit-border text-habit-text-subtle rounded-2xl hover:text-red-400 hover:border-red-500/50 transition-colors text-xs ml-auto"
             >
               Elimina
             </button>
@@ -1136,13 +1188,13 @@ onMounted(() => {
             <button
               v-if="selectedAppointment.status === 'scheduled'"
               @click="handleStatusChange(selectedAppointment, 'confirmed')"
-              class="px-3 py-1.5 bg-blue-600 text-white rounded-habit hover:bg-blue-500 transition-colors text-xs"
+              class="px-3 py-1.5 bg-blue-600 text-white rounded-2xl hover:bg-blue-500 transition-colors text-xs"
             >
               Conferma
             </button>
             <button
               @click="handleStatusChange(selectedAppointment, 'cancelled')"
-              class="px-3 py-1.5 border border-red-500/50 text-red-400 rounded-habit hover:bg-red-500/10 transition-colors text-xs"
+              class="px-3 py-1.5 border border-red-500/50 text-red-400 rounded-2xl hover:bg-red-500/10 transition-colors text-xs"
             >
               Annulla Appuntamento
             </button>
@@ -1150,7 +1202,7 @@ onMounted(() => {
 
           <button
             @click="showDetailModal = false"
-            class="w-full mt-3 px-4 py-2 border border-habit-border text-habit-text-muted rounded-habit hover:bg-habit-bg-light transition-colors text-sm"
+            class="w-full mt-3 px-4 py-2 border border-habit-border text-habit-text-muted rounded-2xl hover:bg-habit-bg-light transition-colors text-sm"
           >
             Chiudi
           </button>

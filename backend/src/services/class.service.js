@@ -10,7 +10,7 @@ class ClassService {
     // === CLASSI ===
 
     async getClasses(tenantId, options = {}) {
-        const { page = 1, limit = 20, activeOnly = false, instructorId = null } = options;
+        const { page = 1, limit = 20, activeOnly = false, instructorId = null, locationId = null } = options;
         const offset = (page - 1) * limit;
 
         let where = 'WHERE c.tenant_id = ?';
@@ -23,6 +23,10 @@ class ClassService {
             where += ' AND c.instructor_id = ?';
             params.push(instructorId);
         }
+        if (locationId !== null && locationId !== undefined && locationId !== '') {
+            where += ' AND c.location_id = ?';
+            params.push(Number(locationId));
+        }
 
         const [countResult] = await query(
             `SELECT COUNT(*) as total FROM classes c ${where}`, params
@@ -33,9 +37,12 @@ class ClassService {
             SELECT c.*,
                    u.first_name AS instructor_first_name,
                    u.last_name AS instructor_last_name,
+                   l.name AS location_name,
+                   l.city AS location_city,
                    (SELECT COUNT(*) FROM class_sessions cs WHERE cs.class_id = c.id AND cs.status = 'scheduled') AS upcoming_sessions
             FROM classes c
             LEFT JOIN users u ON c.instructor_id = u.id
+            LEFT JOIN locations l ON c.location_id = l.id
             ${where}
             ORDER BY c.created_at DESC
             LIMIT ? OFFSET ?
@@ -60,11 +67,11 @@ class ClassService {
     }
 
     async createClass(tenantId, data) {
-        const { name, description, instructorId, maxParticipants, durationMin, location, recurringPattern } = data;
+        const { name, description, instructorId, maxParticipants, durationMin, location, locationId, recurringPattern } = data;
         const result = await query(`
-            INSERT INTO classes (tenant_id, name, description, instructor_id, max_participants, duration_min, location, recurring_pattern)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [tenantId, name, description || null, instructorId, maxParticipants || 10, durationMin || 60, location || null, recurringPattern ? JSON.stringify(recurringPattern) : null]);
+            INSERT INTO classes (tenant_id, name, description, instructor_id, max_participants, duration_min, location, location_id, recurring_pattern)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [tenantId, name, description || null, instructorId, maxParticipants || 10, durationMin || 60, location || null, locationId || null, recurringPattern ? JSON.stringify(recurringPattern) : null]);
         return this.getClassById(tenantId, result.insertId);
     }
 
@@ -76,6 +83,7 @@ class ClassService {
         if (data.maxParticipants !== undefined) { fields.push('max_participants = ?'); params.push(data.maxParticipants); }
         if (data.durationMin !== undefined) { fields.push('duration_min = ?'); params.push(data.durationMin); }
         if (data.location !== undefined) { fields.push('location = ?'); params.push(data.location); }
+        if (data.locationId !== undefined) { fields.push('location_id = ?'); params.push(data.locationId || null); }
         if (data.isActive !== undefined) { fields.push('is_active = ?'); params.push(data.isActive ? 1 : 0); }
         if (data.recurringPattern !== undefined) { fields.push('recurring_pattern = ?'); params.push(JSON.stringify(data.recurringPattern)); }
 

@@ -32,9 +32,8 @@ const updateClassSchema = Joi.object({
 
 const createSessionSchema = Joi.object({
     classId: Joi.number().integer().required(),
-    date: Joi.date().required(),
-    startTime: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
-    endTime: Joi.string().pattern(/^\d{2}:\d{2}$/).allow(null),
+    startDatetime: Joi.date().required(),
+    endDatetime: Joi.date().required(),
     notes: Joi.string().max(500).allow('', null),
     isRecurring: Joi.boolean().default(false),
     recurringWeeks: Joi.number().integer().min(1).max(52).allow(null)

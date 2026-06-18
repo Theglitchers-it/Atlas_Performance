@@ -60,6 +60,7 @@ export const useClassesStore = defineStore('classes', () => {
         limit: classesPagination.value.limit,
         activeOnly: options.activeOnly || false
       }
+      if (options.locationId) params.locationId = options.locationId
       const response = await api.get('/classes', { params })
       classes.value = response.data.data.classes || []
       classesPagination.value = response.data.data.pagination || classesPagination.value
