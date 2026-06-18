@@ -14,7 +14,11 @@ jest.mock('../src/config/database', () => ({
 const volumeService = require('../src/services/volume.service');
 
 beforeEach(() => {
-    jest.clearAllMocks();
+    // resetAllMocks (not clearAllMocks) so queued mockResolvedValueOnce
+    // values do NOT bleed between tests. clearAllMocks only resets call
+    // data; it leaves the queued once-implementations in place, which would
+    // cause one test's leftover return value to be consumed by the next.
+    jest.resetAllMocks();
 });
 
 // =============================================
@@ -33,9 +37,9 @@ describe('VolumeService.calculateWeeklyVolume', () => {
             { program_id: 5, mesocycle_id: 3, week_number: 2 }
         ]);
 
-        // Third + Fourth: upsert for each muscle group
-        mockQuery.mockResolvedValueOnce({ affectedRows: 1 });
-        mockQuery.mockResolvedValueOnce({ affectedRows: 1 });
+        // Third: single batched upsert for ALL muscle groups (N+1 fix:
+        // one INSERT ... VALUES (...),(...) instead of one query per group)
+        mockQuery.mockResolvedValueOnce({ affectedRows: 2 });
 
         const result = await volumeService.calculateWeeklyVolume(10, 'tenant-1', '2025-03-03');
 
@@ -53,14 +57,18 @@ describe('VolumeService.calculateWeeklyVolume', () => {
         expect(programCall[0]).toContain('tenant_id');
         expect(programCall[1]).toContain('tenant-1');
 
-        // Upsert queries must include tenant_id
+        // Single batched upsert query must include tenant_id and carry
+        // params for BOTH muscle groups (12 bound params per row).
         const upsertCall1 = mockQuery.mock.calls[2];
         expect(upsertCall1[0]).toContain('INSERT INTO weekly_volume_analytics');
         expect(upsertCall1[0]).toContain('tenant_id');
-        expect(upsertCall1[1][0]).toBe('tenant-1');
+        expect(upsertCall1[0]).toContain('ON DUPLICATE KEY UPDATE');
+        expect(upsertCall1[1][0]).toBe('tenant-1');           // 1st row tenant_id
+        expect(upsertCall1[1]).toHaveLength(24);              // 2 rows * 12 params
+        expect(upsertCall1[1][12]).toBe('tenant-1');          // 2nd row tenant_id
 
-        // Total calls: 1 (volume) + 1 (program) + 2 (upserts) = 4
-        expect(mockQuery).toHaveBeenCalledTimes(4);
+        // Total calls: 1 (volume) + 1 (program) + 1 (batched upsert) = 3
+        expect(mockQuery).toHaveBeenCalledTimes(3);
     });
 
     test('handles no active program gracefully', async () => {

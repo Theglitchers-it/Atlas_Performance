@@ -22,9 +22,14 @@ jest.mock('../src/config/database', () => ({
     query: (...args) => mockQuery(...args)
 }));
 
-// Stub assertClientAccess: introdotto post security-review, non blocca il test
+// Stub clientAccess: introdotto post security-review.
+// assertClientAccess valida E ritorna il clientId risolto (il controller usa il
+// valore di ritorno come clientId passato al service), quindi il mock deve
+// restituire l'id ricevuto, non undefined.
+// getOwnClientId risolve l'alias 'me' al profilo client dell'utente loggato.
 jest.mock('../src/utils/clientAccess', () => ({
-    assertClientAccess: jest.fn().mockResolvedValue(undefined)
+    assertClientAccess: jest.fn(async (clientId) => clientId),
+    getOwnClientId: jest.fn().mockResolvedValue(null)
 }));
 
 const progressController = require('../src/controllers/progress.controller');
@@ -339,6 +344,8 @@ describe('ProgressController', () => {
 
     describe('deleteRecord', () => {
         test('returns success on deletion', async () => {
+            // Controller ora fa SELECT prima del DELETE per security check (assertClientAccess sul client_id del record)
+            mockQuery.mockResolvedValueOnce([{ client_id: 5 }]); // SELECT record
             progressService.deleteRecord.mockResolvedValue(true);
 
             const req = mockReq({ params: { recordId: '15' } });
@@ -351,6 +358,7 @@ describe('ProgressController', () => {
         });
 
         test('returns 404 when record not found', async () => {
+            mockQuery.mockResolvedValueOnce([{ client_id: 5 }]); // SELECT record OK
             progressService.deleteRecord.mockResolvedValue(false);
 
             const req = mockReq({ params: { recordId: '999' } });
@@ -366,6 +374,7 @@ describe('ProgressController', () => {
         });
 
         test('calls next(error) on service failure', async () => {
+            mockQuery.mockResolvedValueOnce([{ client_id: 5 }]); // SELECT record OK
             const error = new Error('DB error');
             progressService.deleteRecord.mockRejectedValue(error);
 

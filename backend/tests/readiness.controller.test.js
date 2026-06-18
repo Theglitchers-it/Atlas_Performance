@@ -48,7 +48,7 @@ describe('ReadinessController', () => {
             const checkin = { id: 1, sleepQuality: 8, stress: 3, readinessScore: 7.5 };
             readinessService.getCheckin.mockResolvedValue(checkin);
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getToday(req, res, mockNext);
@@ -67,7 +67,7 @@ describe('ReadinessController', () => {
         test('returns null checkin when no data for today', async () => {
             readinessService.getCheckin.mockResolvedValue(null);
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getToday(req, res, mockNext);
@@ -82,7 +82,7 @@ describe('ReadinessController', () => {
             const error = new Error('DB error');
             readinessService.getCheckin.mockRejectedValue(error);
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getToday(req, res, mockNext);
@@ -100,7 +100,7 @@ describe('ReadinessController', () => {
             readinessService.getHistory.mockResolvedValue(checkins);
 
             const req = mockReq({
-                params: { clientId: '5' },
+                clientId: 5,
                 query: { startDate: '2025-03-01', endDate: '2025-03-31', limit: '15' }
             });
             const res = mockRes();
@@ -121,7 +121,7 @@ describe('ReadinessController', () => {
         test('uses default limit of 30 when not specified', async () => {
             readinessService.getHistory.mockResolvedValue([]);
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getHistory(req, res, mockNext);
@@ -135,7 +135,7 @@ describe('ReadinessController', () => {
             const error = new Error('Client not found');
             readinessService.getHistory.mockRejectedValue(error);
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getHistory(req, res, mockNext);
@@ -151,7 +151,7 @@ describe('ReadinessController', () => {
             readinessService.checkReadinessAlerts.mockResolvedValue();
 
             const req = mockReq({
-                params: { clientId: '5' },
+                clientId: 5,
                 body: { sleepQuality: 7, stress: 4, soreness: 5, mood: 6 }
             });
             const res = mockRes();
@@ -172,7 +172,7 @@ describe('ReadinessController', () => {
             readinessService.checkReadinessAlerts.mockResolvedValue();
 
             const req = mockReq({
-                params: { clientId: '8' },
+                clientId: 8,
                 body: { sleepQuality: 3, stress: 9 }
             });
             const res = mockRes();
@@ -187,7 +187,7 @@ describe('ReadinessController', () => {
             const error = new Error('Validation error');
             readinessService.saveCheckin.mockRejectedValue(error);
 
-            const req = mockReq({ params: { clientId: '5' }, body: {} });
+            const req = mockReq({ clientId: 5, body: {} });
             const res = mockRes();
 
             await readinessController.saveCheckin(req, res, mockNext);
@@ -203,7 +203,7 @@ describe('ReadinessController', () => {
             readinessService.getAverageReadiness.mockResolvedValue(average);
 
             const req = mockReq({
-                params: { clientId: '5' },
+                clientId: 5,
                 query: { days: '14' }
             });
             const res = mockRes();
@@ -220,7 +220,7 @@ describe('ReadinessController', () => {
         test('uses default 7 days when not specified', async () => {
             readinessService.getAverageReadiness.mockResolvedValue({ avgScore: 6.8 });
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getAverage(req, res, mockNext);
@@ -232,7 +232,7 @@ describe('ReadinessController', () => {
             const error = new Error('DB error');
             readinessService.getAverageReadiness.mockRejectedValue(error);
 
-            const req = mockReq({ params: { clientId: '5' } });
+            const req = mockReq({ clientId: 5 });
             const res = mockRes();
 
             await readinessController.getAverage(req, res, mockNext);
