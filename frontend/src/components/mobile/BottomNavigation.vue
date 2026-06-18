@@ -41,16 +41,16 @@ const unreadCount = computed<number>(() => chatStore.totalUnread || 0);
 // Bottom nav items per trainer
 const trainerNav: NavItem[] = [
   {
-    name: "Clienti",
-    path: "/clients",
-    icon: ClipboardDocumentListIcon,
-    iconActive: ClipboardSolid,
-  },
-  {
     name: "Home",
     path: "/",
     icon: HomeIcon,
     iconActive: HomeIconSolid,
+  },
+  {
+    name: "Clienti",
+    path: "/clients",
+    icon: ClipboardDocumentListIcon,
+    iconActive: ClipboardSolid,
   },
   {
     name: "Chat",
@@ -65,22 +65,22 @@ const trainerNav: NavItem[] = [
     icon: TrophyIcon,
     iconActive: TrophySolid,
   },
-  { name: "Profilo", path: "/profile", icon: UserIcon, iconActive: UserSolid },
+  { name: "Profilo", path: "/settings", icon: UserIcon, iconActive: UserSolid },
 ];
 
 // Bottom nav items per client
 const clientNav: NavItem[] = [
   {
-    name: "Workout",
-    path: "/my-workout",
-    icon: ClipboardDocumentListIcon,
-    iconActive: ClipboardSolid,
-  },
-  {
     name: "Home",
     path: "/my-dashboard",
     icon: HomeIcon,
     iconActive: HomeIconSolid,
+  },
+  {
+    name: "Workout",
+    path: "/my-workout",
+    icon: ClipboardDocumentListIcon,
+    iconActive: ClipboardSolid,
   },
   {
     name: "Chat",
@@ -91,11 +91,11 @@ const clientNav: NavItem[] = [
   },
   {
     name: "Check-in",
-    path: "/checkin",
+    path: "/readiness",
     icon: HeartIcon,
     iconActive: HeartSolid,
   },
-  { name: "Profilo", path: "/profile", icon: UserIcon, iconActive: UserSolid },
+  { name: "Profilo", path: "/settings", icon: UserIcon, iconActive: UserSolid },
 ];
 
 const navItems = computed<NavItem[]>(() =>
@@ -116,7 +116,7 @@ const isActive = (path: string): boolean => {
     class="fixed bottom-0 left-0 right-0 z-50 safe-bottom safe-left safe-right"
   >
     <div
-      class="relative bg-habit-card/95 backdrop-blur-xl border-t border-habit-border/30 dark:border-transparent"
+      class="relative bg-habit-card/95 backdrop-blur-md border-t border-black/5 dark:border-transparent"
     >
       <div class="flex items-end justify-around px-2 pb-1 pt-1.5">
         <router-link

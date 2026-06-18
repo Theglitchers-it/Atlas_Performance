@@ -78,14 +78,16 @@ app.mount('#app')
 // In dev mode, registerSW() è un no-op che non causa errori.
 import { registerSW } from 'virtual:pwa-register'
 
-registerSW({
-    onRegisteredSW(swScriptUrl: string, _registration: ServiceWorkerRegistration | undefined) {
-        if (import.meta.env.DEV) console.log('[SW] Registrato con successo, script:', swScriptUrl)
-    },
-    onOfflineReady() {
-        if (import.meta.env.DEV) console.log('[SW] App pronta per uso offline')
-    }
-})
+if (import.meta.env.PROD) {
+    registerSW({
+        onRegisteredSW(swScriptUrl: string, _registration: ServiceWorkerRegistration | undefined) {
+            console.log('[SW] Registrato con successo, script:', swScriptUrl)
+        },
+        onOfflineReady() {
+            console.log('[SW] App pronta per uso offline')
+        }
+    })
+}
 
 // PWA Install Prompt
 let deferredPrompt: any = null

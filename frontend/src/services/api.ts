@@ -7,6 +7,19 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 import router from '@/router'
 
+// Azzera lo state auth in Pinia quando la sessione e' definitivamente persa.
+// Import dinamico per evitare ciclo di dipendenze (auth store importa api).
+const clearAuthState = async (): Promise<void> => {
+    try {
+        const { useAuthStore } = await import('@/store/auth')
+        const authStore = useAuthStore()
+        // setta user=null e initialAuthChecked=true cosi il router guard redirige
+        ;(authStore as any).user = null
+    } catch {
+        // se il modulo non e' ancora caricato, ignora — il redirect al login bastera
+    }
+}
+
 // Rileva se siamo in Capacitor nativo
 const isNativePlatform = (): boolean => {
     try {
@@ -179,25 +192,36 @@ api.interceptors.response.use(
                 return api(originalRequest)
             }
 
-            // Refresh failed - redirect to login
+            // Refresh failed - redirect to login + pulizia state
             stopProactiveRefresh()
+            await clearAuthState()
             router.push({ name: 'Login', query: { expired: 'true' } })
             return Promise.reject(error)
         }
 
-        // Generic 401 - redirect to login
-        // Skip se refresh in corso (le richieste accodate verranno ritentate)
-        // Skip per /auth/me — checkAuth() gestisce questo caso nel auth store
-        // Skip per /auth/refresh-token — gestito sopra
+        // Generic 401 - redirect to login + pulizia state.
+        // Skip se refresh in corso (le richieste accodate verranno ritentate).
+        // Skip per /auth/refresh-token — gestito sopra (gia in branch dedicata).
+        // Skip se siamo gia su /login (evita push ridondante).
+        // Mostra banner "expired" SOLO se l'utente aveva una sessione attiva;
+        // un 401 sul primo /auth/me (utente mai loggato) NON e' sessione scaduta.
         if (error.response?.status === 401 && !isRefreshing) {
             const reqUrl = originalRequest.url || ''
             if (
-                !reqUrl.endsWith('/auth/me') &&
                 !reqUrl.endsWith('/auth/refresh-token') &&
                 router.currentRoute.value.name !== 'Login'
             ) {
+                const { useAuthStore } = await import('@/store/auth')
+                const hadActiveSession = useAuthStore().user !== null
+
                 stopProactiveRefresh()
-                router.push({ name: 'Login' })
+                await clearAuthState()
+
+                if (hadActiveSession) {
+                    router.push({ name: 'Login', query: { expired: 'true' } })
+                }
+                // Nessuna sessione precedente: lascia che sia il router guard
+                // a reindirizzare a /login se la rotta richiede auth.
             }
         }
 

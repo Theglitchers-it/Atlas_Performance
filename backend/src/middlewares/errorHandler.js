@@ -10,11 +10,21 @@ const logger = createServiceLogger('ERROR_HANDLER');
  */
 const errorHandler = (err, req, res, next) => {
     const reqId = req.requestId;
+
+    // Inferisce lo status finale per scegliere il livello di log.
+    // I 4xx (validazione, auth, rate-limit, condizioni attese) sono comportamento
+    // normale dell'app → log a livello "warn", NON "error": così i log/console restano
+    // puliti e gli "error" segnalano solo i veri 5xx.
+    const inferredStatus = err.isJoi ? 400
+        : err.code === 'ER_DUP_ENTRY' ? 409
+        : err.code === 'ER_NO_REFERENCED_ROW_2' ? 400
+        : (err.status || err.statusCode || 500);
+    const logLevel = inferredStatus < 500 ? 'warn' : 'error';
+    const logMeta = { requestId: reqId, status: inferredStatus, error: err.message };
     if (process.env.NODE_ENV !== 'production') {
-        logger.error('Errore', { requestId: reqId, error: err.message, stack: err.stack });
-    } else {
-        logger.error('Errore', { requestId: reqId, error: err.message });
+        logMeta.stack = err.stack;
     }
+    logger[logLevel]('Errore richiesta', logMeta);
 
     // Errori di validazione Joi
     if (err.isJoi) {

@@ -12,7 +12,7 @@ const fs = require('fs');
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads');
 
 // Assicura che le directory esistano
-const dirs = ['images', 'videos', 'avatars', 'progress', 'documents'];
+const dirs = ['images', 'videos', 'avatars', 'progress', 'documents', 'meals', 'chat'];
 dirs.forEach(dir => {
     const fullPath = path.join(UPLOAD_DIR, dir);
     if (!fs.existsSync(fullPath)) {
@@ -129,6 +129,49 @@ const uploadVideo = multer({
 const uploadDocument = multer({
     storage: createStorage('documents'),
     fileFilter: documentFilter,
+    limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+/**
+ * Middleware per upload foto pasti (AI food recognition)
+ * Max 10MB
+ */
+const uploadMeal = multer({
+    storage: createStorage('meals'),
+    fileFilter: imageFilter,
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+// Filtro combinato chat: immagini + documenti + audio comuni
+const chatAttachmentFilter = (req, file, cb) => {
+    const allowedExts = [
+        '.jpg', '.jpeg', '.png', '.webp', '.gif',
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+        '.mp3', '.m4a', '.ogg', '.wav'
+    ];
+    const allowedMimes = [
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+        'application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/x-wav'
+    ];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExts.includes(ext) && allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Formato non supportato per allegato chat'), false);
+    }
+};
+
+/**
+ * Middleware per upload allegati chat (immagine/documento/audio)
+ * Max 20MB
+ */
+const uploadChatAttachment = multer({
+    storage: createStorage('chat'),
+    fileFilter: chatAttachmentFilter,
     limits: { fileSize: 20 * 1024 * 1024 }
 });
 
@@ -331,6 +374,8 @@ module.exports = {
     uploadProgress,
     uploadVideo,
     uploadDocument,
+    uploadMeal,
+    uploadChatAttachment,
     handleUploadError,
     validateMagicBytes,
     sanitizeCsvUpload,

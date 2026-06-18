@@ -16,8 +16,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" referrerpolicy="no-referrer">
 
     <!-- Content Security Policy -->
+    <!-- worker-src blob: necessario per Vite HMR (crea Web Worker da blob URL durante polling restart) -->
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' wss: ws: https://accounts.google.com https://github.com https://discord.com; frame-src 'none'; object-src 'none'; base-uri 'self'">
+          content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' wss: ws: https://accounts.google.com https://github.com https://discord.com; frame-src 'none'; object-src 'none'; base-uri 'self'">
 
     <title>Atlas Performance - Piattaforma Personal Trainer</title>
   </head>

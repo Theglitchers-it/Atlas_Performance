@@ -16,7 +16,6 @@ import {
   VideoCameraIcon,
   ChartBarIcon,
   TrophyIcon,
-  Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
   HeartIcon,
   SparklesIcon,
@@ -301,7 +300,7 @@ const clientMenuGroups = [
         icon: ClipboardDocumentListIcon,
       },
       { name: "Progressi", path: "/my-progress", icon: ChartBarIcon },
-      { name: "Check-in", path: "/checkin", icon: HeartIcon },
+      { name: "Check-in", path: "/readiness", icon: HeartIcon },
     ],
   },
   {
@@ -313,7 +312,15 @@ const clientMenuGroups = [
       { name: "Community", path: "/community", icon: UsersIcon },
       { name: "Calendario", path: "/calendar", icon: CalendarDaysIcon },
       { name: "Video", path: "/videos", icon: VideoCameraIcon },
-      { name: "Badge", path: "/insights?tab=gamification", icon: TrophyIcon },
+      { name: "Goals", path: "/insights?tab=gamification", icon: TrophyIcon },
+    ],
+  },
+  {
+    id: "info",
+    label: "Info",
+    color: GROUP_COLORS.impostazioni,
+    items: [
+      { name: "Sedi", path: "/locations", icon: MapPinIcon },
     ],
   },
 ];
@@ -388,6 +395,12 @@ const handleLogout = () => {
   authStore.logout();
 };
 
+// Quick logout dal drawer: chiude drawer prima del logout per evitare flash UI
+const handleQuickLogout = (): void => {
+  emit("close");
+  authStore.logout();
+};
+
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value;
 };
@@ -407,11 +420,11 @@ const getPlanLabel = (plan: string | undefined): string =>
   <aside
     role="navigation"
     aria-label="Menu principale"
-    class="bg-habit-card rounded-r-2xl shadow-[4px_0_16px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_16px_rgba(0,0,0,0.2)] overflow-x-hidden transition-all duration-300 flex flex-col"
+    class="overflow-x-hidden transition-all duration-300 flex flex-col"
     :class="[
       drawer
-        ? 'h-full w-64'
-        : 'fixed left-0 top-16 bottom-0 hidden lg:block z-30',
+        ? 'h-full w-full bg-transparent'
+        : 'fixed left-0 top-16 bottom-0 hidden lg:block z-30 bg-habit-card rounded-r-2xl shadow-[4px_0_16px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_16px_rgba(0,0,0,0.2)]',
       !drawer && (isCollapsed ? 'w-14' : 'w-64'),
     ]"
   >
@@ -545,6 +558,15 @@ const getPlanLabel = (plan: string | undefined): string =>
             >
               <ChevronDoubleLeftIcon class="w-4 h-4" />
             </button>
+            <!-- Logout (allineato al drawer mobile: ultimo a destra) -->
+            <button
+              @click.prevent.stop="handleLogout"
+              aria-label="Disconnetti"
+              title="Esci"
+              class="flex-shrink-0 p-1.5 rounded-lg border border-red-500/30 text-red-400 hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500 active:scale-95 transition-all duration-200"
+            >
+              <ArrowLeftOnRectangleIcon class="w-4 h-4" />
+            </button>
           </div>
 
           <!-- Stats Grid (clickable) -->
@@ -641,86 +663,101 @@ const getPlanLabel = (plan: string | undefined): string =>
           </div>
         </router-link>
 
-        <!-- Drawer: close button + header -->
-        <div v-if="drawer" class="flex items-center justify-between mb-2 px-1">
-          <span class="font-display font-bold text-lg">
+        <!-- Drawer: close button + header (2026) -->
+        <div v-if="drawer" class="relative flex items-center justify-between mb-4 px-2 pb-3 border-b border-white/5">
+          <div class="pointer-events-none absolute -top-6 -right-8 w-32 h-32 rounded-full bg-habit-orange/15 blur-3xl"></div>
+          <div class="pointer-events-none absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-habit-cyan/10 blur-3xl"></div>
+          <span class="relative font-display font-bold text-xl">
             <span class="bg-gradient-to-r from-[#ff4c00] to-[#ff8c00] bg-clip-text text-transparent">ATLAS</span>
-            <span class="text-habit-text/40 font-medium text-xs ml-1 tracking-[0.15em] uppercase">Performance</span>
+            <span class="text-habit-text/40 font-medium text-xs ml-1.5 tracking-[0.2em] uppercase">Performance</span>
           </span>
           <button
             @click="emit('close')"
             aria-label="Chiudi menu"
-            class="p-1.5 rounded-lg hover:bg-habit-card-hover/50 transition-colors text-habit-text-muted hover:text-habit-text"
+            class="relative w-11 h-11 rounded-2xl border border-black/10 dark:border-white/10 flex items-center justify-center hover:bg-habit-card-hover/60 hover:border-habit-orange/30 transition-all text-habit-text-muted hover:text-habit-text"
           >
             <XMarkIcon class="w-5 h-5" />
           </button>
         </div>
 
-        <!-- Drawer: compact profile row -->
-        <div v-if="drawer" class="mb-3">
-          <router-link
-            to="/profile"
-            class="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-habit-card-hover/50 transition-all duration-200 group"
-          >
-            <img
-              v-if="sidebarAvatarUrl"
-              :src="sidebarAvatarUrl"
-              :alt="userInitials"
-              class="w-9 h-9 rounded-xl object-cover shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-            />
-            <div
-              v-else
-              class="w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-              :class="avatarGradient"
+        <!-- Drawer: compact profile row (glass card 2026) -->
+        <div v-if="drawer" class="relative overflow-hidden mb-4 rounded-2xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 p-3 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+          <div class="pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full bg-purple-500/15 blur-2xl"></div>
+          <!-- Profile row: nessun anchor annidato. router-link sull'area avatar+nome, quick-actions/logout come sibling separato. -->
+          <div class="relative flex items-center gap-3">
+            <router-link
+              to="/profile"
+              class="relative flex items-center gap-3 flex-1 min-w-0 group"
             >
-              <span class="text-white font-bold text-xs">{{ userInitials }}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p
-                class="text-habit-text font-semibold text-sm truncate leading-tight"
+              <img
+                v-if="sidebarAvatarUrl"
+                :src="sidebarAvatarUrl"
+                :alt="userInitials"
+                class="w-11 h-11 rounded-2xl object-cover ring-2 ring-black/10 dark:ring-white/20 group-hover:ring-habit-cyan/40 flex-shrink-0 transition-all duration-200"
+              />
+              <div
+                v-else
+                class="w-11 h-11 rounded-2xl bg-gradient-to-br flex items-center justify-center ring-2 ring-black/10 dark:ring-white/20 group-hover:ring-habit-cyan/40 flex-shrink-0 transition-all duration-200"
+                :class="avatarGradient"
               >
-                {{ user?.firstName }} {{ user?.lastName }}
-              </p>
-              <span class="text-habit-text-subtle text-[11px]">{{
-                roleLabel
-              }}</span>
-            </div>
-            <!-- Quick action icons (drawer) -->
-            <div class="flex items-center gap-1 flex-shrink-0" @click.prevent.stop>
+                <span class="text-white font-bold text-sm">{{ userInitials }}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p
+                  class="text-habit-text font-bold text-base truncate leading-tight"
+                >
+                  {{ user?.firstName }} {{ user?.lastName }}
+                </p>
+                <span class="text-habit-text-subtle text-xs">{{
+                  roleLabel
+                }}</span>
+              </div>
+              <ChevronRightIcon
+                class="w-4 h-4 text-habit-text-subtle group-hover:text-habit-text transition-colors flex-shrink-0"
+              />
+            </router-link>
+            <!-- Quick action icons + logout (sibling: no nested anchors) -->
+            <div class="flex items-center gap-1 flex-shrink-0">
               <router-link
                 v-for="action in quickActions"
                 :key="action.path"
                 :to="action.path"
                 :title="action.label"
-                class="w-7 h-7 flex items-center justify-center rounded-lg border border-habit-border/50 hover:border-habit-cyan/40 hover:bg-habit-card-hover/50 transition-all duration-200"
+                class="w-8 h-8 flex items-center justify-center rounded-lg border border-black/10 dark:border-white/10 hover:border-habit-cyan/40 hover:bg-habit-card-hover/50 transition-all duration-200"
               >
                 <span class="text-xs">{{ action.icon }}</span>
               </router-link>
+              <button
+                type="button"
+                @click="handleQuickLogout"
+                title="Esci"
+                aria-label="Disconnetti"
+                class="w-8 h-8 flex items-center justify-center rounded-lg border border-red-500/30 text-red-400 hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500 transition-all duration-200"
+              >
+                <ArrowLeftOnRectangleIcon class="w-4 h-4" />
+              </button>
             </div>
-            <ChevronRightIcon
-              class="w-4 h-4 text-habit-text-subtle group-hover:text-habit-text transition-colors flex-shrink-0"
-            />
-          </router-link>
-          <!-- Stats inline (drawer) -->
-          <div v-if="!statsLoading" class="flex items-center gap-3 px-3 mt-1">
+          </div>
+          <!-- Stats inline dentro la card -->
+          <div v-if="!statsLoading" class="relative mt-3 pt-3 border-t border-white/10 flex items-center justify-around gap-2">
             <component
               :is="statLinks.stat1Link ? 'router-link' : 'span'"
               :to="statLinks.stat1Link || undefined"
-              class="flex items-center gap-1 text-[11px] transition-colors duration-200"
+              class="flex flex-col items-center transition-colors duration-200"
               :class="statLinks.stat1Link ? 'hover:text-habit-cyan cursor-pointer' : ''"
             >
-              <span class="text-habit-text font-bold">{{ sidebarStats.stat1.value }}</span>
-              <span class="text-habit-text-subtle">{{ sidebarStats.stat1.label }}</span>
+              <span class="text-habit-text font-bold text-base leading-none">{{ sidebarStats.stat1.value }}</span>
+              <span class="text-habit-text-subtle text-[10px] uppercase tracking-wide mt-1">{{ sidebarStats.stat1.label }}</span>
             </component>
-            <span class="w-1 h-1 rounded-full bg-habit-border"></span>
+            <div class="w-px h-8 bg-white/10"></div>
             <component
               :is="statLinks.stat2Link ? 'router-link' : 'span'"
               :to="statLinks.stat2Link || undefined"
-              class="flex items-center gap-1 text-[11px] transition-colors duration-200"
+              class="flex flex-col items-center transition-colors duration-200"
               :class="statLinks.stat2Link ? 'hover:text-habit-cyan cursor-pointer' : ''"
             >
-              <span class="font-bold" :class="stat2AccentClass">{{ sidebarStats.stat2.value }}</span>
-              <span class="text-habit-text-subtle">{{ sidebarStats.stat2.label }}</span>
+              <span class="font-bold text-base leading-none" :class="stat2AccentClass">{{ sidebarStats.stat2.value }}</span>
+              <span class="text-habit-text-subtle text-[10px] uppercase tracking-wide mt-1">{{ sidebarStats.stat2.label }}</span>
             </component>
           </div>
         </div>
@@ -897,113 +934,8 @@ const getPlanLabel = (plan: string | undefined): string =>
         </div>
       </nav>
 
-      <!-- ============ SETTINGS & LOGOUT (Desktop) — inside scrollable ============ -->
-      <div
-        v-if="!drawer"
-        class="border-t border-habit-border/50"
-        :class="isCollapsed ? 'px-2 pt-3 pb-2' : 'px-4 pt-3 pb-2'"
-      >
-        <ul :class="isCollapsed ? 'space-y-1' : 'space-y-0.5'">
-          <!-- Impostazioni -->
-          <li>
-            <router-link
-              to="/settings"
-              class="relative flex items-center gap-3 rounded-lg transition-all duration-200 group"
-              :class="[
-                isCollapsed ? 'justify-center p-1.5' : 'px-3 py-2 min-h-[40px]',
-                isActive('/settings')
-                  ? 'bg-habit-card-hover text-habit-text'
-                  : 'text-habit-text-muted hover:bg-habit-card-hover/50 hover:text-habit-text',
-              ]"
-              :title="isCollapsed ? 'Impostazioni' : ''"
-            >
-              <span
-                v-if="isActive('/settings')"
-                class="sidebar-active-bar bg-habit-text-muted"
-              ></span>
-              <div
-                class="flex items-center justify-center flex-shrink-0 rounded-lg transition-all duration-200"
-                :class="
-                  isCollapsed
-                    ? 'w-10 h-10 rounded-xl bg-habit-text-subtle/10'
-                    : 'w-8 h-8 bg-habit-text-subtle/10'
-                "
-              >
-                <Cog6ToothIcon
-                  :class="isCollapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]'"
-                />
-              </div>
-              <span v-if="!isCollapsed" class="text-sm font-medium"
-                >Impostazioni</span
-              >
-              <div
-                v-if="isCollapsed"
-                class="sidebar-tooltip absolute left-[60px] px-3 py-2 bg-habit-card border border-habit-border rounded-xl z-[60] shadow-habit-lg whitespace-nowrap"
-              >
-                <span class="text-habit-text text-sm font-medium"
-                  >Impostazioni</span
-                >
-              </div>
-            </router-link>
-          </li>
+      <!-- Settings + Logout rimossi: accessibili dalla pagina Profilo (/settings) -->
 
-          <!-- Esci -->
-          <li>
-            <button
-              @click="handleLogout"
-              aria-label="Disconnettiti"
-              class="w-full relative flex items-center gap-3 rounded-lg transition-all duration-200 group text-red-400 hover:bg-red-500/[0.05] hover:text-red-500"
-              :class="
-                isCollapsed ? 'justify-center p-1.5' : 'px-3 py-2 min-h-[40px]'
-              "
-              :title="isCollapsed ? 'Esci' : ''"
-            >
-              <div
-                class="flex items-center justify-center flex-shrink-0 rounded-lg bg-red-500/10 transition-all duration-200"
-                :class="isCollapsed ? 'w-10 h-10 rounded-xl' : 'w-8 h-8'"
-              >
-                <ArrowLeftOnRectangleIcon
-                  :class="isCollapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]'"
-                />
-              </div>
-              <span v-if="!isCollapsed" class="text-sm font-medium">Esci</span>
-              <div
-                v-if="isCollapsed"
-                class="sidebar-tooltip absolute left-[60px] px-3 py-2 bg-habit-card border border-habit-border rounded-xl z-[60] shadow-habit-lg whitespace-nowrap"
-              >
-                <span class="text-red-400 text-sm font-medium">Esci</span>
-              </div>
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <!-- ============ SETTINGS & LOGOUT (Drawer — compact row) — inside scrollable ============ -->
-      <div v-if="drawer" class="border-t border-habit-border/50 px-3 py-2">
-        <div class="flex items-center gap-2 px-1">
-          <router-link
-            to="/settings"
-            class="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl transition-all duration-200"
-            :class="
-              isActive('/settings')
-                ? 'bg-habit-card-hover text-habit-text'
-                : 'text-habit-text-muted hover:bg-habit-card-hover/50 hover:text-habit-text'
-            "
-          >
-            <Cog6ToothIcon class="w-[18px] h-[18px]" />
-            <span class="text-xs font-medium">Impostazioni</span>
-          </router-link>
-          <div class="w-1 h-1 rounded-full bg-habit-border flex-shrink-0"></div>
-          <button
-            @click="handleLogout"
-            aria-label="Disconnettiti"
-            class="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl transition-all duration-200 text-red-400 hover:bg-red-500/[0.08] hover:text-red-500"
-          >
-            <ArrowLeftOnRectangleIcon class="w-[18px] h-[18px]" />
-            <span class="text-xs font-medium">Esci</span>
-          </button>
-        </div>
-      </div>
 
       <!-- ============ UPGRADE CARD — inside scrollable ============ -->
 
@@ -1044,19 +976,26 @@ const getPlanLabel = (plan: string | undefined): string =>
         </button>
       </div>
 
-      <!-- Drawer: compact single-line upgrade -->
+      <!-- Drawer: Upgrade card glass-mesh 2026 -->
       <button
         v-if="drawer && showUpgradeCard"
         @click="showUpgradeModal = true"
-        class="mx-3 mb-3 w-[calc(100%-1.5rem)] flex items-center gap-2.5 px-3 py-2.5 bg-gradient-to-r from-habit-orange/15 to-habit-purple/15 rounded-xl border border-habit-orange/20 hover:border-habit-orange/40 transition-all duration-200 group"
+        class="relative overflow-hidden mx-3 mb-3 w-[calc(100%-1.5rem)] rounded-2xl border border-habit-orange/30 hover:border-habit-orange/50 hover:shadow-lg hover:shadow-habit-orange/15 transition-all group"
       >
-        <span class="text-base">⭐</span>
-        <span class="text-habit-text font-semibold text-xs flex-1 text-left"
-          >Passa a Pro</span
-        >
-        <ChevronRightIcon
-          class="w-3.5 h-3.5 text-habit-orange/60 group-hover:text-habit-orange transition-colors"
-        />
+        <div class="absolute inset-0 bg-gradient-to-r from-habit-orange/20 via-pink-500/15 to-habit-cyan/15"></div>
+        <div class="pointer-events-none absolute -top-8 -right-6 w-24 h-24 rounded-full bg-habit-orange/25 blur-2xl"></div>
+        <div class="relative flex items-center gap-3 px-3 py-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-habit-orange to-pink-500 flex items-center justify-center shadow-lg shadow-habit-orange/30 flex-shrink-0">
+            <span class="text-lg">⭐</span>
+          </div>
+          <div class="flex-1 text-left min-w-0">
+            <p class="text-habit-text font-bold text-sm leading-tight">Passa a Pro</p>
+            <p class="text-habit-text-muted text-[11px] leading-tight mt-0.5">Sblocca tutte le funzionalità</p>
+          </div>
+          <ChevronRightIcon
+            class="w-4 h-4 text-habit-orange group-hover:translate-x-0.5 transition-transform"
+          />
+        </div>
       </button>
     </div>
 

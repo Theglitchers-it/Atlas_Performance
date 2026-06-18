@@ -181,7 +181,7 @@ const handleUpgrade = async (plan: Plan) => {
 
       <!-- Dialog container -->
       <div class="fixed inset-0 overflow-y-auto">
-        <div class="flex min-h-full items-center justify-center p-4">
+        <div class="flex min-h-full items-center justify-center p-2 sm:p-4">
           <TransitionChild
             as="template"
             enter="ease-out duration-200"
@@ -195,23 +195,24 @@ const handleUpgrade = async (plan: Plan) => {
               class="w-full max-w-4xl bg-habit-card border border-habit-border rounded-2xl shadow-habit-lg overflow-hidden"
             >
               <!-- Header -->
-              <div class="relative px-6 pt-6 pb-4">
+              <div class="relative px-4 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4">
                 <button
                   @click="emit('close')"
-                  class="absolute top-4 right-4 p-1.5 rounded-lg text-habit-text-muted hover:text-habit-text hover:bg-habit-bg-light transition-colors"
+                  class="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-lg text-habit-text-muted hover:text-habit-text hover:bg-habit-bg-light transition-colors"
+                  aria-label="Chiudi"
                 >
                   <XMarkIcon class="w-5 h-5" />
                 </button>
 
-                <div class="text-center">
-                  <DialogTitle class="text-2xl font-bold text-habit-text">
+                <div class="text-center pr-8 sm:pr-0">
+                  <DialogTitle class="text-xl sm:text-2xl font-bold text-habit-text">
                     {{
                       isClient
                         ? "Scopri i piani Premium"
                         : "Scegli il piano giusto per te"
                     }}
                   </DialogTitle>
-                  <p class="mt-2 text-habit-text-muted text-sm">
+                  <p class="mt-1.5 sm:mt-2 text-habit-text-muted text-xs sm:text-sm">
                     {{
                       isClient
                         ? "Chiedi al tuo trainer di passare a un piano premium per sbloccare tutte le funzionalita"
@@ -221,11 +222,11 @@ const handleUpgrade = async (plan: Plan) => {
 
                   <!-- Billing Toggle -->
                   <div
-                    class="mt-4 inline-flex items-center bg-habit-bg-light rounded-xl p-1"
+                    class="mt-3 sm:mt-4 inline-flex items-center bg-habit-bg-light rounded-xl p-1"
                   >
                     <button
                       @click="billingCycle = 'monthly'"
-                      class="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+                      class="px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200"
                       :class="
                         billingCycle === 'monthly'
                           ? 'bg-habit-card text-habit-text shadow-sm'
@@ -236,7 +237,7 @@ const handleUpgrade = async (plan: Plan) => {
                     </button>
                     <button
                       @click="billingCycle = 'yearly'"
-                      class="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+                      class="px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200"
                       :class="
                         billingCycle === 'yearly'
                           ? 'bg-habit-card text-habit-text shadow-sm'
@@ -253,12 +254,12 @@ const handleUpgrade = async (plan: Plan) => {
               </div>
 
               <!-- Plans Grid -->
-              <div class="px-6 pb-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="px-3 sm:px-6 pb-4 sm:pb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                   <div
                     v-for="plan in plans"
                     :key="plan.id"
-                    class="relative flex flex-col p-5 rounded-2xl border transition-all duration-200"
+                    class="relative flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200"
                     :class="[
                       plan.popular
                         ? 'border-habit-cyan/50 bg-habit-cyan/5 shadow-lg shadow-habit-cyan/10'
@@ -270,8 +271,8 @@ const handleUpgrade = async (plan: Plan) => {
                   >
                     <!-- Popular Badge -->
                     <div
-                      v-if="plan.popular"
-                      class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-habit-cyan text-white text-xs font-semibold rounded-full"
+                      v-if="plan.popular && !isCurrentPlan(plan.id)"
+                      class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-habit-cyan text-white text-[10px] sm:text-xs font-semibold rounded-full whitespace-nowrap"
                     >
                       Consigliato
                     </div>
@@ -279,18 +280,28 @@ const handleUpgrade = async (plan: Plan) => {
                     <!-- Current Badge -->
                     <div
                       v-if="isCurrentPlan(plan.id)"
-                      class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-habit-orange text-white text-xs font-semibold rounded-full"
+                      class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-habit-orange text-white text-[10px] sm:text-xs font-semibold rounded-full whitespace-nowrap"
                     >
                       Piano attuale
                     </div>
 
-                    <!-- Plan Name -->
-                    <h3 class="text-lg font-bold text-habit-text">
-                      {{ plan.name }}
-                    </h3>
+                    <!-- Plan Name + Price (mobile compact row) -->
+                    <div class="flex items-baseline justify-between gap-2 mt-1">
+                      <h3 class="text-base sm:text-lg font-bold text-habit-text">
+                        {{ plan.name }}
+                      </h3>
+                      <div class="flex items-baseline gap-0.5 sm:hidden">
+                        <span class="text-xl font-bold text-habit-text"
+                          >&euro;{{ getPrice(plan) }}</span
+                        >
+                        <span class="text-habit-text-muted text-[10px]"
+                          >/{{ billingCycle === "yearly" ? "anno" : "mese" }}</span
+                        >
+                      </div>
+                    </div>
 
-                    <!-- Price -->
-                    <div class="mt-2 flex items-baseline gap-1">
+                    <!-- Price (desktop only, mobile gia inline sopra) -->
+                    <div class="hidden sm:flex mt-2 items-baseline gap-1">
                       <span class="text-3xl font-bold text-habit-text"
                         >&euro;{{ getPrice(plan) }}</span
                       >
@@ -304,22 +315,22 @@ const handleUpgrade = async (plan: Plan) => {
                     <!-- Yearly Saving -->
                     <p
                       v-if="billingCycle === 'yearly'"
-                      class="mt-1 text-emerald-400 text-xs"
+                      class="mt-1 text-emerald-400 text-[11px] sm:text-xs"
                     >
                       Risparmi &euro;{{ getSaving(plan) }}/anno
                     </p>
 
                     <!-- Features -->
-                    <ul class="mt-4 space-y-2 flex-1">
+                    <ul class="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2 flex-1">
                       <li
                         v-for="feature in plan.features"
                         :key="feature"
-                        class="flex items-start gap-2 text-sm text-habit-text-muted"
+                        class="flex items-start gap-2 text-xs sm:text-sm text-habit-text-muted"
                       >
                         <CheckIcon
-                          class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"
+                          class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0 mt-0.5"
                         />
-                        <span>{{ feature }}</span>
+                        <span class="leading-snug">{{ feature }}</span>
                       </li>
                     </ul>
 
@@ -331,15 +342,15 @@ const handleUpgrade = async (plan: Plan) => {
                         isDowngrade(plan.id) ||
                         loading === plan.id
                       "
-                      class="mt-5 w-full py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+                      class="mt-4 sm:mt-5 w-full py-3 sm:py-3 px-4 rounded-xl text-sm sm:text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 min-h-[44px] active:scale-[0.98]"
                       :class="[
                         isCurrentPlan(plan.id)
                           ? 'bg-habit-bg-light text-habit-text-muted cursor-default border border-habit-border'
                           : isDowngrade(plan.id)
-                            ? 'bg-habit-bg-light text-habit-text-subtle cursor-not-allowed border border-habit-border'
+                            ? 'bg-habit-bg-light text-habit-text-subtle cursor-not-allowed border border-habit-border opacity-60'
                             : plan.popular
-                              ? 'bg-habit-cyan hover:bg-cyan-500 text-white shadow-sm'
-                              : 'bg-habit-card hover:bg-habit-card-hover text-habit-text border border-habit-border',
+                              ? 'bg-gradient-to-r from-habit-cyan to-blue-600 hover:opacity-95 text-white shadow-lg shadow-habit-cyan/30'
+                              : 'bg-gradient-to-r from-habit-orange to-habit-orange-light hover:opacity-95 text-white shadow-lg shadow-habit-orange/30',
                       ]"
                     >
                       <svg
@@ -366,18 +377,23 @@ const handleUpgrade = async (plan: Plan) => {
                         >Attendere...</template
                       >
                       <template v-else-if="isCurrentPlan(plan.id)"
-                        >Piano attuale</template
+                        >✓ Piano attuale</template
                       >
                       <template v-else-if="isDowngrade(plan.id)"
                         >Downgrade</template
                       >
-                      <template v-else>Passa a {{ plan.name }}</template>
+                      <template v-else
+                        >Passa a {{ plan.name }}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                      </template>
                     </button>
                   </div>
                 </div>
 
                 <!-- Footer Note -->
-                <p class="mt-4 text-center text-xs text-habit-text-subtle">
+                <p class="mt-3 sm:mt-4 text-center text-[10px] sm:text-xs text-habit-text-subtle">
                   Pagamento sicuro con Stripe. Puoi cancellare in qualsiasi
                   momento.
                 </p>

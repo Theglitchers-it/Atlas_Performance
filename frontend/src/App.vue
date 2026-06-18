@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useLocalStorage } from "@vueuse/core";
 import { useAuthStore } from "@/store/auth";
 import { useThemeStore } from "@/store/theme";
+import { useUiStore } from "@/store/ui";
 
 // Layout components
 import AppHeader from "@/components/layout/AppHeader.vue";
@@ -13,6 +14,7 @@ import BottomNavigation from "@/components/mobile/BottomNavigation.vue";
 import OfflineBanner from "@/components/mobile/OfflineBanner.vue";
 import KeyboardShortcutsHelp from "@/components/ui/KeyboardShortcutsHelp.vue";
 import ErrorBoundary from "@/components/ui/ErrorBoundary.vue";
+import PreferredLocationOnboardingModal from "@/components/athlete/PreferredLocationOnboardingModal.vue";
 
 // Composables
 import { useNative } from "@/composables/useNative";
@@ -28,6 +30,7 @@ import { usePageLoading } from "@/composables/usePageLoading";
 const route = useRoute();
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
+const uiStore = useUiStore();
 const { isMobile, isNativeApp } = useNative();
 
 // Keyboard shortcuts globali
@@ -52,6 +55,7 @@ useSwipeBack();
 const { isLoading: pageLoading } = usePageLoading();
 
 const isAuthenticated = computed<boolean>(() => authStore.isAuthenticated);
+const isClientUser = computed<boolean>(() => authStore.user?.role === "client");
 const showSidebar = computed<boolean>(
   () => isAuthenticated.value && !isMobile.value,
 );
@@ -63,18 +67,47 @@ const showBottomNav = computed<boolean>(
 const sidebarCollapsed = useLocalStorage<boolean>("sidebar-collapsed", false);
 
 // Drawer sidebar per tablet (768-1023px) — attivato dal bottone hamburger in AppHeader
-const showDrawerSidebar = ref<boolean>(false);
+// Source of truth UNICO: uiStore.drawerOpen. computed write-through evita state desync
+// con il Pinia store (es. Android back handler che chiama uiStore.closeDrawer()).
+const showDrawerSidebar = computed<boolean>({
+  get: () => uiStore.drawerOpen,
+  set: (value) => {
+    if (value) uiStore.openDrawer();
+    else uiStore.closeDrawer();
+  },
+});
 const toggleDrawerSidebar = (): void => {
-  showDrawerSidebar.value = !showDrawerSidebar.value;
+  uiStore.toggleDrawer();
 };
 
 // Chiudi drawer quando si naviga
 watch(
   () => route.path,
   () => {
-    showDrawerSidebar.value = false;
+    uiStore.closeDrawer();
   },
 );
+
+// Body scroll lock reference-counted via store (coordina con altri overlay modal/sheet)
+watch(
+  () => uiStore.drawerOpen,
+  (open) => {
+    if (open) uiStore.lockBodyScroll("drawer");
+    else uiStore.unlockBodyScroll("drawer");
+  },
+);
+
+// Escape key chiude drawer — guard per evitare hijack quando user digita in input
+const handleDrawerEscape = (e: KeyboardEvent): void => {
+  if (e.key !== "Escape" || !uiStore.drawerOpen) return;
+  const target = e.target as HTMLElement | null;
+  if (target) {
+    const tag = target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if ((target as HTMLElement).isContentEditable) return;
+  }
+  uiStore.closeDrawer();
+};
 
 // Theme watcher
 watch(
@@ -104,6 +137,9 @@ onMounted(async () => {
   // Initialize theme (synchronous, no need to await)
   themeStore.initTheme();
 
+  // Escape key chiude drawer
+  document.addEventListener("keydown", handleDrawerEscape);
+
   // Inizializza network monitoring
   try {
     await initNetwork();
@@ -121,6 +157,12 @@ onMounted(async () => {
       syncQueue();
     },
   });
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", handleDrawerEscape);
+  // body.style.overflow lock release gestito dal uiStore counter
+  uiStore.unlockBodyScroll("drawer");
 });
 </script>
 
@@ -150,22 +192,18 @@ onMounted(async () => {
 
     <!-- Authenticated Layout -->
     <template v-if="isAuthenticated">
+      <!-- Onboarding modal sede preferita (solo per atleti senza preferenza) -->
+      <PreferredLocationOnboardingModal v-if="isClientUser" />
+
       <!-- Header -->
       <AppHeader @toggle-sidebar="toggleDrawerSidebar" />
 
-      <!-- Drawer Sidebar Overlay (mobile + tablet: < 1024px) -->
-      <Transition name="fade">
-        <div
-          v-if="showDrawerSidebar"
-          class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
-          @click="showDrawerSidebar = false"
-        />
-      </Transition>
+      <!-- Drawer Sidebar (mobile + tablet: < 1024px, fullscreen) -->
       <Transition name="slide-sidebar">
         <div
           v-if="showDrawerSidebar"
-          class="fixed left-0 top-16 bottom-0 w-64 z-50 lg:hidden overflow-y-auto bg-habit-card rounded-r-2xl shadow-[4px_0_16px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_16px_rgba(0,0,0,0.2)]"
-          :class="{ 'pb-20': showBottomNav }"
+          class="fixed inset-0 z-50 lg:hidden overflow-y-auto bg-habit-card shadow-[0_-8px_32px_rgba(0,0,0,0.08)] safe-top"
+          :class="showBottomNav ? 'pb-20' : 'safe-bottom'"
         >
           <AppSidebar :drawer="true" @close="showDrawerSidebar = false" />
         </div>
@@ -179,7 +217,7 @@ onMounted(async () => {
         <main
           id="main-content"
           tabindex="-1"
-          class="flex-1 transition-all duration-300 safe-left safe-right"
+          class="flex-1 min-w-0 overflow-x-hidden transition-all duration-300 safe-left safe-right"
           :class="{
             'lg:ml-64': showSidebar && !sidebarCollapsed,
             'lg:ml-14': showSidebar && sidebarCollapsed,

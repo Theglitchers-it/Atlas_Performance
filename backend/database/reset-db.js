@@ -57,7 +57,7 @@ async function resetDB() {
     // 4a. Tenant demo
     await connection.query(`
         INSERT INTO tenants (id, business_name, owner_email, subscription_plan, subscription_status, max_clients, status)
-        VALUES (?, 'Demo PT Studio', 'admin@demo.local', 'professional', 'active', 9999, 'active')
+        VALUES (?, 'Demo PT Studio', 'personaltrainer@demo.local', 'professional', 'active', 9999, 'active')
     `, [DEMO_TENANT_ID]);
     console.log('  ✓ Tenant demo creato');
 
@@ -66,7 +66,7 @@ async function resetDB() {
 
     const demoUsers = [
         ['superadmin@demo.local', 'super_admin', 'Super', 'Admin'],
-        ['admin@demo.local', 'tenant_owner', 'Admin', 'Demo'],
+        ['personaltrainer@demo.local', 'tenant_owner', 'Personal', 'Trainer'],
         ['staff@demo.local', 'staff', 'Marco', 'Staff'],
         ['client@demo.local', 'client', 'Luca', 'Cliente']
     ];
@@ -167,7 +167,7 @@ async function resetDB() {
     console.log('  │ Ruolo            │ Email                   │');
     console.log('  ├──────────────────┼─────────────────────────┤');
     console.log('  │ 🛡️  Super Admin   │ superadmin@demo.local   │');
-    console.log('  │ 💪 PT Owner      │ admin@demo.local        │');
+    console.log('  │ 💪 PT Owner      │ personaltrainer@demo.local │');
     console.log('  │ 👤 Staff         │ staff@demo.local        │');
     console.log('  │ 🏃 Client        │ client@demo.local       │');
     console.log('  └──────────────────┴─────────────────────────┘');

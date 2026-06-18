@@ -30,7 +30,7 @@ async function seed() {
     console.log('[SEED] Inserimento tenant demo...');
     await connection.query(`
         INSERT IGNORE INTO tenants (id, business_name, owner_email, subscription_plan, subscription_status, max_clients, status)
-        VALUES (?, 'Demo PT Studio', 'admin@demo.local', 'professional', 'active', 9999, 'active')
+        VALUES (?, 'Demo PT Studio', 'personaltrainer@demo.local', 'professional', 'active', 9999, 'active')
     `, [DEMO_TENANT_ID]);
 
     // =========================================================
@@ -48,7 +48,7 @@ async function seed() {
     // Tenant Owner (Personal Trainer)
     await connection.query(`
         INSERT IGNORE INTO users (tenant_id, email, password_hash, role, first_name, last_name, status, email_verified_at)
-        VALUES (?, 'admin@demo.local', ?, 'tenant_owner', 'Admin', 'Demo', 'active', NOW())
+        VALUES (?, 'personaltrainer@demo.local', ?, 'tenant_owner', 'Personal', 'Trainer', 'active', NOW())
     `, [DEMO_TENANT_ID, passwordHash]);
 
     // Staff
@@ -235,7 +235,11 @@ async function seed() {
         ['level_up', 'Level Up!', 'Complimenti {{clientName}}! Sei salito al livello {{level}}!', 'achievement', '/gamification', 'high'],
         ['appointment_created', 'Appuntamento confermato', 'Appuntamento con {{trainerName}} confermato per {{date}} alle {{time}}.', 'info', '/calendar', 'normal'],
         ['appointment_reminder', 'Appuntamento tra poco', 'Hai un appuntamento con {{trainerName}} tra 1 ora.', 'reminder', '/calendar', 'high'],
-        ['subscription_expiring', 'Abbonamento in scadenza', 'Il tuo abbonamento scade tra {{days}} giorni.', 'warning', '/settings', 'high']
+        ['subscription_expiring', 'Abbonamento in scadenza', 'Il tuo abbonamento scade tra {{days}} giorni.', 'warning', '/settings', 'high'],
+        ['dormant_reengagement_discount', 'Ti riprendiamo con uno sconto', 'Ciao {{clientName}}, ci manchi! Torna con uno sconto del 20% sul tuo prossimo mesociclo.', 'info', '/my-workout', 'normal'],
+        ['dormant_reengagement_check', 'Check gratuito di ritorno', 'Ciao {{clientName}}, ti offro un check gratuito per ripartire insieme. Mi confermi una data?', 'info', '/calendar', 'normal'],
+        ['dormant_reengagement_program', 'Nuovo programma per te', 'Ho preparato una nuova programmazione pensata per te, {{clientName}}. Vuoi vederla?', 'info', '/my-workout', 'normal'],
+        ['dormant_reengagement_custom', 'Messaggio personalizzato', '', 'info', null, 'normal']
     ];
 
     for (const [key, title, message, type, actionUrl, priority] of templates) {
@@ -252,7 +256,7 @@ async function seed() {
 
     // Recupera ID utenti demo
     const [users] = await connection.query(
-        `SELECT id, role, first_name FROM users WHERE tenant_id = ? AND email IN ('admin@demo.local','staff@demo.local','client@demo.local','superadmin@demo.local')`,
+        `SELECT id, role, first_name FROM users WHERE tenant_id = ? AND email IN ('personaltrainer@demo.local','staff@demo.local','client@demo.local','superadmin@demo.local')`,
         [DEMO_TENANT_ID]
     );
     const userMap = {};
@@ -400,6 +404,120 @@ async function seed() {
         console.log('[SEED] 5 clienti demo creati (4 attivi + 1 inattivo).');
     } else if (existingClients[0].count > 0) {
         console.log('[SEED] Clienti demo gia presenti, skip.');
+    }
+
+    // =========================================================
+    // 8b. Demo Subscriptions (per card Azioni Richieste / Scadenze)
+    // =========================================================
+    console.log('[SEED] Inserimento abbonamenti demo...');
+    const [existingSubs] = await connection.query(
+        `SELECT COUNT(*) as count FROM client_subscriptions WHERE tenant_id = ?`, [DEMO_TENANT_ID]
+    );
+
+    if (existingSubs[0].count === 0) {
+        const [subClients] = await connection.query(
+            `SELECT id, first_name FROM clients WHERE tenant_id = ? ORDER BY id ASC`,
+            [DEMO_TENANT_ID]
+        );
+        const subMap = {};
+        for (const c of subClients) subMap[c.first_name] = c.id;
+
+        // Mix di scadenze per popolare la card "In Scadenza" e gli action items
+        const subsData = [
+            // [first_name, plan_type, billing, days_to_end, status]
+            ['Luca',   'Premium',  'monthly',   10, 'active'],   // scade tra 10gg
+            ['Sofia',  'Premium',  'monthly',    5, 'active'],   // urgente: 5gg
+            ['Marco',  'Base',     'monthly',   45, 'active'],   // non in finestra 14gg
+            ['Giulia', 'Elite',    'quarterly',  2, 'active'],   // molto urgente: 2gg
+        ];
+
+        for (const [name, planType, cycle, daysToEnd, status] of subsData) {
+            const cid = subMap[name];
+            if (!cid) continue;
+            await connection.query(
+                `INSERT INTO client_subscriptions
+                    (tenant_id, client_id, plan_type, billing_cycle, start_date, end_date, status)
+                 VALUES (?, ?, ?, ?, DATE_SUB(CURDATE(), INTERVAL 60 DAY), DATE_ADD(CURDATE(), INTERVAL ? DAY), ?)`,
+                [DEMO_TENANT_ID, cid, planType, cycle, daysToEnd, status]
+            );
+        }
+
+console.log(`[SEED] ${subsData.length} abbonamenti attivi demo creati.`);
+    } else {
+        console.log('[SEED] Abbonamenti demo gia presenti, skip active.');
+    }
+
+    // Sub storiche (idempotente): assicura che Giulia abbia storia >12 mesi e Andrea sia dormiente
+    const [subClientsHist] = await connection.query(
+        `SELECT id, first_name FROM clients WHERE tenant_id = ? AND first_name IN ('Giulia','Andrea')`,
+        [DEMO_TENANT_ID]
+    );
+    for (const c of subClientsHist) {
+        const [existing] = await connection.query(
+            `SELECT COUNT(*) as cnt FROM client_subscriptions
+             WHERE client_id = ? AND status = 'expired'`,
+            [c.id]
+        );
+        if (existing[0].cnt > 0) continue;
+
+        if (c.first_name === 'Giulia') {
+            await connection.query(
+                `INSERT INTO client_subscriptions
+                    (tenant_id, client_id, plan_type, billing_cycle, start_date, end_date, status)
+                 VALUES (?, ?, 'Elite', 'quarterly',
+                         DATE_SUB(CURDATE(), INTERVAL 450 DAY),
+                         DATE_SUB(CURDATE(), INTERVAL 90 DAY), 'expired')`,
+                [DEMO_TENANT_ID, c.id]
+            );
+        } else if (c.first_name === 'Andrea') {
+            await connection.query(
+                `INSERT INTO client_subscriptions
+                    (tenant_id, client_id, plan_type, billing_cycle, start_date, end_date, status)
+                 VALUES (?, ?, 'Base', 'monthly',
+                         DATE_SUB(CURDATE(), INTERVAL 180 DAY),
+                         DATE_SUB(CURDATE(), INTERVAL 90 DAY), 'expired')`,
+                [DEMO_TENANT_ID, c.id]
+            );
+        }
+    }
+    console.log('[SEED] Sub storiche (top/vecchio/dormiente) verificate.');
+
+    // =========================================================
+    // 8c. Demo body measurements (per check corporei scaduti / primo check mancante)
+    // =========================================================
+    console.log('[SEED] Inserimento misurazioni corporee demo...');
+    const [existingBm] = await connection.query(
+        `SELECT COUNT(*) as count FROM body_measurements WHERE tenant_id = ?`, [DEMO_TENANT_ID]
+    );
+
+    if (existingBm[0].count === 0) {
+        const [bmClients] = await connection.query(
+            `SELECT id, first_name FROM clients WHERE tenant_id = ? ORDER BY id ASC`,
+            [DEMO_TENANT_ID]
+        );
+        const bmMap = {};
+        for (const c of bmClients) bmMap[c.first_name] = c.id;
+
+        // Sofia e Giulia: ultima misurazione > 30gg fa (trigger "checkin_overdue")
+        // Luca e Marco: nessuna misurazione (trigger "new_no_check")
+        const bmData = [
+            ['Sofia',  45, 58.0, 22.5, 24.0],  // 45gg fa
+            ['Giulia', 38, 55.0, 18.0, 26.5],  // 38gg fa
+        ];
+
+        for (const [name, daysAgo, weight, bodyFat, muscle] of bmData) {
+            const cid = bmMap[name];
+            if (!cid) continue;
+            await connection.query(
+                `INSERT INTO body_measurements
+                    (tenant_id, client_id, measurement_date, weight_kg, body_fat_percentage, muscle_mass_kg, notes)
+                 VALUES (?, ?, DATE_SUB(CURDATE(), INTERVAL ? DAY), ?, ?, ?, ?)`,
+                [DEMO_TENANT_ID, cid, daysAgo, weight, bodyFat, muscle, 'Misurazione demo']
+            );
+        }
+        console.log(`[SEED] ${bmData.length} misurazioni demo create (Sofia e Giulia > 30gg).`);
+    } else {
+        console.log('[SEED] Misurazioni corporee demo gia presenti, skip.');
     }
 
     // Get client IDs (needed for subsequent sections)
@@ -691,6 +809,133 @@ async function seed() {
     }
 
     // =========================================================
+    // 14. Ricalcolo tag automatici (fidelizzazione)
+    // =========================================================
+    console.log('[SEED] Ricalcolo tag clienti (nuovo/medio/top/vecchio/dormiente)...');
+    try {
+        const clientTagsService = require('../src/services/clientTags.service');
+        const result = await clientTagsService.recomputeAutoTags(DEMO_TENANT_ID);
+        console.log(`[SEED] ${result.assignments} tag auto assegnati a ${result.clients} clienti.`);
+    } catch (err) {
+        console.log(`[SEED] Ricalcolo tag: ${err.message}`);
+    }
+
+    // =========================================================
+    // 15. File demo cartella cliente (Luca)
+    // =========================================================
+    const [clientFileCount] = await connection.query(
+        `SELECT COUNT(*) as count FROM client_files WHERE tenant_id = ?`, [DEMO_TENANT_ID]
+    );
+    if (clientFileCount[0].count === 0) {
+        console.log('[SEED] Generazione file demo per la Cartella Cliente...');
+        try {
+            const PDFDocument = require('pdfkit');
+            const { v4: uuidv4 } = require('uuid');
+
+            const lucaRow = await connection.query(
+                `SELECT id FROM clients WHERE tenant_id = ? AND first_name = 'Luca' LIMIT 1`,
+                [DEMO_TENANT_ID]
+            );
+            const lucaId = lucaRow[0]?.[0]?.id;
+            const [ownerUser] = await connection.query(
+                `SELECT id FROM users WHERE tenant_id = ? AND email = 'personaltrainer@demo.local' LIMIT 1`,
+                [DEMO_TENANT_ID]
+            );
+            const ownerId = ownerUser[0]?.id;
+
+            if (lucaId && ownerId) {
+                const docsDir = path.join(__dirname, '..', 'uploads', 'documents', DEMO_TENANT_ID);
+                fs.mkdirSync(docsDir, { recursive: true });
+
+                const buildPdf = (title, lines) => new Promise((resolve, reject) => {
+                    const filename = `${uuidv4()}.pdf`;
+                    const fullPath = path.join(docsDir, filename);
+                    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+                    const stream = fs.createWriteStream(fullPath);
+                    stream.on('finish', () => resolve({ fullPath, filename, size: stream.bytesWritten }));
+                    stream.on('error', reject);
+                    doc.pipe(stream);
+                    doc.fontSize(20).text(title, { align: 'center' });
+                    doc.moveDown(2);
+                    doc.fontSize(11);
+                    lines.forEach(l => { doc.text(l); doc.moveDown(0.3); });
+                    doc.moveDown(2);
+                    doc.fontSize(9).fillColor('#888')
+                        .text('File demo generato automaticamente - Atlas Performance', { align: 'center' });
+                    doc.end();
+                });
+
+                const files = [
+                    {
+                        category: 'medical',
+                        originalName: 'certificato_medico.pdf',
+                        description: 'Certificato medico sportivo agonistico',
+                        title: 'Certificato Medico',
+                        lines: [
+                            'Cliente: Luca Cliente',
+                            'Tipo visita: Idoneita sportiva agonistica',
+                            'Validita: 12 mesi',
+                            '',
+                            'Risultati esami:',
+                            '- ECG a riposo: nella norma',
+                            '- ECG sotto sforzo: nella norma',
+                            '- Spirometria: valori standard',
+                            '- Pressione arteriosa: 120/80 mmHg'
+                        ]
+                    },
+                    {
+                        category: 'contract',
+                        originalName: 'contratto_abbonamento.pdf',
+                        description: 'Contratto di abbonamento personal training',
+                        title: 'Contratto Personal Training',
+                        lines: [
+                            'Cliente: Luca Cliente',
+                            'Piano: Premium Mensile',
+                            'Sessioni incluse: 8 al mese',
+                            'Durata: 1 mese rinnovabile',
+                            '',
+                            'Il cliente dichiara di aver letto e accettato',
+                            'le condizioni generali di servizio.'
+                        ]
+                    },
+                    {
+                        category: 'nutrition',
+                        originalName: 'piano_nutrizionale.pdf',
+                        description: 'Piano alimentare bilanciato personalizzato',
+                        title: 'Piano Nutrizionale',
+                        lines: [
+                            'Cliente: Luca Cliente',
+                            'Obiettivo: Ricomposizione corporea',
+                            'Kcal totali: 2400 kcal/giorno',
+                            'Macro: P 180g | C 280g | F 70g',
+                            '',
+                            'Colazione: avena + frutta + yogurt greco',
+                            'Pranzo: riso basmati + pollo + verdure',
+                            'Spuntino: frutta secca + frutta',
+                            'Cena: pesce azzurro + patate + insalata'
+                        ]
+                    }
+                ];
+
+                for (const f of files) {
+                    const { fullPath, size } = await buildPdf(f.title, f.lines);
+                    await connection.query(
+                        `INSERT INTO client_files
+                         (tenant_id, client_id, filename, original_name, file_path, mime_type,
+                          file_size_bytes, category, description, uploaded_by)
+                         VALUES (?, ?, ?, ?, ?, 'application/pdf', ?, ?, ?, ?)`,
+                        [DEMO_TENANT_ID, lucaId, path.basename(fullPath), f.originalName,
+                         fullPath, size, f.category, f.description, ownerId]
+                    );
+                }
+                console.log(`[SEED] ${files.length} file demo generati per Luca Cliente.`);
+            }
+        } catch (err) {
+            console.log(`[SEED] File demo: ${err.message}`);
+        }
+    }
+
+    // =========================================================
     // Riepilogo
     // =========================================================
     const [titleCount] = await connection.query('SELECT COUNT(*) as count FROM achievement_titles');
@@ -705,14 +950,16 @@ async function seed() {
     const [xpCount] = await connection.query('SELECT COUNT(*) as count FROM points_transactions WHERE tenant_id = ?', [DEMO_TENANT_ID]);
     const [exCount] = await connection.query('SELECT COUNT(*) as count FROM exercises');
     const [emgCount] = await connection.query('SELECT COUNT(*) as count FROM exercise_muscle_groups');
+    const [cfCount] = await connection.query('SELECT COUNT(*) as count FROM client_files WHERE tenant_id = ?', [DEMO_TENANT_ID]);
     console.log(`[SEED] Completato!`);
     console.log(`  ${exCount[0].count} esercizi, ${emgCount[0].count} associazioni muscoli`);
     console.log(`  ${titleCount[0].count} titoli, ${mgCount[0].count} gruppi muscolari, ${mcCount[0].count} mesocicli`);
     console.log(`  ${ntCount[0].count} template notifiche, ${chatCount[0].count} conversazioni, ${msgCount[0].count} messaggi`);
     console.log(`  ${clCount[0].count} clienti, ${achCount[0].count} achievements, ${chCount[0].count} sfide, ${xpCount[0].count} transazioni XP`);
+    console.log(`  ${cfCount[0].count} file demo cartella cliente`);
     console.log(`[SEED] Credenziali demo (password: demo1234 per tutti):`);
     console.log(`  Super Admin:  superadmin@demo.local`);
-    console.log(`  PT Owner:     admin@demo.local`);
+    console.log(`  PT Owner:     personaltrainer@demo.local`);
     console.log(`  Staff:        staff@demo.local`);
     console.log(`  Client:       client@demo.local`);
 

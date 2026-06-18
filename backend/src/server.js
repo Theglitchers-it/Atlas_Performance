@@ -48,6 +48,8 @@ const cron = require("node-cron");
 const { checkAllTitleUnlocks } = require("./cron/checkTitleUnlocks");
 const { sendAllReminders } = require("./cron/sendReminders");
 const { checkAllAlerts } = require("./cron/checkAlerts");
+const { recomputeAllTags } = require("./cron/recomputeTags");
+const { runMonthlyUsageReport } = require("./cron/monthlyUsageReport");
 
 // Import middlewares
 const { errorHandler } = require("./middlewares/errorHandler");
@@ -67,6 +69,7 @@ const programRoutes = require("./routes/program.routes");
 const sessionRoutes = require("./routes/session.routes");
 const measurementRoutes = require("./routes/measurement.routes");
 const nutritionRoutes = require("./routes/nutrition.routes");
+const foodRoutes = require("./routes/food.routes");
 const chatRoutes = require("./routes/chat.routes");
 const communityRoutes = require("./routes/community.routes");
 const bookingRoutes = require("./routes/booking.routes");
@@ -89,6 +92,12 @@ const webhookRoutes = require("./routes/webhook.routes");
 const locationRoutes = require("./routes/location.routes");
 const adminRoutes = require("./routes/admin.routes");
 const searchRoutes = require("./routes/search.routes");
+const rolesRoutes = require("./routes/roles.routes");
+const billingActiveRoutes = require("./routes/billing-active.routes");
+const staffLocationsRoutes = require("./routes/staff-locations.routes");
+const checkinRoutes = require("./routes/checkin.routes");
+const proofOfLiftRoutes = require("./routes/proof-of-lift.routes");
+const clientBulkCsvRoutes = require("./routes/client-bulk-csv.routes");
 
 // Initialize Express app
 const app = express();
@@ -169,10 +178,18 @@ app.use(cookieParser());
 // Escludi webhook Stripe (riceve raw body con Stripe-Signature)
 app.use("/api/", csrfProtection({ excludePaths: ["/webhooks"] }));
 
-// Rate limiting - Generale (200 req / 15 min per IP)
+// In sviluppo i limiti sono molto più alti: reload frequenti, hot-reload e test
+// non devono causare 429. In produzione restano stringenti. Sempre override-abili via env.
+const isDevelopment = process.env.NODE_ENV !== "production";
+
+// Rate limiting - Generale (prod: env o 200 req / 15 min per IP; dev: almeno 5000)
+// In dev garantiamo un limite alto a prescindere dal .env (che può avere valori bassi
+// pensati per simulare la prod): reload/test non devono mai causare 429.
 const generalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200,
+  max: isDevelopment
+    ? Math.max(5000, parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 0)
+    : (parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200),
   message: {
     success: false,
     message: "Troppe richieste, riprova tra qualche minuto",
@@ -180,10 +197,10 @@ const generalLimiter = rateLimit({
 });
 app.use("/api/", generalLimiter);
 
-// Rate limiting - Auth (10 req / 15 min per IP - anti brute-force)
+// Rate limiting - Auth (prod: 10 req / 15 min per IP anti brute-force; dev: 100)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || (isDevelopment ? 100 : 10),
   message: {
     success: false,
     message: "Troppi tentativi di accesso, riprova tra qualche minuto",
@@ -268,7 +285,11 @@ app.use(
     }
     next();
   },
-  express.static("uploads"),
+  express.static("uploads", {
+    setHeaders: (res) => {
+      res.setHeader("Cache-Control", "private, max-age=604800");
+    },
+  }),
 );
 
 // Swagger API Documentation (disabled in production for security)
@@ -319,6 +340,9 @@ app.get("/health", async (req, res) => {
 });
 
 // API Routes (tenant validation is built into verifyToken middleware)
+// Fase 8: bulk + CSV routes prima di clientRoutes per evitare collisione con /clients/:id
+app.use("/api/clients", clientBulkCsvRoutes);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/clients", clientRoutes);
@@ -328,6 +352,7 @@ app.use("/api/programs", programRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/measurements", measurementRoutes);
 app.use("/api/nutrition", nutritionRoutes);
+app.use("/api/foods", foodRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/booking", bookingRoutes);
@@ -350,6 +375,12 @@ app.use("/api/webhooks", webhookRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api", rolesRoutes); // Fase 1: roles, team, client_trainers, qualifications
+app.use("/api", billingActiveRoutes); // Fase 2: pay per active client
+app.use("/api", staffLocationsRoutes); // Fase 3: multi-sede
+app.use("/api", checkinRoutes); // Fase 4: GPS check-in
+app.use("/api", proofOfLiftRoutes); // Fase 6: proof-of-lift, world leaderboard, video likes
+// (Fase 8 clientBulkCsvRoutes montato prima di clientRoutes — vedi sopra)
 
 // Serve frontend in production (static files from Vite build)
 const path = require("path");
@@ -483,6 +514,11 @@ const startServer = async () => {
       runWithLock("cron_alerts", checkAllAlerts);
     });
 
+    // Ricalcolo tag fidelizzazione (ogni notte alle 4:00)
+    cron.schedule("0 4 * * *", () => {
+      runWithLock("cron_recompute_tags", recomputeAllTags);
+    });
+
     // Pulizia refresh tokens scaduti (ogni notte alle 3)
     cron.schedule("0 3 * * *", () => {
       runWithLock("cron_token_cleanup", async () => {
@@ -493,6 +529,11 @@ const startServer = async () => {
           `Refresh tokens scaduti eliminati: ${result.affectedRows || 0}`,
         );
       });
+    });
+
+    // Fase 2: Report mensile usage Stripe per pay_per_active (giorno 1 ore 2:00)
+    cron.schedule("0 2 1 * *", () => {
+      runWithLock("cron_monthly_usage_report", runMonthlyUsageReport);
     });
 
     logger.info("Cron jobs registrati");

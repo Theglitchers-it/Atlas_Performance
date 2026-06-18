@@ -30,6 +30,7 @@ const DashboardView = () => import('@/views/DashboardView.vue')
 const ClientsListView = () => import('@/views/clients/ClientsListView.vue')
 const ClientDetailView = () => import('@/views/clients/ClientDetailView.vue')
 const ClientCreateView = () => import('@/views/clients/ClientCreateView.vue')
+const ImportClientsCSVView = () => import('@/views/clients/ImportClientsCSVView.vue')
 
 // Workouts
 const WorkoutsView = () => import('@/views/workouts/WorkoutsView.vue')
@@ -52,6 +53,7 @@ const ChatView = () => import('@/views/chat/ChatView.vue')
 
 // Community
 const CommunityView = () => import('@/views/community/CommunityView.vue')
+const PublicProfileView = () => import('@/views/community/PublicProfileView.vue')
 
 // Booking
 const CalendarView = () => import('@/views/booking/CalendarView.vue')
@@ -61,10 +63,8 @@ const ClassesView = () => import('@/views/booking/ClassesView.vue')
 const VideoLibraryView = () => import('@/views/videos/VideoLibraryView.vue')
 const CourseDetailView = () => import('@/views/videos/CourseDetailView.vue')
 
-// Gamification (sub-routes only — main view is in UnifiedAnalyticsView)
-const LeaderboardView = () => import('@/views/gamification/LeaderboardView.vue')
-const ChallengesView = () => import('@/views/gamification/ChallengesView.vue')
-const TitlesView = () => import('@/views/gamification/TitlesView.vue')
+// Gamification views: importate da GamificationView.vue come componenti embedded.
+// Le route /leaderboard, /challenges, /titles redirigono al sub-tab corrispondente.
 
 // Analytics (Unified)
 const UnifiedAnalyticsView = () => import('@/views/analytics/UnifiedAnalyticsView.vue')
@@ -74,14 +74,13 @@ const ReadinessView = () => import('@/views/readiness/ReadinessView.vue')
 
 // Settings
 const SettingsView = () => import('@/views/settings/SettingsView.vue')
-const ProfileView = () => import('@/views/settings/ProfileView.vue')
 
 // Client-specific views
 const ClientDashboardView = () => import('@/views/client/ClientDashboardView.vue')
 const ClientWorkoutView = () => import('@/views/client/ClientWorkoutView.vue')
 const ClientProgressView = () => import('@/views/client/ClientProgressView.vue')
-const ClientCheckinView = () => import('@/views/client/ClientCheckinView.vue')
 const ClientProgramDetailView = () => import('@/views/client/ClientProgramDetailView.vue')
+const ClientSessionView = () => import('@/views/client/ClientSessionView.vue')
 
 // Referral
 const ReferralView = () => import('@/views/referral/ReferralView.vue')
@@ -153,10 +152,20 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Nuovo Cliente - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Clienti', to: '/clients' }, { label: 'Nuovo Cliente' }] }
     },
     {
+        path: '/clients/import',
+        name: 'ImportClients',
+        component: ImportClientsCSVView,
+        meta: { requiresAuth: true, title: 'Importa Clienti CSV - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Clienti', to: '/clients' }, { label: 'Importa CSV' }] }
+    },
+    {
         path: '/clients/:id',
         name: 'ClientDetail',
         component: ClientDetailView,
         meta: { requiresAuth: true, title: 'Dettaglio Cliente - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Clienti', to: '/clients' }, { label: 'Dettaglio' }] }
+    },
+    {
+        path: '/scadenze',
+        redirect: '/clients?filter=with_actions'
     },
 
     // Schede (Workouts)
@@ -247,6 +256,12 @@ const routes: RouteRecordRaw[] = [
         component: CommunityView,
         meta: { requiresAuth: true, title: 'Community - Atlas', breadcrumb: [{ label: 'Community' }] }
     },
+    {
+        path: '/community/users/:id',
+        name: 'PublicProfile',
+        component: PublicProfileView,
+        meta: { requiresAuth: true, title: 'Profilo - Atlas', breadcrumb: [{ label: 'Community', to: '/community' }, { label: 'Profilo' }] }
+    },
 
     // Booking
     {
@@ -282,23 +297,22 @@ const routes: RouteRecordRaw[] = [
         name: 'Gamification',
         redirect: '/insights?tab=gamification'
     },
+    // Le pagine standalone redirigono al sub-tab corrispondente di Gamification.
+    // Le view sono ancora montate internamente da GamificationView.vue come componenti.
     {
         path: '/leaderboard',
         name: 'Leaderboard',
-        component: LeaderboardView,
-        meta: { requiresAuth: true, title: 'Classifica - Atlas', breadcrumb: [{ label: 'Insights', to: '/insights' }, { label: 'Gamification', to: '/insights?tab=gamification' }, { label: 'Classifica' }] }
+        redirect: '/insights?tab=gamification&sub=leaderboard'
     },
     {
         path: '/challenges',
         name: 'Challenges',
-        component: ChallengesView,
-        meta: { requiresAuth: true, title: 'Sfide - Atlas', breadcrumb: [{ label: 'Insights', to: '/insights' }, { label: 'Gamification', to: '/insights?tab=gamification' }, { label: 'Sfide' }] }
+        redirect: '/insights?tab=gamification&sub=challenges'
     },
     {
         path: '/titles',
         name: 'Titles',
-        component: TitlesView,
-        meta: { requiresAuth: true, title: 'Titoli - Atlas', breadcrumb: [{ label: 'Insights', to: '/insights' }, { label: 'Gamification', to: '/insights?tab=gamification' }, { label: 'Titoli' }] }
+        redirect: '/insights?tab=gamification&sub=titles'
     },
 
     // Insights (Unified — Panoramica + Volume + Gamification)
@@ -306,7 +320,8 @@ const routes: RouteRecordRaw[] = [
         path: '/insights',
         name: 'Insights',
         component: UnifiedAnalyticsView,
-        meta: { requiresAuth: true, title: 'Insights - Atlas', breadcrumb: [{ label: 'Insights' }] }
+        // client: ammesso ma vede solo il tab Gamification (filtrato in UnifiedAnalyticsView)
+        meta: { requiresAuth: true, title: 'Insights - Atlas', roles: ['tenant_owner', 'staff', 'super_admin', 'client'], breadcrumb: [{ label: 'Insights' }] }
     },
 
     // Legacy /analytics redirect
@@ -320,7 +335,7 @@ const routes: RouteRecordRaw[] = [
         path: '/readiness',
         name: 'Readiness',
         component: ReadinessView,
-        meta: { requiresAuth: true, title: 'Readiness - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Readiness' }] }
+        meta: { requiresAuth: true, title: 'Readiness - Atlas', roles: ['tenant_owner', 'staff', 'super_admin', 'client'], breadcrumb: [{ label: 'Readiness' }] }
     },
 
     // Impostazioni
@@ -332,9 +347,136 @@ const routes: RouteRecordRaw[] = [
     },
     {
         path: '/profile',
-        name: 'Profile',
-        component: ProfileView,
+        redirect: '/settings',
         meta: { requiresAuth: true, title: 'Profilo - Atlas', breadcrumb: [{ label: 'Impostazioni', to: '/settings' }, { label: 'Profilo' }] }
+    },
+
+    // Fase 3 - Multi-sede: tree filiali + staff assignment
+    {
+        path: '/locations/tree',
+        name: 'LocationsTree',
+        component: () => import('@/views/locations/LocationsTreeView.vue'),
+        meta: {
+            requiresAuth: true,
+            roles: ['tenant_owner', 'staff', 'super_admin'],
+            title: 'Sedi & Filiali - Atlas',
+            breadcrumb: [{ label: 'Sedi' }]
+        }
+    },
+
+    // Fase 6 - Proof-of-Lift upload/storico
+    {
+        path: '/proof-of-lift/upload',
+        name: 'UploadPRVideo',
+        component: () => import('@/views/proof-of-lift/UploadPRVideoView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'Carica Proof-of-Lift - Atlas',
+            breadcrumb: [{ label: 'Proof-of-Lift' }, { label: 'Carica' }]
+        }
+    },
+    {
+        path: '/proof-of-lift/me',
+        name: 'MyPRs',
+        component: () => import('@/views/proof-of-lift/MyPRsView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'I miei PR - Atlas',
+            breadcrumb: [{ label: 'Proof-of-Lift' }, { label: 'I miei PR' }]
+        }
+    },
+
+    // Fase 6 - World Leaderboard + Privacy
+    {
+        path: '/leaderboard/world',
+        name: 'WorldLeaderboard',
+        component: () => import('@/views/leaderboard/WorldLeaderboardView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'World Leaderboard - Atlas',
+            breadcrumb: [{ label: 'World Leaderboard' }]
+        }
+    },
+    {
+        path: '/settings/world-leaderboard',
+        name: 'WorldLeaderboardPrivacy',
+        component: () => import('@/views/settings/WorldLeaderboardPrivacyView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'Privacy World Leaderboard - Atlas',
+            breadcrumb: [{ label: 'Impostazioni', to: '/settings' }, { label: 'World Leaderboard' }]
+        }
+    },
+
+    // Fase 5 - Community moderation & rules
+    {
+        path: '/community/moderation',
+        name: 'CommunityModeration',
+        component: () => import('@/views/community/ModerationPanelView.vue'),
+        meta: {
+            requiresAuth: true,
+            roles: ['tenant_owner', 'staff', 'super_admin'],
+            title: 'Moderazione Community - Atlas',
+            breadcrumb: [{ label: 'Community', to: '/community' }, { label: 'Moderazione' }]
+        }
+    },
+    {
+        path: '/community/rules',
+        name: 'CommunityRules',
+        component: () => import('@/views/community/CommunityRulesView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'Regole Community - Atlas',
+            breadcrumb: [{ label: 'Community', to: '/community' }, { label: 'Regole' }]
+        }
+    },
+
+    // Fase 4 - GPS Check-in
+    {
+        path: '/checkin',
+        name: 'GpsCheckin',
+        component: () => import('@/views/checkin/CheckinView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'Check-in palestra - Atlas',
+            breadcrumb: [{ label: 'Check-in' }]
+        }
+    },
+
+    // Fase 2 - Pay per active client billing
+    {
+        path: '/billing/active',
+        name: 'BillingActive',
+        component: () => import('@/views/billing/BillingActiveDashboardView.vue'),
+        meta: {
+            requiresAuth: true,
+            roles: ['tenant_owner', 'super_admin', 'staff'],
+            title: 'Fatturazione - Atlas',
+            breadcrumb: [{ label: 'Fatturazione' }]
+        }
+    },
+
+    // Fase 1 - Account multi-livello: Team & Qualifiche
+    {
+        path: '/team',
+        name: 'MyTeam',
+        component: () => import('@/views/team/MyTeamView.vue'),
+        meta: {
+            requiresAuth: true,
+            roles: ['tenant_owner', 'staff', 'super_admin'],
+            title: 'Il mio Team - Atlas',
+            breadcrumb: [{ label: 'Team' }]
+        }
+    },
+    {
+        path: '/profile/qualifications',
+        name: 'Qualifications',
+        component: () => import('@/views/profile/QualificationsView.vue'),
+        meta: {
+            requiresAuth: true,
+            title: 'Qualifiche - Atlas',
+            breadcrumb: [{ label: 'Profilo', to: '/profile' }, { label: 'Qualifiche' }]
+        }
     },
 
     // Client-specific routes
@@ -357,17 +499,19 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Dettaglio Programma - Atlas', roles: ['client'], breadcrumb: [{ label: 'Allenamento', to: '/my-workout' }, { label: 'Programma' }] }
     },
     {
+        path: '/my-session/:id',
+        name: 'ClientSession',
+        component: ClientSessionView,
+        meta: { requiresAuth: true, title: 'Sessione di Allenamento - Atlas', roles: ['client'], breadcrumb: [{ label: 'Allenamento', to: '/my-workout' }, { label: 'Sessione in corso' }] }
+    },
+    {
         path: '/my-progress',
         name: 'ClientProgress',
         component: ClientProgressView,
         meta: { requiresAuth: true, title: 'Progressi - Atlas', roles: ['client'], breadcrumb: [{ label: 'Progressi' }] }
     },
-    {
-        path: '/checkin',
-        name: 'ClientCheckin',
-        component: ClientCheckinView,
-        meta: { requiresAuth: true, title: 'Check-in - Atlas', roles: ['client'], breadcrumb: [{ label: 'Check-in' }] }
-    },
+    // NOTA: route ClientCheckin rimossa (era duplicata con GpsCheckin path: '/checkin').
+    // Il check-in benessere/readiness del cliente ora vive su /readiness (ReadinessView role-aware).
 
     // Admin (Unified)
     {
@@ -409,7 +553,7 @@ const routes: RouteRecordRaw[] = [
         path: '/locations',
         name: 'Locations',
         component: LocationsView,
-        meta: { requiresAuth: true, title: 'Sedi - Atlas', roles: ['tenant_owner', 'staff', 'super_admin'], breadcrumb: [{ label: 'Sedi' }] }
+        meta: { requiresAuth: true, title: 'Sedi - Atlas', roles: ['tenant_owner', 'staff', 'super_admin', 'client'], breadcrumb: [{ label: 'Sedi' }] }
     },
 
     // Volume Analytics — redirect to unified Analytics view
@@ -483,8 +627,10 @@ router.beforeEach(async (to, _from, next) => {
         return next({ name: 'Login', query: { redirect: to.fullPath } })
     }
 
-    // Role-based access
-    if (to.meta.roles && userRole && !to.meta.roles.includes(userRole)) {
+    // Role-based access (array-aware: considera ruolo primario + roles[] mappati a legacy,
+    // coerente con userHasAnyRole del backend — un gym_admin/community_moderator definito
+    // solo in roles[] non viene più bloccato erroneamente).
+    if (to.meta.roles && isAuthenticated && !authStore.canAccessRoles(to.meta.roles)) {
         if (userRole === 'client') {
             return next({ name: 'ClientDashboard' })
         }

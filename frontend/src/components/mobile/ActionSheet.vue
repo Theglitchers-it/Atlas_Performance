@@ -36,11 +36,12 @@ const close = (): void => {
 
 const handleAction = (action: ActionSheetAction): void => {
   hapticTap();
-  close();
+  // Handler PRIMA di close(): preserva trust window iOS Safari per
+  // window.open(), e evita race con unmount durante setTimeout deferito
   if (action.handler) {
-    // Piccolo delay per far finire l'animazione di chiusura
-    setTimeout(() => action.handler!(), 200);
+    action.handler();
   }
+  close();
 };
 </script>
 

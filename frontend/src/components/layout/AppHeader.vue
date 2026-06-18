@@ -4,7 +4,9 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 import { useThemeStore } from "@/store/theme";
 import { useNotificationStore } from "@/store/notification";
+import { useUiStore } from "@/store/ui";
 import { useNative } from "@/composables/useNative";
+import { useThrottleFn } from "@vueuse/core";
 import api from "@/services/api";
 import {
   Bars3Icon,
@@ -26,9 +28,30 @@ const router = useRouter();
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
 const notificationStore = useNotificationStore();
+const uiStore = useUiStore();
 const { isMobile } = useNative();
 
 const user = computed(() => authStore.user as Record<string, any> | null);
+const isClient = computed(() => user.value?.role === "client");
+const searchPlaceholder = computed(() =>
+  isClient.value
+    ? "Cerca esercizi, schede..."
+    : "Cerca clienti, workout, esercizi...",
+);
+const userRoleLabel = computed(() => {
+  switch (user.value?.role) {
+    case "tenant_owner":
+      return "Titolare";
+    case "staff":
+      return "Collaboratore";
+    case "super_admin":
+      return "Amministratore";
+    case "client":
+      return "Atleta";
+    default:
+      return "Utente";
+  }
+});
 const isDark = computed(() => themeStore.isDark);
 
 const showSearch = ref(false);
@@ -42,7 +65,8 @@ const isCollapsed = ref(false);
 const lastScrollY = ref(0);
 const SCROLL_THRESHOLD = 80;
 
-const handleScroll = () => {
+// Throttle a 100ms (max 10 chiamate/sec) per evitare jank su scroll veloce.
+const handleScroll = useThrottleFn(() => {
   if (!isMobile.value) {
     isCollapsed.value = false;
     return;
@@ -50,7 +74,7 @@ const handleScroll = () => {
   const currentY = window.scrollY;
   isCollapsed.value = currentY > SCROLL_THRESHOLD;
   lastScrollY.value = currentY;
-};
+}, 100);
 
 const headerHeight = computed(() => {
   if (!isMobile.value) return "h-16";
@@ -64,6 +88,18 @@ const showSearchResults = ref(false);
 const searchError = ref(false);
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 let searchAbortController: AbortController | null = null;
+
+// Chiudi dropdown del header quando il drawer mobile si apre
+watch(
+  () => uiStore.drawerOpen,
+  (open) => {
+    if (open) {
+      showNotifications.value = false;
+      showSearch.value = false;
+      showSearchResults.value = false;
+    }
+  },
+);
 
 // Notification getters from store
 const unreadCount = computed(() => notificationStore.unreadCount);
@@ -264,7 +300,11 @@ const handleResultClick = (type: string, item: Record<string, any>): void => {
       router.push(`/exercises`);
       break;
     case "workout":
-      router.push(`/workouts/${item.id}`);
+      router.push(
+        isClient.value
+          ? `/my-workout/program/${item.id}`
+          : `/workouts/${item.id}`,
+      );
       break;
   }
 };
@@ -281,7 +321,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
   <header
     :class="[
       headerHeight,
-      'fixed top-0 left-0 right-0 bg-habit-card/90 backdrop-blur-xl border-b border-habit-border z-40 transition-all duration-300 safe-top',
+      'fixed top-0 left-0 right-0 bg-habit-card/95 backdrop-blur-md border-b border-habit-border z-40 transition-all duration-300 safe-top',
     ]"
   >
     <div class="flex items-center justify-between h-full px-3 sm:px-4">
@@ -327,10 +367,18 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
           />
           <input
             v-model="searchQuery"
-            type="text"
+            type="search"
+            name="atlas-header-search-q"
             autocomplete="off"
-            placeholder="Cerca clienti, workout, esercizi..."
-            aria-label="Cerca clienti, workout, esercizi"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore
+            :placeholder="searchPlaceholder"
+            :aria-label="searchPlaceholder"
             role="combobox"
             :aria-expanded="showSearchResults"
             aria-autocomplete="list"
@@ -371,7 +419,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
               <!-- Results -->
               <div v-else-if="hasResults" class="max-h-80 overflow-y-auto">
                 <!-- Clients -->
-                <div v-if="searchResults!.clients?.length > 0">
+                <div v-if="!isClient && searchResults!.clients?.length > 0">
                   <div class="px-4 py-2 bg-habit-bg-light">
                     <span
                       class="text-xs font-semibold text-habit-text-subtle uppercase tracking-wider flex items-center gap-1.5"
@@ -702,7 +750,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
               {{ user?.firstName || "Utente" }}
             </p>
             <p class="text-xs text-habit-text-subtle">
-              {{ user?.role === "trainer" ? "Personal Trainer" : "Cliente" }}
+              {{ userRoleLabel }}
             </p>
           </div>
         </router-link>
@@ -728,9 +776,18 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
           />
           <input
             v-model="searchQuery"
-            type="text"
+            type="search"
+            name="atlas-header-search-q-mobile"
             autocomplete="off"
-            placeholder="Cerca..."
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore
+            :placeholder="searchPlaceholder"
+            :aria-label="searchPlaceholder"
             class="w-full pl-10 pr-10 py-3 bg-habit-bg-light border-0 rounded-xl text-habit-text placeholder-habit-text-subtle focus:ring-2 focus:ring-habit-orange/50"
             autofocus
             @keydown="handleSearchKeydown"
@@ -768,7 +825,7 @@ const handleSearchKeydown = (e: KeyboardEvent): void => {
                 ></div>
               </div>
               <div v-else-if="hasResults" class="max-h-60 overflow-y-auto">
-                <template v-if="searchResults!.clients?.length > 0">
+                <template v-if="!isClient && searchResults!.clients?.length > 0">
                   <div class="px-4 py-2 bg-habit-bg-light">
                     <span
                       class="text-xs font-semibold text-habit-text-subtle uppercase"

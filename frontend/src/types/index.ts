@@ -1,11 +1,16 @@
 // ===== Core Entity Types =====
 
+export type AppRole = "gym_admin" | "trainer" | "nutritionist" | "client" | "front_desk" | "accountant";
+export type LegacyRole = "tenant_owner" | "staff" | "client" | "super_admin";
+
 export interface User {
   id: number;
   email: string;
   firstName: string;
   lastName: string;
-  role: "tenant_owner" | "staff" | "client" | "super_admin";
+  role: LegacyRole;
+  roles?: AppRole[];
+  parentUserId?: number | null;
   tenantId: string;
   clientId?: number;
   avatar?: string;
@@ -32,6 +37,245 @@ export interface Client {
   notes?: string;
   created_at: string;
   updated_at: string;
+  last_workout_at?: string | null;
+  active_subscription_end_date?: string | null;
+  last_measurement_date?: string | null;
+  lifetime_subscription_months?: number | null;
+  first_subscription_date?: string | null;
+  days_since_last_sub_end?: number | null;
+  tags?: string[];
+  sport_history?: string | null;
+  occupation_type?: OccupationType | null;
+  daily_steps_avg?: number | null;
+  joint_pain_areas?: string[] | null;
+  primary_goal?: string;
+  previous_diets?: string | null;
+  dietary_restrictions?: string[] | null;
+  food_allergies?: string | null;
+  current_diet_phase?: DietPhase | null;
+  baseline_stress_level?: number | null;
+  meals_per_day_habit?: number | null;
+  // Fase 7: foto + activity recap
+  photo_url?: string | null;
+  recap_last_workout_at?: string | null;
+  recap_last_checkin_at?: string | null;
+  weight_trend_30d?: Array<{ d: string; w: number }> | null;
+  primary_trainer_id?: number | null;
+  primary_trainer_first_name?: string | null;
+  primary_trainer_last_name?: string | null;
+}
+
+export type OccupationType =
+  | "sedentary"
+  | "moderately_active"
+  | "active"
+  | "highly_active";
+
+export const OCCUPATION_OPTIONS: { value: OccupationType; label: string }[] = [
+  { value: "sedentary", label: "Sedentario" },
+  { value: "moderately_active", label: "Moderatamente attivo" },
+  { value: "active", label: "Attivo" },
+  { value: "highly_active", label: "Molto attivo" },
+];
+
+export const JOINT_PAIN_OPTIONS: string[] = [
+  "spalla",
+  "ginocchio",
+  "schiena",
+  "anca",
+  "caviglia",
+  "polso",
+  "gomito",
+  "collo",
+];
+
+export type DietPhase = "cut" | "normocaloric" | "bulk" | "free";
+
+export type MealType =
+  | "breakfast"
+  | "morning_snack"
+  | "lunch"
+  | "afternoon_snack"
+  | "dinner"
+  | "evening_snack"
+  | "other";
+
+export const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
+  { value: "breakfast", label: "Colazione" },
+  { value: "morning_snack", label: "Spuntino mattina" },
+  { value: "lunch", label: "Pranzo" },
+  { value: "afternoon_snack", label: "Spuntino pomeriggio" },
+  { value: "dinner", label: "Cena" },
+  { value: "evening_snack", label: "Spuntino sera" },
+  { value: "other", label: "Altro" },
+];
+
+export interface Food {
+  id: number;
+  name: string;
+  brand: string | null;
+  default_unit: string;
+  default_quantity: number;
+  calories_per_100: number | null;
+  protein_per_100: number | null;
+  carbs_per_100: number | null;
+  fat_per_100: number | null;
+  fiber_per_100: number | null;
+  is_preset: boolean;
+}
+
+export interface FoodLogEntry {
+  id: number;
+  food_id: number | null;
+  food_name: string;
+  quantity: number;
+  unit: string;
+  meal_type: MealType;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber: number | null;
+  logged_at: string;
+  notes: string | null;
+  entered_by?: number;
+}
+
+export interface FoodLogDayTotals {
+  calories: number | string;
+  protein: number | string;
+  carbs: number | string;
+  fat: number | string;
+  fiber: number | string;
+  entries_count: number;
+}
+
+export type HealthStatus = "green" | "yellow" | "red";
+
+export interface KeyExercise {
+  id: number;
+  exercise_id: number;
+  exercise_name: string;
+  exercise_category: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface PerformancePoint {
+  date: string;
+  estimated_1rm: number;
+  top_weight: number;
+  top_reps: number;
+}
+
+export interface VolumeByMuscleItem {
+  muscle_group_id: number;
+  muscle_group: string;
+  category: string | null;
+  weighted_sets: number;
+  raw_sets: number;
+}
+
+export interface VolumeByMuscleResponse {
+  items: VolumeByMuscleItem[];
+  totals: {
+    muscle_groups: number;
+    raw_sets: number;
+    weighted_sets: number;
+  };
+  period: {
+    from: string;
+    to: string;
+    program_name: string | null;
+  };
+}
+
+export interface ClientHealthSnapshot {
+  client: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    current_diet_phase: DietPhase | null;
+    baseline_stress_level: number | null;
+  };
+  readiness: {
+    avg_7d: number | null;
+    entries_7d: number;
+  };
+  nutrition: {
+    avg_calories_7d: number | null;
+    target_calories: number | null;
+    caloric_gap_pct: number | null;
+    logged_days_7d: number;
+    has_active_plan: boolean;
+  };
+  status: HealthStatus;
+  warnings: string[];
+}
+
+export const DIET_PHASE_OPTIONS: { value: DietPhase; label: string; description: string }[] = [
+  { value: "free", label: "Libero", description: "Nessuna dieta attiva" },
+  { value: "cut", label: "Taglio calorico", description: "Deficit calorico (dimagrimento)" },
+  { value: "normocaloric", label: "Normocalorica", description: "Mantenimento peso" },
+  { value: "bulk", label: "Massa", description: "Surplus calorico (crescita muscolare)" },
+];
+
+export const DIETARY_RESTRICTION_OPTIONS: string[] = [
+  "vegetariano",
+  "vegano",
+  "senza glutine",
+  "senza lattosio",
+  "kosher",
+  "halal",
+  "pescetariano",
+  "low-carb",
+  "keto",
+];
+
+export type ClientAutoTag =
+  | "nuovo"
+  | "medio"
+  | "top"
+  | "vecchio"
+  | "dormiente";
+
+export const CLIENT_AUTO_TAGS: readonly ClientAutoTag[] = [
+  "nuovo",
+  "medio",
+  "top",
+  "vecchio",
+  "dormiente",
+] as const;
+
+export type InjurySeverity = "mild" | "moderate" | "severe";
+export type InjuryStatus = "active" | "recovering" | "recovered";
+
+export const INJURY_SEVERITY_OPTIONS: {
+  value: InjurySeverity;
+  label: string;
+}[] = [
+  { value: "mild", label: "Lieve" },
+  { value: "moderate", label: "Moderato" },
+  { value: "severe", label: "Grave" },
+];
+
+export const INJURY_STATUS_OPTIONS: {
+  value: InjuryStatus;
+  label: string;
+}[] = [
+  { value: "active", label: "Attivo" },
+  { value: "recovering", label: "In recupero" },
+  { value: "recovered", label: "Guarito" },
+];
+
+export interface Injury {
+  id: number;
+  body_part: string;
+  description: string | null;
+  severity: InjurySeverity;
+  injury_date: string | null;
+  status: InjuryStatus;
+  notes: string | null;
 }
 
 export interface Appointment {
@@ -272,6 +516,13 @@ export interface GamificationDashboard {
   recentXP: XPTransaction[];
   badges?: Title[];
   challenges?: Challenge[];
+  xp?: number;
+  streak?: number;
+  achievementsUnlocked?: number;
+  titlesUnlocked?: number;
+  activeChallenges?: number;
+  xpInLevel?: number;
+  xpNeeded?: number;
 }
 
 export interface Title {
@@ -283,15 +534,22 @@ export interface Title {
   unlocked_at?: string;
   category?: string;
   rarity?: string;
+  title_name?: string;
+  title_description?: string;
 }
 
 export interface XPTransaction {
   id: number;
-  amount: number;
-  reason: string;
+  amount?: number;
+  reason?: string;
   created_at: string;
   source_type?: string;
   source_id?: number;
+  points?: number;
+  transaction_type?: string;
+  description?: string | null;
+  reference_type?: string | null;
+  reference_id?: number | null;
 }
 
 export interface Challenge {
@@ -306,6 +564,99 @@ export interface Challenge {
   status?: "active" | "completed" | "upcoming";
   reward_xp?: number;
   progress?: number;
+  challenge_type?: string;
+  participant_status?: string;
+  current_value?: number;
+  xp_reward?: number;
+  // userParticipation: shape ritornato da backend gamification.service.js per il challenge corrente
+  // (row da challenge_participants JOIN clients). I campi riflettono lo schema reale del DB.
+  userParticipation?: {
+    id?: number;
+    client_id?: number;
+    challenge_id?: number;
+    status?: string;
+    current_value?: number;
+    started_at?: string | null;
+    completed_at?: string | null;
+    first_name?: string;
+    last_name?: string;
+  } | null;
+  participants?: Array<{
+    id?: number;
+    user_id: number;
+    user_name?: string;
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string | null;
+    progress?: number;
+    level?: number;
+    current_value?: number;
+    status?: string;
+  }>;
+}
+
+// ===== Gamification: nuove feature =====
+
+export interface XPSparkPoint {
+  date: string;
+  xp: number;
+}
+
+export interface StreakHeatmapDay {
+  date: string;
+  activities: number;
+  intensity: number;
+}
+
+export interface NextAchievement {
+  id: number;
+  name: string;
+  description: string;
+  icon_url: string | null;
+  category: string;
+  rarity: string;
+  xp_reward: number;
+  requirement_type: string | null;
+  requirement_value: number;
+  progress_value: number;
+  progress_pct: number;
+  xp_remaining: number;
+}
+
+export interface RankingInfo {
+  position: number;
+  total: number;
+  percentile: number;
+  xp: number;
+  xp_to_next: number;
+  next_user_name: string | null;
+}
+
+export interface WeeklyRecapDelta {
+  xp: number;
+  workouts: number;
+  achievements: number;
+}
+
+export interface WeeklyRecap {
+  week_start: string;
+  this_week: WeeklyRecapDelta;
+  last_week: WeeklyRecapDelta;
+  xp_delta_pct: number;
+  streak_current: number;
+}
+
+export type WeeklyGoalType = "xp" | "workouts" | "challenges" | "streak";
+
+export interface WeeklyGoal {
+  id: number;
+  goal_type: WeeklyGoalType;
+  target_value: number;
+  current_value: number;
+  progress_pct: number;
+  achieved: boolean;
+  status: "active" | "completed" | "expired";
+  week_start: string;
 }
 
 // ===== API Response Types =====
@@ -336,6 +687,9 @@ export interface AnalyticsOverview {
     active: number;
     paused: number;
     inactive: number;
+    new_clients_30d?: number;
+    total_clients?: number;
+    active_clients?: number;
   };
   sessions: {
     total: number;
@@ -346,6 +700,49 @@ export interface AnalyticsOverview {
     total: number;
     monthly: number;
   };
+}
+
+// ===== Action Items (Dashboard Trainer) =====
+
+export type ActionBadge = "NUOVO" | "RINNOVO";
+export type ActionType =
+  | "new_no_check"
+  | "subscription_expiring"
+  | "checkin_overdue";
+
+export type ActionTypeFilter = "all" | "renewal" | "checkin";
+
+export interface ActionItem {
+  client_id: number;
+  first_name: string;
+  last_name: string;
+  badge: ActionBadge;
+  action_type: ActionType;
+  message: string;
+  urgency: number;
+  meta: {
+    days_since_signup?: number;
+    subscription_id?: number;
+    plan_type?: string;
+    end_date?: string;
+    days_left?: number;
+    last_checkin_date?: string;
+    days_since_checkin?: number;
+  };
+}
+
+export interface ActionItemsCounts {
+  total: number;
+  new: number;
+  renewal: number;
+  expiring_subscriptions: number;
+  checkin_overdue: number;
+  new_no_check: number;
+}
+
+export interface ActionItemsResponse {
+  items: ActionItem[];
+  counts: ActionItemsCounts;
 }
 
 export interface SessionTrendPoint {
@@ -472,6 +869,10 @@ export interface CommunityPost {
   is_liked: boolean;
   author_name: string;
   created_at: string;
+  user_saved?: number;
+  is_pinned?: boolean;
+  user_liked?: number;
+  postType?: string;
 }
 
 // ===== Alert & Referral Types =====
@@ -512,13 +913,18 @@ export interface VolumeData {
   date: string;
 }
 
+export type PhotoType = "front" | "side" | "back" | "full_body";
+
 export interface ProgressPhoto {
   id: number;
   client_id: number;
-  image_url: string;
-  category: "front" | "side" | "back";
-  notes?: string;
+  photo_url: string;
+  thumbnail_url: string | null;
+  photo_type: PhotoType;
   taken_at: string;
+  notes: string | null;
+  body_weight: number | null;
+  body_fat_pct: number | null;
 }
 
 // ===== Calendar Event Type (FullCalendar) =====
@@ -547,6 +953,7 @@ export interface BookingFilters {
   clientId: number | null;
   trainerId: number | null;
   status: string | null;
+  locationId?: number | null;
 }
 
 export interface BookingState {

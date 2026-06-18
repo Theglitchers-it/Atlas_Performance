@@ -12,9 +12,10 @@ import {
   ExclamationTriangleIcon,
   TrashIcon,
   InformationCircleIcon,
+  CheckCircleIcon,
 } from "@heroicons/vue/24/outline";
 
-type ConfirmVariant = "danger" | "warning" | "info";
+type ConfirmVariant = "danger" | "warning" | "info" | "success";
 
 interface VariantConfig {
   icon: Component;
@@ -32,6 +33,7 @@ interface Props {
   cancelText?: string;
   variant?: ConfirmVariant;
   loading?: boolean;
+  hideCancel?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,6 +44,7 @@ const props = withDefaults(defineProps<Props>(), {
   cancelText: "Annulla",
   variant: "danger",
   loading: false,
+  hideCancel: false,
 });
 
 const emit = defineEmits<{
@@ -67,6 +70,14 @@ const variantConfig = computed<VariantConfig>(() => {
         confirmBtn: "bg-habit-orange hover:bg-habit-orange-dark text-white",
         confirmBtnDisabled:
           "bg-habit-orange/50 text-white/70 cursor-not-allowed",
+      };
+    case "success":
+      return {
+        icon: CheckCircleIcon,
+        iconBg: "bg-green-500/10",
+        iconColor: "text-green-500",
+        confirmBtn: "bg-habit-text hover:opacity-90 text-habit-card",
+        confirmBtnDisabled: "bg-habit-text/40 text-habit-card/60 cursor-not-allowed",
       };
     case "info":
     default:
@@ -147,6 +158,7 @@ const handleConfirm = (): void => {
               <!-- Actions -->
               <div class="flex gap-3 justify-end mt-6">
                 <button
+                  v-if="!hideCancel"
                   @click="handleCancel"
                   :disabled="loading"
                   class="px-4 py-2 text-sm font-medium text-habit-text-muted bg-habit-bg-light border border-habit-border rounded-xl hover:bg-habit-card-hover hover:text-habit-text transition-all duration-200 disabled:opacity-50"

@@ -9,13 +9,14 @@ import { useRoute, useRouter } from 'vue-router'
 export interface TabDefinition {
     readonly key: string
     readonly label: string
-    readonly icon: Component
+    readonly icon: Component | string
 }
 
 export function useRouteTabs<T extends readonly TabDefinition[]>(
     tabs: T,
     basePath: string,
-    defaultTab: T[number]['key']
+    defaultTab: T[number]['key'],
+    queryKey: string = 'tab'
 ) {
     const route = useRoute()
     const router = useRouter()
@@ -26,24 +27,30 @@ export function useRouteTabs<T extends readonly TabDefinition[]>(
         typeof val === 'string' && tabs.some(t => t.key === val)
 
     const activeTab = shallowRef<TabKey>(
-        isValidTab(route.query.tab) ? (route.query.tab as TabKey) : defaultTab
+        isValidTab(route.query[queryKey]) ? (route.query[queryKey] as TabKey) : defaultTab
     )
 
     watch(
-        () => route.query.tab,
+        () => route.query[queryKey],
         (val) => {
             if (isValidTab(val)) {
                 activeTab.value = val
+            } else if (val === undefined) {
+                activeTab.value = defaultTab
             }
         },
     )
 
-    const switchTab = (key: TabKey) => {
+    const switchTab = (key: string) => {
+        if (!isValidTab(key)) return
         activeTab.value = key
-        router.replace({
-            path: basePath,
-            query: key === defaultTab ? {} : { tab: key },
-        })
+        const nextQuery: Record<string, any> = { ...route.query }
+        if (key === defaultTab) {
+            delete nextQuery[queryKey]
+        } else {
+            nextQuery[queryKey] = key
+        }
+        router.replace({ path: basePath, query: nextQuery })
     }
 
     return { activeTab, switchTab }

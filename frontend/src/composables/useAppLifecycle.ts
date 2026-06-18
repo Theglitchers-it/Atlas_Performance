@@ -8,6 +8,7 @@
 
 import { ref, type Ref } from 'vue'
 import router from '@/router'
+import { useUiStore } from '@/store/ui'
 
 interface AppLifecycleOptions {
     onResume?: () => void
@@ -56,8 +57,15 @@ export function useAppLifecycle(): UseAppLifecycleReturn {
             })
             listeners.push(stateListener)
 
-            // Back button (Android)
+            // Back button (Android) — chiude drawer/overlay prima di navigare
+            const uiStore = useUiStore()
             const backListener = await App.addListener('backButton', ({ canGoBack }: { canGoBack: boolean }) => {
+                // Priorita 1: chiudi drawer aperto
+                if (uiStore.drawerOpen) {
+                    uiStore.closeDrawer()
+                    return
+                }
+                // Priorita 2: navigazione standard
                 if (canGoBack) {
                     router.back()
                 } else {

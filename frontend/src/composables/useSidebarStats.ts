@@ -38,25 +38,41 @@ interface StatLinks {
 
 // --- Static lookup tables (module-level, created once) ---
 
+// Le label coprono sia i LegacyRole sia gli AppRole moderni (multi-role gym_admin/trainer/nutritionist/front_desk/accountant).
 const ROLE_LABELS = {
     tenant_owner: 'Titolare',
     staff: 'Collaboratore',
     client: 'Atleta',
-    super_admin: 'Amministratore'
+    super_admin: 'Amministratore',
+    gym_admin: 'Admin Palestra',
+    trainer: 'Trainer',
+    nutritionist: 'Nutrizionista',
+    front_desk: 'Reception',
+    accountant: 'Amministrazione'
 } as const
 
 const AVATAR_GRADIENTS = {
-    tenant_owner: 'from-habit-orange to-habit-cyan',
-    staff: 'from-blue-500 to-habit-cyan',
-    client: 'from-emerald-500 to-habit-cyan',
-    super_admin: 'from-purple-500 to-pink-500'
+    tenant_owner: 'from-habit-orange to-amber-500',
+    staff: 'from-habit-orange to-amber-500',
+    client: 'from-habit-orange to-amber-500',
+    super_admin: 'from-habit-orange to-amber-500',
+    gym_admin: 'from-habit-orange to-amber-500',
+    trainer: 'from-habit-cyan to-cyan-500',
+    nutritionist: 'from-emerald-500 to-emerald-600',
+    front_desk: 'from-blue-500 to-blue-600',
+    accountant: 'from-purple-500 to-purple-600'
 } as const
 
 const STAT2_ACCENTS = {
     tenant_owner: 'text-habit-orange',
     staff: 'text-habit-cyan',
     client: 'text-habit-orange',
-    super_admin: 'text-purple-400'
+    super_admin: 'text-purple-400',
+    gym_admin: 'text-habit-orange',
+    trainer: 'text-habit-cyan',
+    nutritionist: 'text-emerald-400',
+    front_desk: 'text-blue-400',
+    accountant: 'text-purple-400'
 } as const
 
 const STAT_LINKS: Readonly<Record<string, StatLinks>> = {
@@ -81,10 +97,9 @@ const QUICK_ACTIONS: Readonly<Record<string, readonly QuickAction[]>> = {
         { label: 'Clienti', icon: '👥', path: '/clients' },
         { label: 'Calendario', icon: '📅', path: '/calendar' }
     ],
-    client: [
-        { label: 'Allenamento', icon: '💪', path: '/my-workout' },
-        { label: 'Check-in', icon: '❤️', path: '/checkin' }
-    ]
+    // role=client: nessuna quick-action nell'header del drawer
+    // (gli shortcut sono già nella BottomNavigation: Workout + Check-in)
+    client: []
 }
 
 interface CachedStatsState {
@@ -137,11 +152,11 @@ export function useSidebarStats(): UseSidebarStatsReturn {
     const userRole = computed<string | null>(() => authStore.userRole)
 
     const roleLabel = computed<string>(() =>
-        ROLE_LABELS[authStore.userRole || ''] || 'Utente'
+        ROLE_LABELS[authStore.userRole as keyof typeof ROLE_LABELS] || 'Utente'
     )
 
     const avatarGradient = computed<string>(() =>
-        AVATAR_GRADIENTS[authStore.userRole || ''] || 'from-habit-orange to-habit-orange'
+        AVATAR_GRADIENTS[authStore.userRole as keyof typeof AVATAR_GRADIENTS] || 'from-habit-orange to-habit-orange'
     )
 
     const userInitials = computed<string>(() => {
@@ -151,7 +166,7 @@ export function useSidebarStats(): UseSidebarStatsReturn {
     })
 
     const stat2AccentClass = computed<string>(() =>
-        STAT2_ACCENTS[authStore.userRole || ''] || 'text-habit-orange'
+        STAT2_ACCENTS[authStore.userRole as keyof typeof STAT2_ACCENTS] || 'text-habit-orange'
     )
 
     const statLinks = computed<StatLinks>(() =>

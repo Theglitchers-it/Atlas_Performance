@@ -5,6 +5,18 @@ import path from 'path'
 
 const isMobileBuild = process.env.VITE_BUILD_TARGET === 'mobile'
 
+// Quando il backend è in riavvio il proxy non raggiunge il target: invece di propagare
+// un 500 rumoroso, rispondiamo 503 (Service Unavailable). L'interceptor axios lo ritenta
+// automaticamente (è nei RETRY_STATUS_CODES) e la console del browser resta pulita.
+const quietProxyError = (proxy) => {
+  proxy.on('error', (_err, _req, res) => {
+    if (res && !res.headersSent && typeof res.writeHead === 'function') {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '1' })
+      res.end(JSON.stringify({ success: false, message: 'Backend in riavvio, riprova tra poco' }))
+    }
+  })
+}
+
 export default defineConfig({
   test: {
     globals: true,
@@ -21,6 +33,7 @@ export default defineConfig({
     // PWA disabilitata per build mobile Capacitor (il service worker confligge con WebView)
     !isMobileBuild && VitePWA({
       registerType: 'autoUpdate',
+      devOptions: { enabled: false },
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'Atlas - Piattaforma Personal Trainer',
@@ -134,10 +147,23 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    },
+    watch: {
+      usePolling: true,
+      interval: 300
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:3000',
-        changeOrigin: true
+        changeOrigin: true,
+        configure: (proxy) => quietProxyError(proxy)
+      },
+      '/uploads': {
+        target: process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:3000',
+        changeOrigin: true,
+        configure: (proxy) => quietProxyError(proxy)
       },
       '/socket.io': {
         target: process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:3000',
