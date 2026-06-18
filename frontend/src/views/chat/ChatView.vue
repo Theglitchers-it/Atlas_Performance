@@ -23,6 +23,72 @@ const selectedUserId = ref("");
 const searchQuery = ref("");
 const typingTimeout = ref<any>(null);
 
+// Allegato
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const pendingFile = ref<File | null>(null);
+const pendingFilePreview = ref<string | null>(null);
+const uploadingAttachment = ref(false);
+const ATTACH_MAX_BYTES = 20 * 1024 * 1024;
+
+const openFilePicker = () => fileInputRef.value?.click();
+
+const onFileSelected = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+  if (file.size > ATTACH_MAX_BYTES) {
+    toast.error("File troppo grande (max 20MB)");
+    target.value = "";
+    return;
+  }
+  pendingFile.value = file;
+  if (file.type.startsWith("image/")) {
+    if (pendingFilePreview.value) URL.revokeObjectURL(pendingFilePreview.value);
+    pendingFilePreview.value = URL.createObjectURL(file);
+  } else {
+    pendingFilePreview.value = null;
+  }
+  // reset input cosi lo stesso file e riselezionabile dopo cancel
+  target.value = "";
+};
+
+const clearPendingFile = () => {
+  if (pendingFilePreview.value) URL.revokeObjectURL(pendingFilePreview.value);
+  pendingFile.value = null;
+  pendingFilePreview.value = null;
+};
+
+const humanSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+};
+
+const parseAttachments = (raw: any): any[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const attachmentApiBase = (() => {
+  const base = import.meta.env.VITE_API_URL || "/api";
+  return base.replace(/\/api\/?$/, "");
+})();
+
+const attachmentUrl = (a: any): string => {
+  if (!a?.url) return "#";
+  if (/^https?:\/\//i.test(a.url)) return a.url;
+  return `${attachmentApiBase}${a.url}`;
+};
+
 // Mobile: mostra/nascondi sidebar
 const showSidebar = ref(true);
 
@@ -161,15 +227,39 @@ const scrollToBottom = () => {
 
 // Invio messaggio
 const handleSend = async () => {
+  if (!chat.currentConversation) return;
   const content = messageInput.value.trim();
-  if (!content || !chat.currentConversation) return;
+  const file = pendingFile.value;
+  if (!content && !file) return;
 
-  messageInput.value = "";
-  if (chat.currentConversation) {
-    chat.emitStopTyping(chat.currentConversation.id);
+  let attachments: any[] | null = null;
+  let messageType: "text" | "image" | "file" | "audio" = "text";
+
+  if (file) {
+    uploadingAttachment.value = true;
+    const uploaded = await chat.uploadAttachment(file);
+    uploadingAttachment.value = false;
+    if (!uploaded) {
+      toast.error("Errore upload allegato");
+      return;
+    }
+    attachments = [uploaded];
+    messageType = uploaded.kind === "image"
+      ? "image"
+      : uploaded.kind === "audio"
+        ? "audio"
+        : "file";
   }
 
-  const result = await chat.sendMessage(chat.currentConversation.id, content);
+  messageInput.value = "";
+  clearPendingFile();
+  chat.emitStopTyping(chat.currentConversation.id);
+
+  const result = await chat.sendMessage(
+    chat.currentConversation.id,
+    content,
+    { messageType, attachments }
+  );
   if (!result.success) {
     toast.error("Errore nell'invio del messaggio. Riprova.");
   }
@@ -278,10 +368,18 @@ onUnmounted(() => {
         </div>
         <input
           v-model="searchQuery"
-          type="text"
+          type="search"
+          name="chat-search-q"
           autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore
+          data-bwignore
           placeholder="Cerca conversazione..."
-          class="w-full bg-habit-card border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan focus:outline-none placeholder-habit-text-subtle"
+          class="w-full bg-habit-card border border-white/10 rounded-2xl px-3.5 py-2.5 text-habit-text text-sm focus:border-habit-cyan/60 focus:ring-2 focus:ring-habit-cyan/20 outline-none placeholder-habit-text-subtle transition-all"
         />
       </div>
 
@@ -537,7 +635,56 @@ onUnmounted(() => {
                 >
                   {{ msg.sender_first_name }} {{ msg.sender_last_name }}
                 </div>
-                <p class="text-sm whitespace-pre-wrap break-words">
+
+                <!-- Allegati -->
+                <template v-for="(a, ai) in parseAttachments(msg.attachments)" :key="ai">
+                  <a
+                    v-if="(a.kind === 'image') || (a.mimetype || '').startsWith('image/')"
+                    :href="attachmentUrl(a)"
+                    target="_blank"
+                    rel="noopener"
+                    class="block mb-1"
+                  >
+                    <img
+                      :src="attachmentUrl(a)"
+                      :alt="a.name || 'allegato'"
+                      class="rounded-lg max-w-[260px] max-h-[260px] object-cover border border-black/10"
+                      loading="lazy"
+                    />
+                  </a>
+                  <audio
+                    v-else-if="(a.kind === 'audio') || (a.mimetype || '').startsWith('audio/')"
+                    :src="attachmentUrl(a)"
+                    controls
+                    class="mb-1 w-[240px] max-w-full"
+                  />
+                  <a
+                    v-else
+                    :href="attachmentUrl(a)"
+                    target="_blank"
+                    rel="noopener"
+                    :class="[
+                      'flex items-center gap-2 px-3 py-2 rounded-lg mb-1 border transition',
+                      msg.sender_id === currentUserId
+                        ? 'bg-habit-bg/10 border-habit-bg/20 hover:bg-habit-bg/20'
+                        : 'bg-habit-bg border-habit-border hover:bg-habit-card-hover'
+                    ]"
+                  >
+                    <svg class="w-5 h-5 shrink-0" :class="msg.sender_id === currentUserId ? 'text-habit-bg/70' : 'text-habit-text-subtle'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M9 8h6m-9 12h12a2 2 0 002-2V6a2 2 0 00-2-2h-7L7 7v11a2 2 0 002 2z" />
+                    </svg>
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-xs font-medium truncate" :class="msg.sender_id === currentUserId ? 'text-habit-bg' : 'text-habit-text'">
+                        {{ a.name || 'Allegato' }}
+                      </span>
+                      <span class="text-[10px]" :class="msg.sender_id === currentUserId ? 'text-habit-bg/60' : 'text-habit-text-subtle'">
+                        {{ a.size ? humanSize(a.size) : '' }}
+                      </span>
+                    </div>
+                  </a>
+                </template>
+
+                <p v-if="msg.content" class="text-sm whitespace-pre-wrap break-words">
                   {{ msg.content }}
                 </p>
                 <div
@@ -585,7 +732,47 @@ onUnmounted(() => {
 
         <!-- Input -->
         <div class="px-4 py-3 border-t border-habit-border bg-habit-card">
+          <!-- Preview allegato pendente -->
+          <div
+            v-if="pendingFile"
+            class="mb-2 flex items-center gap-3 px-3 py-2 rounded-xl bg-habit-bg border border-habit-border"
+          >
+            <img
+              v-if="pendingFilePreview"
+              :src="pendingFilePreview"
+              alt="anteprima"
+              class="w-12 h-12 rounded-lg object-cover shrink-0"
+            />
+            <div
+              v-else
+              class="w-12 h-12 rounded-lg bg-habit-card border border-habit-border flex items-center justify-center shrink-0"
+            >
+              <svg class="w-6 h-6 text-habit-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 13h6m-3-3v6m5 4H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-habit-text truncate">{{ pendingFile.name }}</p>
+              <p class="text-[10px] text-habit-text-subtle">{{ humanSize(pendingFile.size) }}</p>
+            </div>
+            <button
+              @click="clearPendingFile"
+              class="text-habit-text-subtle hover:text-habit-text w-7 h-7 rounded-full hover:bg-habit-card flex items-center justify-center shrink-0"
+              title="Rimuovi allegato"
+            >&times;</button>
+          </div>
+
           <div class="flex items-end gap-2">
+            <!-- File input hidden -->
+            <input
+              ref="fileInputRef"
+              type="file"
+              class="hidden"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.mp3,.m4a,.ogg,.wav"
+              @change="onFileSelected"
+            />
+
             <textarea
               v-model="messageInput"
               @keydown.enter.exact.prevent="handleSend"
@@ -594,12 +781,37 @@ onUnmounted(() => {
               rows="1"
               class="flex-1 bg-habit-bg border border-habit-border rounded-2xl px-4 py-2.5 text-habit-text text-sm focus:border-habit-cyan focus:outline-none resize-none max-h-32 placeholder-habit-text-subtle"
             ></textarea>
+
+            <!-- Paperclip button (foto/allegato) -->
+            <button
+              @click="openFilePicker"
+              :disabled="uploadingAttachment"
+              class="w-10 h-10 rounded-full bg-habit-bg border border-habit-border text-habit-text-muted hover:text-habit-cyan hover:border-habit-cyan/40 flex items-center justify-center shrink-0 disabled:opacity-40 transition"
+              title="Allega file"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+
+            <!-- Invio -->
             <button
               @click="handleSend"
-              :disabled="!messageInput.trim()"
+              :disabled="(!messageInput.trim() && !pendingFile) || uploadingAttachment"
               class="w-10 h-10 rounded-full bg-habit-cyan text-habit-bg flex items-center justify-center shrink-0 hover:bg-habit-cyan/80 disabled:opacity-30 transition"
+              :title="uploadingAttachment ? 'Upload in corso…' : 'Invia'"
             >
-              <span class="text-lg">&#10148;</span>
+              <svg
+                v-if="uploadingAttachment"
+                class="w-5 h-5 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+                <path d="M22 12a10 10 0 01-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              <span v-else class="text-lg">&#10148;</span>
             </button>
           </div>
         </div>
@@ -614,7 +826,7 @@ onUnmounted(() => {
         @click.self="showNewConversationModal = false"
       >
         <div
-          class="bg-habit-card rounded-habit border border-habit-border w-full max-w-sm p-6"
+          class="bg-habit-card rounded-3xl border border-white/10 w-full max-w-sm p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
         >
           <div class="flex justify-between items-center mb-5">
             <h3 class="text-lg font-bold text-habit-text">
@@ -634,7 +846,7 @@ onUnmounted(() => {
               >
               <select
                 v-model="selectedUserId"
-                class="w-full bg-habit-bg border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan focus:outline-none"
+                class="w-full bg-habit-bg-light/60 border border-white/10 rounded-2xl px-3.5 py-2.5 text-habit-text text-sm focus:border-habit-cyan/60 focus:ring-2 focus:ring-habit-cyan/20 outline-none transition-all"
               >
                 <option value="">Scegli destinatario</option>
                 <option
@@ -652,7 +864,7 @@ onUnmounted(() => {
             <button
               @click="handleNewConversation"
               :disabled="!selectedUserId"
-              class="w-full py-2.5 rounded-habit text-sm font-medium bg-habit-cyan text-habit-bg hover:bg-habit-cyan/80 disabled:opacity-40 transition"
+              class="w-full py-2.5 rounded-2xl text-sm font-semibold bg-gradient-to-r from-habit-cyan to-blue-600 text-white hover:shadow-lg hover:shadow-habit-cyan/30 disabled:opacity-40 transition-all"
             >
               Inizia Chat
             </button>

@@ -213,10 +213,21 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  const sendMessage = async (conversationId: number, content: string): Promise<SendMessageResult> => {
+  interface SendMessageOptions {
+    messageType?: 'text' | 'image' | 'file' | 'audio'
+    attachments?: any[] | null
+  }
+
+  const sendMessage = async (
+    conversationId: number,
+    content: string,
+    options: SendMessageOptions = {}
+  ): Promise<SendMessageResult> => {
+    const messageType = options.messageType || 'text'
+    const attachments = options.attachments || null
     try {
       const response = await api.post(`/chat/conversations/${conversationId}/messages`, {
-        content, messageType: 'text'
+        content, messageType, attachments
       })
       const message = response.data.data.message
       // Aggiungi localmente se non gia aggiunto via socket
@@ -232,7 +243,8 @@ export const useChatStore = defineStore('chat', () => {
           id: `pending_${Date.now()}`,
           conversation_id: conversationId,
           content,
-          message_type: 'text',
+          message_type: messageType,
+          attachments,
           created_at: new Date().toISOString(),
           _pending: true // Flag per indicare messaggio non ancora inviato
         }
@@ -246,7 +258,7 @@ export const useChatStore = defineStore('chat', () => {
             type: 'chat-message',
             endpoint: `/chat/conversations/${conversationId}/messages`,
             method: 'POST',
-            data: { content, messageType: 'text' },
+            data: { content, messageType, attachments },
             description: `Messaggio in ${conversationId}`
           })
         } catch (queueErr: any) {
@@ -257,6 +269,20 @@ export const useChatStore = defineStore('chat', () => {
       }
       console.error('Errore sendMessage:', err)
       return { success: false }
+    }
+  }
+
+  const uploadAttachment = async (file: File): Promise<{ url: string; name: string; mimetype: string; size: number; kind: 'image' | 'audio' | 'file' } | null> => {
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const response = await api.post('/chat/upload', form, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      return response.data.data
+    } catch (err: any) {
+      console.error('Errore uploadAttachment:', err)
+      return null
     }
   }
 
@@ -319,7 +345,7 @@ export const useChatStore = defineStore('chat', () => {
     // Actions
     connectSocket, disconnectSocket, updateConversationPreview,
     fetchConversations, fetchConversationById, openConversation, closeConversation,
-    createConversation, fetchMessages, sendMessage,
+    createConversation, fetchMessages, sendMessage, uploadAttachment,
     markAsRead, toggleMute, fetchAvailableUsers,
     fetchOnlineUsers, isOnline,
     emitTyping, emitStopTyping

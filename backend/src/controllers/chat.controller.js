@@ -4,6 +4,7 @@
  */
 
 const chatService = require('../services/chat.service');
+const { getFileUrl } = require('../middlewares/upload');
 
 class ChatController {
 
@@ -58,10 +59,14 @@ class ChatController {
     async sendMessage(req, res, next) {
         try {
             const { content, messageType, attachments } = req.body;
-            if (!content) return res.status(400).json({ success: false, message: 'Contenuto obbligatorio' });
+            const hasContent = typeof content === 'string' && content.trim().length > 0;
+            const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+            if (!hasContent && !hasAttachments) {
+                return res.status(400).json({ success: false, message: 'Messaggio vuoto: serve testo o allegato' });
+            }
 
             const message = await chatService.sendMessage(req.user.tenantId, req.params.id, req.user.id, {
-                content, messageType, attachments
+                content: content || '', messageType, attachments
             });
             if (!message) return res.status(403).json({ success: false, message: 'Non autorizzato' });
 
@@ -110,6 +115,51 @@ class ChatController {
             const result = await chatService.toggleMute(req.params.id, req.user.id);
             res.json({ success: true, data: result });
         } catch (error) {
+            next(error);
+        }
+    }
+
+    async uploadAttachment(req, res, next) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: 'File mancante' });
+            }
+            const url = getFileUrl(req.file.path);
+            const mime = req.file.mimetype || '';
+            const kind = mime.startsWith('image/')
+                ? 'image'
+                : mime.startsWith('audio/')
+                    ? 'audio'
+                    : 'file';
+            res.status(201).json({
+                success: true,
+                data: {
+                    url,
+                    name: req.file.originalname,
+                    mimetype: mime,
+                    size: req.file.size,
+                    kind
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async sendToClient(req, res, next) {
+        try {
+            const { clientId, content } = req.body;
+            if (!clientId || !content || content.trim().length === 0) {
+                return res.status(400).json({ success: false, message: 'clientId e content richiesti' });
+            }
+            const result = await chatService.sendMessageToClient(
+                req.user.tenantId, req.user.id, parseInt(clientId), content.trim()
+            );
+            res.status(201).json({ success: true, data: result });
+        } catch (error) {
+            if (error.status === 404) {
+                return res.status(404).json({ success: false, message: error.message });
+            }
             next(error);
         }
     }

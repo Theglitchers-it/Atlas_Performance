@@ -15,10 +15,17 @@ const createConversationSchema = Joi.object({
 });
 
 const sendMessageSchema = Joi.object({
-    content: Joi.string().min(1).max(5000).required()
-        .messages({ 'any.required': 'Messaggio obbligatorio' }),
+    content: Joi.string().allow('').max(5000).default(''),
     messageType: Joi.string().valid('text', 'image', 'file', 'audio').default('text'),
-    attachments: Joi.array().items(Joi.object()).allow(null)
+    attachments: Joi.array().items(Joi.object()).allow(null).default(null)
+}).custom((value, helpers) => {
+    // Almeno uno tra content (non vuoto) o attachments (non vuoto) e richiesto
+    const hasContent = typeof value.content === 'string' && value.content.trim().length > 0;
+    const hasAttachments = Array.isArray(value.attachments) && value.attachments.length > 0;
+    if (!hasContent && !hasAttachments) {
+        return helpers.error('any.invalid', { message: 'Messaggio vuoto: serve testo o allegato' });
+    }
+    return value;
 });
 
 module.exports = {

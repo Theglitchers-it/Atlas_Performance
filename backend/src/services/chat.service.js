@@ -213,6 +213,56 @@ class ChatService {
         );
         return { is_muted: cp?.is_muted || false };
     }
+
+    /**
+     * Invia un messaggio diretto al cliente (trainer → cliente).
+     * Trova o crea la conversation 'direct' tra trainer e cliente.
+     */
+    async sendMessageToClient(tenantId, senderUserId, clientId, content) {
+        const rows = await query(
+            'SELECT user_id FROM clients WHERE id = ? AND tenant_id = ?',
+            [clientId, tenantId]
+        );
+        if (!rows[0] || !rows[0].user_id) {
+            throw { status: 404, message: 'Cliente senza account utente, impossibile inviare messaggio' };
+        }
+        const clientUserId = rows[0].user_id;
+
+        // Cerca conversation diretta trainer-cliente
+        const existing = await query(
+            `SELECT c.id FROM conversations c
+             JOIN conversation_participants cp1 ON cp1.conversation_id = c.id AND cp1.user_id = ?
+             JOIN conversation_participants cp2 ON cp2.conversation_id = c.id AND cp2.user_id = ?
+             WHERE c.tenant_id = ? AND c.type = 'direct'
+             LIMIT 1`,
+            [senderUserId, clientUserId, tenantId]
+        );
+
+        let conversationId;
+        if (existing[0]) {
+            conversationId = existing[0].id;
+        } else {
+            const conv = await query(
+                `INSERT INTO conversations (tenant_id, type, name, last_message_at) VALUES (?, 'direct', NULL, NOW())`,
+                [tenantId]
+            );
+            conversationId = conv.insertId;
+            await query(
+                `INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?), (?, ?)`,
+                [conversationId, senderUserId, conversationId, clientUserId]
+            );
+        }
+
+        const msg = await query(
+            `INSERT INTO messages (conversation_id, sender_id, content, message_type) VALUES (?, ?, ?, 'text')`,
+            [conversationId, senderUserId, content]
+        );
+        await query(
+            `UPDATE conversations SET last_message_at = NOW() WHERE id = ?`,
+            [conversationId]
+        );
+        return { conversation_id: conversationId, message_id: msg.insertId };
+    }
 }
 
 module.exports = new ChatService();

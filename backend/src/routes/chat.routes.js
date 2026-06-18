@@ -9,6 +9,7 @@ const chatController = require('../controllers/chat.controller');
 const { verifyToken } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const { createConversationSchema, sendMessageSchema } = require('../validators/chat.validator');
+const { uploadChatAttachment, validateMagicBytes, handleUploadError } = require('../middlewares/upload');
 
 // Tutte le routes richiedono autenticazione
 router.use(verifyToken);
@@ -269,5 +270,60 @@ router.post('/conversations/:id/read', chatController.markAsRead.bind(chatContro
  *         description: Errore server
  */
 router.post('/conversations/:id/mute', chatController.toggleMute.bind(chatController));
+
+/**
+ * @swagger
+ * /chat/send-to-client:
+ *   post:
+ *     tags: [Chat]
+ *     summary: Invia messaggio diretto al cliente (trainer → cliente, crea conv se non esiste)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clientId: { type: integer }
+ *               content: { type: string }
+ *     responses:
+ *       201:
+ *         description: Messaggio inviato
+ */
+router.post('/send-to-client', chatController.sendToClient.bind(chatController));
+
+/**
+ * @swagger
+ * /chat/upload:
+ *   post:
+ *     tags: [Chat]
+ *     summary: Upload allegato chat (immagine/documento/audio)
+ *     description: Carica un file da allegare a un messaggio chat. Ritorna URL + metadata.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: File caricato con URL e metadata
+ *       400:
+ *         description: File mancante o formato non valido
+ */
+router.post(
+    '/upload',
+    uploadChatAttachment.single('file'),
+    handleUploadError,
+    validateMagicBytes,
+    chatController.uploadAttachment.bind(chatController)
+);
 
 module.exports = router;
