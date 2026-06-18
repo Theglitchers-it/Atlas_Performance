@@ -352,15 +352,15 @@ onMounted(() => {
 
 <template>
   <div class="p-4 md:p-6 max-w-7xl mx-auto">
-    <!-- Header -->
-    <div
-      class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6"
-    >
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
-          Video Library
+    <!-- Header glass-mesh 2026 -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 p-5 sm:p-6 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-red-500/15 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-orange-500/10 blur-3xl"></div>
+      <div class="relative">
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-habit-text tracking-tight leading-tight">
+          <span class="bg-gradient-to-r from-red-500 to-habit-orange bg-clip-text text-transparent">Video</span> Library
         </h1>
-        <p class="text-habit-text-muted text-sm mt-1">
+        <p class="text-habit-text-muted text-sm mt-1.5">
           Gestisci video formativi e corsi per i tuoi clienti
         </p>
       </div>
@@ -411,25 +411,25 @@ onMounted(() => {
       v-if="isTrainer && store.stats"
       class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
     >
-      <div class="card-dark p-4 text-center">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
         <div class="text-2xl font-bold text-habit-text">
           {{ store.stats.videos?.total_videos || 0 }}
         </div>
         <div class="text-habit-text-subtle text-xs mt-1">Video Totali</div>
       </div>
-      <div class="card-dark p-4 text-center">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
         <div class="text-2xl font-bold text-habit-text">
           {{ store.stats.videos?.total_views || 0 }}
         </div>
         <div class="text-habit-text-subtle text-xs mt-1">Visualizzazioni</div>
       </div>
-      <div class="card-dark p-4 text-center">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
         <div class="text-2xl font-bold text-habit-text">
           {{ store.stats.courses?.total_courses || 0 }}
         </div>
         <div class="text-habit-text-subtle text-xs mt-1">Corsi</div>
       </div>
-      <div class="card-dark p-4 text-center">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
         <div class="text-2xl font-bold text-habit-orange">
           {{ store.stats.courses?.published_courses || 0 }}
         </div>
@@ -472,7 +472,7 @@ onMounted(() => {
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-text-subtle group-focus-within/search:text-habit-cyan transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input v-model="searchQuery" @input="handleSearch" type="text" autocomplete="off"
+          <input v-model="searchQuery" @input="handleSearch" type="search" name="videos-search-q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore
             :placeholder="activeTab === 'videos' ? 'Cerca video...' : 'Cerca corsi...'"
             class="w-full pl-9 pr-4 py-1.5 bg-habit-bg-light border border-habit-border rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/30 transition-all duration-300 text-sm"
           />
@@ -513,7 +513,7 @@ onMounted(() => {
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input ref="mobileSearchInput" v-model="searchQuery" @input="handleSearch" type="text" autocomplete="off"
+                <input ref="mobileSearchInput" v-model="searchQuery" @input="handleSearch" type="search" name="videos-search-q-mobile" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore
                   :placeholder="activeTab === 'videos' ? 'Cerca video...' : 'Cerca corsi...'"
                   class="flex-1 pl-9 pr-3 py-2 bg-habit-card border border-habit-cyan/30 rounded-xl text-habit-text placeholder-habit-text-subtle focus:outline-none focus:border-habit-cyan/50 transition-all duration-300 text-sm"
                 />
@@ -574,7 +574,7 @@ onMounted(() => {
 
     <!-- Loading -->
     <div v-if="store.loading" class="space-y-4">
-      <div v-for="i in 4" :key="i" class="card-dark p-4 animate-pulse">
+      <div v-for="i in 4" :key="i" class="bg-habit-card border border-white/10 rounded-3xl p-4 animate-pulse">
         <div class="flex gap-4">
           <div class="w-32 h-20 bg-habit-skeleton rounded-lg"></div>
           <div class="flex-1 space-y-2">
@@ -591,7 +591,7 @@ onMounted(() => {
     <!-- ===================== -->
     <div v-else-if="activeTab === 'videos'">
       <!-- Empty State -->
-      <div v-if="store.videos.length === 0" class="card-dark p-12 text-center">
+      <div v-if="store.videos.length === 0" class="bg-habit-card border border-white/10 rounded-3xl p-12 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
         <div class="text-5xl mb-4">🎬</div>
         <h3 class="text-lg font-semibold text-habit-text mb-2">
           Nessun video presente
@@ -613,7 +613,7 @@ onMounted(() => {
         <div
           v-for="video in store.videos"
           :key="video.id"
-          class="card-dark overflow-hidden group cursor-pointer hover:border-habit-orange/30 transition-all"
+          class="bg-habit-card border border-white/10 rounded-3xl overflow-hidden group cursor-pointer hover:border-habit-orange/30 hover:shadow-lg transition-all shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
           @click="openVideoDetail(video.id)"
         >
           <!-- Thumbnail -->
@@ -766,7 +766,7 @@ onMounted(() => {
     <!-- ===================== -->
     <div v-else-if="activeTab === 'courses'">
       <!-- Empty State -->
-      <div v-if="store.courses.length === 0" class="card-dark p-12 text-center">
+      <div v-if="store.courses.length === 0" class="bg-habit-card border border-white/10 rounded-3xl p-12 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
         <div class="text-5xl mb-4">📚</div>
         <h3 class="text-lg font-semibold text-habit-text mb-2">
           Nessun corso presente
@@ -788,7 +788,7 @@ onMounted(() => {
         <div
           v-for="course in store.courses"
           :key="course.id"
-          class="card-dark overflow-hidden group cursor-pointer hover:border-habit-orange/30 transition-all"
+          class="bg-habit-card border border-white/10 rounded-3xl overflow-hidden group cursor-pointer hover:border-habit-orange/30 hover:shadow-lg transition-all shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
           @click="goToCourseDetail(course.id)"
         >
           <!-- Thumbnail -->
@@ -947,7 +947,7 @@ onMounted(() => {
         @click="showCreateVideoModal = false"
       ></div>
       <div
-        class="relative card-dark p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        class="relative bg-habit-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
       >
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-lg font-semibold text-habit-text">Nuovo Video</h2>
@@ -1097,7 +1097,7 @@ onMounted(() => {
         @click="showCreateCourseModal = false"
       ></div>
       <div
-        class="relative card-dark p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        class="relative bg-habit-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
       >
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-lg font-semibold text-habit-text">Nuovo Corso</h2>
@@ -1261,7 +1261,7 @@ onMounted(() => {
         @click="showEditVideoModal = false"
       ></div>
       <div
-        class="relative card-dark p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        class="relative bg-habit-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
       >
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-lg font-semibold text-habit-text">Modifica Video</h2>
@@ -1404,7 +1404,7 @@ onMounted(() => {
         @click="showEditCourseModal = false"
       ></div>
       <div
-        class="relative card-dark p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        class="relative bg-habit-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
       >
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-lg font-semibold text-habit-text">Modifica Corso</h2>
@@ -1558,7 +1558,7 @@ onMounted(() => {
         @click="showVideoDetailModal = false"
       ></div>
       <div
-        class="relative card-dark p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        class="relative bg-habit-card border border-white/10 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
       >
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-habit-text">

@@ -161,8 +161,13 @@ export const useVideoStore = defineStore('video', () => {
         try {
             const response = await api.get(`/videos/courses/${id}`)
             currentCourse.value = response.data.data.course
-        } catch (err) {
-            console.error('Errore fetchCourseById:', err)
+        } catch (err: any) {
+            // Corso inesistente (404) è un caso atteso, già gestito dalla UI ("Corso non trovato"):
+            // non è un errore applicativo da loggare. Logghiamo solo problemi reali (5xx, rete…).
+            currentCourse.value = null
+            if (err?.response?.status !== 404) {
+                console.error('Errore fetchCourseById:', err)
+            }
         }
     }
 
