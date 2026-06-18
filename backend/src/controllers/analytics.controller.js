@@ -104,6 +104,69 @@ class AnalyticsController {
             next(error);
         }
     }
+
+    /**
+     * GET /api/analytics/client-segments - Conteggio clienti per tag di fidelizzazione
+     */
+    async getClientSegments(req, res, next) {
+        try {
+            const data = await analyticsService.getClientSegments(req.user.tenantId);
+            res.json({ success: true, data });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/analytics/client-health/:clientId - snapshot integrato
+     * fase dieta + readiness 7gg + caloric gap per incrocio trainer↔nutrizionista.
+     */
+    /**
+     * GET /api/analytics/volume-by-muscle/:clientId
+     * Query: programId | days | fromDate+toDate
+     */
+    async getVolumeByMuscleGroup(req, res, next) {
+        try {
+            const clientId = parseInt(req.params.clientId);
+            const { programId, days, fromDate, toDate } = req.query;
+            const data = await analyticsService.getVolumeByMuscleGroup(
+                req.user.tenantId,
+                clientId,
+                { programId, days, fromDate, toDate }
+            );
+            res.json({ success: true, data });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getClientHealthSnapshot(req, res, next) {
+        try {
+            const clientId = parseInt(req.params.clientId);
+            const data = await analyticsService.getClientHealthSnapshot(req.user.tenantId, clientId);
+            if (!data) return res.status(404).json({ success: false, message: 'Cliente non trovato' });
+            res.json({ success: true, data });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/analytics/action-items - Azioni richieste nel cruscotto trainer
+     * Query params: renewalDays (default 14), checkinDays (default 30)
+     */
+    async getActionItems(req, res, next) {
+        try {
+            const { renewalDays, checkinDays } = req.query;
+            const data = await analyticsService.getActionItems(req.user.tenantId, {
+                renewalDays: renewalDays || 14,
+                checkinDays: checkinDays || 30
+            });
+            res.json({ success: true, data });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new AnalyticsController();

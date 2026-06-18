@@ -55,6 +55,49 @@ router.get('/quick-stats', analyticsController.getQuickStats);
 
 /**
  * @swagger
+ * /analytics/action-items:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Azioni richieste nel cruscotto trainer (nuovi senza check + rinnovi + check scaduti)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: renewalDays
+ *         schema:
+ *           type: integer
+ *           default: 14
+ *         description: Finestra in giorni per abbonamenti in scadenza
+ *       - in: query
+ *         name: checkinDays
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: Soglia in giorni oltre la quale un check corporeo e scaduto
+ *     responses:
+ *       200:
+ *         description: Lista unificata items + counts aggregati
+ */
+router.get('/action-items', analyticsController.getActionItems);
+
+/**
+ * @swagger
+ * /analytics/client-segments:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Conteggio clienti per tag di fidelizzazione (nuovo/medio/top/vecchio/dormiente)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Oggetto con conteggi per ciascun segmento
+ */
+router.get('/client-segments', analyticsController.getClientSegments);
+router.get('/client-health/:clientId', analyticsController.getClientHealthSnapshot);
+router.get('/volume-by-muscle/:clientId', analyticsController.getVolumeByMuscleGroup);
+
+/**
+ * @swagger
  * /analytics/sessions-trend:
  *   get:
  *     tags: [Analytics]

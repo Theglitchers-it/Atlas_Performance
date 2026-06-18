@@ -457,7 +457,7 @@ onMounted(() => {
         <div
           v-for="i in 4"
           :key="i"
-          class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5 animate-pulse"
+          class="gam-glass-card rounded-xl sm:rounded-habit p-3 sm:p-5 animate-pulse"
         >
           <div class="h-2.5 sm:h-3 bg-habit-skeleton rounded w-1/2 mb-2 sm:mb-3"></div>
           <div class="h-5 sm:h-7 bg-habit-skeleton rounded w-1/3"></div>
@@ -465,10 +465,10 @@ onMounted(() => {
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div
-          class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6 animate-pulse h-52 sm:h-80"
+          class="gam-glass-card rounded-xl sm:rounded-habit p-4 sm:p-6 animate-pulse h-52 sm:h-80"
         ></div>
         <div
-          class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6 animate-pulse h-52 sm:h-80"
+          class="gam-glass-card rounded-xl sm:rounded-habit p-4 sm:p-6 animate-pulse h-52 sm:h-80"
         ></div>
       </div>
     </div>
@@ -479,7 +479,7 @@ onMounted(() => {
     <div v-else class="space-y-4 sm:space-y-6">
       <!-- ═══════════ STATS ROW ═══════════ -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+        <div class="gam-glass-card rounded-xl sm:rounded-habit p-3 sm:p-5">
           <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Clienti Attivi
           </p>
@@ -490,7 +490,7 @@ onMounted(() => {
             {{ n(overview?.clients?.new_clients_30d) }} nuovi (30gg)
           </p>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+        <div class="gam-glass-card rounded-xl sm:rounded-habit p-3 sm:p-5">
           <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Sessioni Completate
           </p>
@@ -501,7 +501,7 @@ onMounted(() => {
             {{ n(overview?.sessions?.sessions_this_week) }} questa settimana
           </p>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+        <div class="gam-glass-card rounded-xl sm:rounded-habit p-3 sm:p-5">
           <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Tasso Completamento
           </p>
@@ -521,7 +521,7 @@ onMounted(() => {
             {{ n(overview?.sessions?.total_sessions) }} sessioni totali
           </p>
         </div>
-        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-3 sm:p-5">
+        <div class="gam-glass-card rounded-xl sm:rounded-habit p-3 sm:p-5">
           <p class="text-habit-text-subtle text-[10px] sm:text-xs uppercase tracking-wide">
             Programmi Attivi
           </p>
@@ -607,7 +607,7 @@ onMounted(() => {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <!-- Top Clients Table with SparkLines (2/3) -->
         <div
-          class="lg:col-span-2 bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6"
+          class="lg:col-span-2 gam-glass-card rounded-xl sm:rounded-habit p-4 sm:p-6"
         >
           <h2 class="text-habit-text font-semibold text-sm mb-3 sm:mb-4">
             Clienti Piu Attivi (30gg)
@@ -669,7 +669,7 @@ onMounted(() => {
         </div>
 
         <!-- Program Completion Doughnut (1/3) -->
-        <div class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit overflow-hidden">
+        <div class="gam-glass-card rounded-xl sm:rounded-habit overflow-hidden">
           <ChartWidget
             type="doughnut"
             title="Stato Programmi"
@@ -711,7 +711,7 @@ onMounted(() => {
       <!-- ═══════════ TODAY SUMMARY ═══════════ -->
       <div
         v-if="quickStats"
-        class="bg-habit-card border border-habit-border rounded-xl sm:rounded-habit p-4 sm:p-6"
+        class="gam-glass-card rounded-xl sm:rounded-habit p-4 sm:p-6"
       >
         <h2 class="text-habit-text font-semibold text-sm mb-3 sm:mb-4">Oggi</h2>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/store/auth'
 import type { AnalyticsOverview, SessionTrendPoint, TopClient } from '@/types'
 
 interface ActionResult {
@@ -128,6 +129,15 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
 
     const initialize = async (): Promise<void> => {
+        // Guard role-side: endpoint analytics sono trainer/staff/admin-only.
+        // Senza questa guardia, un client che monta accidentalmente questa view (cache, link diretto)
+        // genera 7 chiamate 403 in console.
+        const authStore = useAuthStore()
+        const allowedRoles = ['tenant_owner', 'staff', 'super_admin', 'gym_admin']
+        if (!allowedRoles.includes(authStore.userRole || '')) {
+            return
+        }
+
         loading.value = true
         error.value = null
         try {

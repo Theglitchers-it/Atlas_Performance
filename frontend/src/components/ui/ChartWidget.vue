@@ -1,16 +1,29 @@
 <template>
   <div
-    class="bg-habit-card border border-habit-border rounded-habit p-4 xs:p-6"
+    class="min-w-0 w-full bg-habit-card border border-habit-border rounded-habit p-4 xs:p-6"
   >
     <!-- Header -->
     <div
-      v-if="title || $slots.actions"
-      class="flex items-center justify-between mb-4"
+      v-if="title || subtitle || $slots.actions"
+      class="flex items-start justify-between gap-3 mb-4"
     >
-      <h3 v-if="title" class="text-base font-semibold text-habit-text">
-        {{ title }}
-      </h3>
-      <div v-if="$slots.actions">
+      <div class="flex items-start gap-2.5 min-w-0 flex-1">
+        <div
+          v-if="icon"
+          class="w-7 h-7 rounded-lg bg-habit-orange/15 flex items-center justify-center flex-shrink-0 mt-0.5"
+        >
+          <component :is="icon" class="w-4 h-4 text-habit-orange" />
+        </div>
+        <div class="min-w-0">
+          <h3 v-if="title" class="text-base font-semibold text-habit-text leading-snug">
+            {{ title }}
+          </h3>
+          <p v-if="subtitle" class="text-xs text-habit-text-subtle mt-0.5">
+            {{ subtitle }}
+          </p>
+        </div>
+      </div>
+      <div v-if="$slots.actions" class="flex-shrink-0">
         <slot name="actions" />
       </div>
     </div>
@@ -25,7 +38,7 @@
     </div>
 
     <!-- Chart -->
-    <div v-else :style="{ height, position: 'relative' }">
+    <div v-else :style="{ height, position: 'relative', width: '100%' }">
       <component
         :is="chartComponent"
         :data="mergedData"
@@ -37,6 +50,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import type { Component } from "vue";
 import { Bar, Line, Doughnut, Radar } from "vue-chartjs";
 import {
   Chart as ChartJS,
@@ -99,6 +113,8 @@ interface Props {
   height?: string;
   loading?: boolean;
   title?: string;
+  subtitle?: string;
+  icon?: Component;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -107,6 +123,8 @@ const props = withDefaults(defineProps<Props>(), {
   height: "300px",
   loading: false,
   title: "",
+  subtitle: "",
+  icon: undefined,
 });
 
 const emit = defineEmits<{
@@ -167,7 +185,8 @@ const chartComponent = computed(() => componentMap[props.type] || Line);
 const mergedData = computed(() => {
   if (!props.chartData) return { labels: [], datasets: [] };
 
-  const data = JSON.parse(JSON.stringify(props.chartData));
+  // structuredClone è nativo (Chrome 98+, Safari 15.4+, Firefox 94+), 3-5x più veloce di JSON.parse(JSON.stringify())
+  const data: any = structuredClone(props.chartData);
 
   if (data.datasets) {
     data.datasets = data.datasets.map((ds: any, i: number) => {
