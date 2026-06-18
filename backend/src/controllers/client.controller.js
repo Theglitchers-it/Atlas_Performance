@@ -6,6 +6,8 @@
 const clientService = require('../services/client.service');
 const { query } = require('../config/database');
 const audit = require('../services/audit.service');
+const { getFileUrl } = require('../middlewares/upload');
+const { assertClientAccess } = require('../utils/clientAccess');
 
 class ClientController {
     /**
@@ -30,6 +32,51 @@ class ClientController {
     }
 
     /**
+     * PUT /api/clients/me/preferred-location - L'atleta aggiorna la propria sede preferita
+     */
+    async updateMyPreferredLocation(req, res, next) {
+        try {
+            const { locationId } = req.body;
+            // locationId puo essere null (rimuove preferenza) o un numero
+            if (locationId !== null && locationId !== undefined && !Number.isInteger(Number(locationId))) {
+                return res.status(400).json({ success: false, message: 'locationId deve essere un intero o null' });
+            }
+
+            // Trova il record clients dell'utente corrente
+            const clients = await query(
+                'SELECT id FROM clients WHERE user_id = ? AND tenant_id = ? LIMIT 1',
+                [req.user.id, req.user.tenantId]
+            );
+            if (clients.length === 0) {
+                return res.status(404).json({ success: false, message: 'Profilo cliente non trovato' });
+            }
+
+            const clientId = clients[0].id;
+            const normalizedLocationId = (locationId === null || locationId === undefined || locationId === '') ? null : Number(locationId);
+
+            // Verifica che la location appartenga al tenant
+            if (normalizedLocationId !== null) {
+                const locs = await query(
+                    'SELECT id FROM locations WHERE id = ? AND tenant_id = ? AND status = ? LIMIT 1',
+                    [normalizedLocationId, req.user.tenantId, 'active']
+                );
+                if (locs.length === 0) {
+                    return res.status(404).json({ success: false, message: 'Sede non trovata o non attiva' });
+                }
+            }
+
+            await query(
+                'UPDATE clients SET preferred_location_id = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?',
+                [normalizedLocationId, clientId, req.user.tenantId]
+            );
+
+            res.json({ success: true, data: { preferred_location_id: normalizedLocationId } });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * GET /api/clients
      */
     async getAll(req, res, next) {
@@ -40,7 +87,8 @@ class ClientController {
                 assignedTo: req.query.assignedTo ? parseInt(req.query.assignedTo) : null,
                 search: req.query.search,
                 page: parseInt(req.query.page) || 1,
-                limit: parseInt(req.query.limit) || 20
+                limit: parseInt(req.query.limit) || 20,
+                sort: req.query.sort || 'created_desc'
             };
 
             const result = await clientService.getAll(req.user.tenantId, options);
@@ -185,6 +233,43 @@ class ClientController {
     }
 
     /**
+     * DELETE /api/clients/:id/injuries/:injuryId
+     */
+    async deleteInjury(req, res, next) {
+        try {
+            await clientService.assertOwnership(parseInt(req.params.id), req.user.tenantId);
+            const deleted = await clientService.deleteInjury(
+                parseInt(req.params.injuryId), req.user.tenantId
+            );
+            if (!deleted) {
+                return res.status(404).json({ success: false, message: 'Infortunio non trovato' });
+            }
+            res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/clients/:id/injuries/:injuryId/status
+     */
+    async updateInjuryStatus(req, res, next) {
+        try {
+            await clientService.assertOwnership(parseInt(req.params.id), req.user.tenantId);
+            const { status } = req.body;
+            if (!['active','recovering','recovered'].includes(status)) {
+                return res.status(400).json({ success: false, message: 'Status non valido' });
+            }
+            await clientService.updateInjuryStatus(
+                parseInt(req.params.injuryId), req.user.tenantId, status
+            );
+            res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * GET /api/clients/:id/stats
      */
     async getStats(req, res, next) {
@@ -240,6 +325,34 @@ class ClientController {
         } catch (error) {
             next(error);
         }
+    }
+
+    async uploadPhoto(req, res, next) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: 'File richiesto' });
+            }
+            const clientId = parseInt(req.params.id, 10);
+            await assertClientAccess(clientId, req.user.tenantId, req.user);
+            const photoUrl = getFileUrl(req.file.path);
+            await query(
+                'UPDATE clients SET photo_url = ? WHERE id = ? AND tenant_id = ?',
+                [photoUrl, clientId, req.user.tenantId]
+            );
+            res.json({ success: true, data: { photo_url: photoUrl } });
+        } catch (err) { next(err); }
+    }
+
+    async deletePhoto(req, res, next) {
+        try {
+            const clientId = parseInt(req.params.id, 10);
+            await assertClientAccess(clientId, req.user.tenantId, req.user);
+            await query(
+                'UPDATE clients SET photo_url = NULL WHERE id = ? AND tenant_id = ?',
+                [clientId, req.user.tenantId]
+            );
+            res.json({ success: true });
+        } catch (err) { next(err); }
     }
 }
 

@@ -213,12 +213,12 @@ onMounted(loadDashboard);
   <div class="p-4 md:p-6 max-w-5xl mx-auto">
     <!-- Loading -->
     <div v-if="loading" class="space-y-4">
-      <div class="card-dark p-6 animate-pulse">
+      <div class="bg-habit-card border border-white/10 rounded-3xl p-6 animate-pulse">
         <div class="h-8 bg-habit-skeleton rounded w-2/3 mb-3"></div>
         <div class="h-4 bg-habit-skeleton rounded w-1/2"></div>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div v-for="i in 4" :key="i" class="card-dark p-4 animate-pulse">
+        <div v-for="i in 4" :key="i" class="bg-habit-card border border-white/10 rounded-3xl p-4 animate-pulse">
           <div class="h-8 bg-habit-skeleton rounded w-1/2 mb-2"></div>
           <div class="h-3 bg-habit-skeleton rounded w-3/4"></div>
         </div>
@@ -226,78 +226,94 @@ onMounted(loadDashboard);
     </div>
 
     <template v-else>
-      <!-- Header Greeting -->
-      <div class="mb-6">
-        <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-habit-text">
-          {{ greeting }},
-          <span class="text-habit-orange">{{ userName }}</span> 👋
-        </h1>
-        <p class="text-habit-text-muted text-sm mt-1">
-          Ecco il riepilogo della tua giornata
-        </p>
+      <!-- Header Greeting (glass-mesh 2026) -->
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 p-5 sm:p-6 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.04)]">
+        <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-habit-orange/15 blur-3xl"></div>
+        <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-habit-cyan/10 blur-3xl"></div>
+        <div class="relative">
+          <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-habit-text tracking-tight leading-tight">
+            {{ greeting }},<br class="sm:hidden" />
+            <span class="bg-gradient-to-r from-habit-orange to-pink-500 bg-clip-text text-transparent">{{ userName }}</span> 👋
+          </h1>
+          <p class="text-habit-text-muted text-sm mt-1.5">
+            Ecco il riepilogo della tua giornata
+          </p>
+        </div>
       </div>
 
       <!-- Quick Stats -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
         <!-- Streak (with fire glow animation when active) -->
         <div
-          class="card-dark p-3 sm:p-4 text-center"
+          class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
           :class="{
             'ring-2 ring-orange-500/30 animate-pulse-slow':
               (clientProfile?.streak_days || 0) > 0,
           }"
         >
-          <div class="text-2xl sm:text-3xl mb-1">🔥</div>
-          <div class="text-xl sm:text-2xl font-bold text-habit-text">
-            {{ clientProfile?.streak_days || 0 }}
+          <div class="pointer-events-none absolute -top-8 -right-8 w-20 h-20 rounded-full bg-orange-500/15 blur-2xl"></div>
+          <div class="relative">
+            <div class="text-2xl sm:text-3xl mb-1">🔥</div>
+            <div class="text-xl sm:text-2xl font-bold text-habit-text">
+              {{ clientProfile?.streak_days || 0 }}
+            </div>
+            <div class="text-habit-text-subtle text-xs">Giorni di streak</div>
           </div>
-          <div class="text-habit-text-subtle text-xs">Giorni di streak</div>
         </div>
 
         <!-- XP with CircularProgress ring -->
         <div
-          class="card-dark p-3 sm:p-4 flex flex-col items-center justify-center"
+          class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 flex flex-col items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
         >
-          <CircularProgress
-            :value="xpToNextLevel"
-            :max="100"
-            :size="80"
-            color="#8b5cf6"
-            :label="`Lv. ${clientProfile?.level || 1}`"
-          />
-          <div class="text-habit-text-subtle text-xs mt-1">
-            {{ clientProfile?.xp_points || 0 }} XP
+          <div class="pointer-events-none absolute -top-8 -right-8 w-20 h-20 rounded-full bg-purple-500/15 blur-2xl"></div>
+          <div class="relative flex flex-col items-center">
+            <CircularProgress
+              :value="xpToNextLevel"
+              :max="100"
+              :size="80"
+              color="#8b5cf6"
+              :label="`Lv. ${clientProfile?.level || 1}`"
+            />
+            <div class="text-habit-text-subtle text-xs mt-1">
+              {{ clientProfile?.xp_points || 0 }} XP
+            </div>
           </div>
         </div>
 
         <!-- Level -->
-        <div class="card-dark p-3 sm:p-4 text-center">
-          <div class="text-2xl sm:text-3xl mb-1">🏆</div>
-          <div class="text-xl sm:text-2xl font-bold text-habit-text">
-            Lv. {{ clientProfile?.level || 1 }}
+        <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+          <div class="pointer-events-none absolute -top-8 -right-8 w-20 h-20 rounded-full bg-habit-cyan/15 blur-2xl"></div>
+          <div class="relative">
+            <div class="text-2xl sm:text-3xl mb-1">🏆</div>
+            <div class="text-xl sm:text-2xl font-bold text-habit-text">
+              Lv. {{ clientProfile?.level || 1 }}
+            </div>
+            <div class="text-habit-text-subtle text-xs">Livello attuale</div>
           </div>
-          <div class="text-habit-text-subtle text-xs">Livello attuale</div>
         </div>
 
         <!-- Sessioni Totali -->
-        <div class="card-dark p-3 sm:p-4 text-center">
-          <div class="text-2xl sm:text-3xl mb-1">💪</div>
-          <div class="text-xl sm:text-2xl font-bold text-habit-text">
-            {{ sessionStats?.total_sessions || 0 }}
+        <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+          <div class="pointer-events-none absolute -top-8 -right-8 w-20 h-20 rounded-full bg-emerald-500/15 blur-2xl"></div>
+          <div class="relative">
+            <div class="text-2xl sm:text-3xl mb-1">💪</div>
+            <div class="text-xl sm:text-2xl font-bold text-habit-text">
+              {{ sessionStats?.total_sessions || 0 }}
+            </div>
+            <div class="text-habit-text-subtle text-xs">Sessioni totali</div>
           </div>
-          <div class="text-habit-text-subtle text-xs">Sessioni totali</div>
         </div>
       </div>
 
       <!-- Main Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
         <!-- Card Readiness Oggi -->
-        <div class="card-dark p-4 sm:p-6">
+        <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-4 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-habit-text">Readiness di Oggi</h3>
             <button
               v-if="!todayCheckin"
-              @click="router.push({ name: 'ClientCheckin' })"
+              @click="router.push({ name: 'Readiness' })"
               class="btn-primary btn-sm"
             >
               Fai il Check-in

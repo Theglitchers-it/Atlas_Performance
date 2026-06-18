@@ -4,6 +4,10 @@ import { useRouter } from "vue-router";
 import api from "@/services/api";
 import { useToast } from "vue-toastification";
 import { useUnsavedChanges } from "@/composables/useUnsavedChanges";
+import {
+  DIETARY_RESTRICTION_OPTIONS,
+  type DietPhase,
+} from "@/types";
 
 interface ClientFormData {
   firstName: string;
@@ -19,6 +23,16 @@ interface ClientFormData {
   trainingLocation: string;
   medicalNotes: string;
   notes: string;
+  sportHistory: string;
+  occupationType: string;
+  dailyStepsAvg: string;
+  jointPainAreas: string[];
+  previousDiets: string;
+  dietaryRestrictions: string[];
+  foodAllergies: string;
+  currentDietPhase: DietPhase;
+  baselineStressLevel: string;
+  mealsPerDayHabit: string;
   createAccount: boolean;
   password: string;
 }
@@ -49,6 +63,16 @@ const formData = ref<ClientFormData>({
   trainingLocation: "hybrid",
   medicalNotes: "",
   notes: "",
+  sportHistory: "",
+  occupationType: "",
+  dailyStepsAvg: "",
+  jointPainAreas: [],
+  previousDiets: "",
+  dietaryRestrictions: [],
+  foodAllergies: "",
+  currentDietPhase: "free",
+  baselineStressLevel: "",
+  mealsPerDayHabit: "",
   createAccount: false,
   password: "",
 });
@@ -79,6 +103,45 @@ const locations: SelectOption[] = [
   { value: "in_person", label: "Di persona" },
   { value: "hybrid", label: "Ibrido" },
 ];
+
+const occupationTypes: SelectOption[] = [
+  { value: "sedentary", label: "Sedentario" },
+  { value: "moderately_active", label: "Moderatamente attivo" },
+  { value: "active", label: "Attivo" },
+  { value: "highly_active", label: "Molto attivo (lavoro fisico)" },
+];
+
+const jointPainOptions = [
+  "spalla",
+  "ginocchio",
+  "schiena",
+  "anca",
+  "caviglia",
+  "polso",
+  "gomito",
+  "collo",
+];
+
+const toggleJointPain = (area: string) => {
+  const idx = formData.value.jointPainAreas.indexOf(area);
+  if (idx >= 0) formData.value.jointPainAreas.splice(idx, 1);
+  else formData.value.jointPainAreas.push(area);
+};
+
+const dietPhases: SelectOption[] = [
+  { value: "free", label: "Libero (nessuna dieta attiva)" },
+  { value: "cut", label: "Taglio calorico (cut)" },
+  { value: "normocaloric", label: "Normocalorica (mantenimento)" },
+  { value: "bulk", label: "Massa (bulk)" },
+];
+
+const dietaryRestrictionOptions = DIETARY_RESTRICTION_OPTIONS;
+
+const toggleDietaryRestriction = (r: string) => {
+  const idx = formData.value.dietaryRestrictions.indexOf(r);
+  if (idx >= 0) formData.value.dietaryRestrictions.splice(idx, 1);
+  else formData.value.dietaryRestrictions.push(r);
+};
 
 const validateForm = (): boolean => {
   errors.value = {};
@@ -134,6 +197,28 @@ const handleSubmit = async () => {
       trainingLocation: formData.value.trainingLocation,
       medicalNotes: formData.value.medicalNotes || null,
       notes: formData.value.notes || null,
+      sportHistory: formData.value.sportHistory || null,
+      occupationType: formData.value.occupationType || null,
+      dailyStepsAvg: formData.value.dailyStepsAvg
+        ? parseInt(formData.value.dailyStepsAvg, 10)
+        : null,
+      jointPainAreas:
+        formData.value.jointPainAreas.length > 0
+          ? formData.value.jointPainAreas
+          : null,
+      previousDiets: formData.value.previousDiets || null,
+      dietaryRestrictions:
+        formData.value.dietaryRestrictions.length > 0
+          ? formData.value.dietaryRestrictions
+          : null,
+      foodAllergies: formData.value.foodAllergies || null,
+      currentDietPhase: formData.value.currentDietPhase || null,
+      baselineStressLevel: formData.value.baselineStressLevel
+        ? parseInt(formData.value.baselineStressLevel, 10)
+        : null,
+      mealsPerDayHabit: formData.value.mealsPerDayHabit
+        ? parseInt(formData.value.mealsPerDayHabit, 10)
+        : null,
       createAccount: formData.value.createAccount,
       password: formData.value.createAccount
         ? formData.value.password
@@ -345,6 +430,202 @@ const goBack = () => {
               step="0.1"
               class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
             />
+          </div>
+        </div>
+      </div>
+
+      <!-- Anamnesi sportiva -->
+      <div
+        class="bg-habit-bg border border-habit-border rounded-xl shadow-sm p-6"
+      >
+        <h2 class="text-lg font-semibold text-habit-text mb-4">
+          Anamnesi sportiva
+        </h2>
+        <p class="text-xs text-habit-text-subtle mb-4">
+          Informazioni per una programmazione personalizzata: storico,
+          stile di vita e dolori ricorrenti.
+        </p>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-habit-text-muted mb-1"
+              >Storico sportivo</label
+            >
+            <textarea
+              v-model="formData.sportHistory"
+              rows="3"
+              maxlength="2000"
+              placeholder="Sport praticati, anni di esperienza, risultati..."
+              class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text resize-none"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label
+                class="block text-sm font-medium text-habit-text-muted mb-1"
+                >Tipo di lavoro</label
+              >
+              <select
+                v-model="formData.occupationType"
+                class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+              >
+                <option value="">Seleziona...</option>
+                <option
+                  v-for="o in occupationTypes"
+                  :key="o.value"
+                  :value="o.value"
+                >
+                  {{ o.label }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label
+                class="block text-sm font-medium text-habit-text-muted mb-1"
+                >Passi giornalieri medi</label
+              >
+              <input
+                v-model="formData.dailyStepsAvg"
+                type="number"
+                min="0"
+                max="50000"
+                placeholder="es. 8000"
+                class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-habit-text-muted mb-2"
+              >Dolori articolari ricorrenti</label
+            >
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="area in jointPainOptions"
+                :key="area"
+                type="button"
+                @click="toggleJointPain(area)"
+                class="px-3 py-1.5 text-xs rounded-full border transition-colors capitalize"
+                :class="
+                  formData.jointPainAreas.includes(area)
+                    ? 'bg-habit-orange/15 border-habit-orange text-habit-orange'
+                    : 'bg-habit-bg border-habit-border text-habit-text-subtle hover:text-habit-text'
+                "
+              >
+                {{ area }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Anamnesi nutrizionale -->
+      <div
+        class="bg-habit-bg border border-habit-border rounded-xl shadow-sm p-6"
+      >
+        <h2 class="text-lg font-semibold text-habit-text mb-4">
+          Anamnesi nutrizionale
+        </h2>
+        <p class="text-xs text-habit-text-subtle mb-4">
+          Snapshot iniziale del profilo alimentare: punto di partenza per
+          definire calorie e macros del piano nutrizionale.
+        </p>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-habit-text-muted mb-1"
+              >Diete pregresse</label
+            >
+            <textarea
+              v-model="formData.previousDiets"
+              rows="3"
+              maxlength="2000"
+              placeholder="Es. Dukan 2022, fai-da-te low carb, digiuno intermittente 3 mesi..."
+              class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text resize-none"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-habit-text-muted mb-1"
+                >Fase alimentare attuale</label
+              >
+              <select
+                v-model="formData.currentDietPhase"
+                class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+              >
+                <option v-for="p in dietPhases" :key="p.value" :value="p.value">
+                  {{ p.label }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-habit-text-muted mb-1"
+                >N° pasti abituali / giorno</label
+              >
+              <input
+                v-model="formData.mealsPerDayHabit"
+                type="number"
+                min="1"
+                max="10"
+                placeholder="es. 4"
+                class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-habit-text-muted mb-1"
+              >Allergie / intolleranze alimentari</label
+            >
+            <textarea
+              v-model="formData.foodAllergies"
+              rows="2"
+              maxlength="1000"
+              placeholder="Es. arachidi, crostacei, mandorle..."
+              class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text resize-none"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-habit-text-muted mb-2"
+              >Restrizioni / preferenze alimentari</label
+            >
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="r in dietaryRestrictionOptions"
+                :key="r"
+                type="button"
+                @click="toggleDietaryRestriction(r)"
+                class="px-3 py-1.5 text-xs rounded-full border transition-colors capitalize"
+                :class="
+                  formData.dietaryRestrictions.includes(r)
+                    ? 'bg-habit-cyan/15 border-habit-cyan text-habit-cyan'
+                    : 'bg-habit-bg border-habit-border text-habit-text-subtle hover:text-habit-text'
+                "
+              >
+                {{ r }}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-habit-text-muted mb-1"
+              >Livello stress iniziale (1-10)</label
+            >
+            <input
+              v-model="formData.baselineStressLevel"
+              type="number"
+              min="1"
+              max="10"
+              placeholder="es. 6"
+              class="w-full px-4 py-2 border border-habit-border rounded-lg focus:ring-2 focus:ring-habit-cyan bg-habit-bg text-habit-text"
+            />
+            <p class="text-[10px] text-habit-text-subtle mt-1">
+              Snapshot al momento della presa in carico. Lo stress giornaliero
+              continua a essere tracciato nei check-in.
+            </p>
           </div>
         </div>
       </div>

@@ -1,16 +1,45 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useToast } from "vue-toastification";
+import { useAuthStore } from "@/store/auth";
+import { useSessionStore } from "@/store/session";
 import api from "@/services/api";
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
+const auth = useAuthStore();
+const sessionStore = useSessionStore();
 
 const loading = ref(true);
 const program = ref<any>(null);
 const expandedWorkoutId = ref<number | null>(null);
+const startingWorkoutId = ref<number | null>(null);
 
 const programId = computed(() => parseInt(route.params.id as string));
+
+const startWorkout = async (workout: any) => {
+  if (!workout?.template_id) {
+    toast.error("Questa scheda non ha un template associato");
+    return;
+  }
+  startingWorkoutId.value = workout.id;
+  try {
+    const res = await sessionStore.startSession(
+      auth.user?.clientId || 0,
+      workout.template_id
+    );
+    if (res.success && res.session?.id) {
+      toast.success("Sessione avviata");
+      router.push(`/my-session/${res.session.id}`);
+    } else {
+      toast.error(res.message || "Errore nell'avvio della sessione");
+    }
+  } finally {
+    startingWorkoutId.value = null;
+  }
+};
 
 // Program status config
 const programStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -299,6 +328,17 @@ onMounted(() => {
                     <span v-if="workout.estimated_duration_min">&middot; {{ workout.estimated_duration_min }} min</span>
                   </div>
                 </div>
+                <!-- Bottone Inizia (compatto header) -->
+                <button
+                  @click.stop="startWorkout(workout)"
+                  :disabled="startingWorkoutId === workout.id"
+                  class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl bg-gradient-to-r from-habit-orange to-habit-orange-light text-white text-xs font-bold shadow-habit-glow hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                  :title="'Avvia sessione: ' + (workout.template_name || 'scheda')"
+                >
+                  <svg v-if="startingWorkoutId !== workout.id" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                  {{ startingWorkoutId === workout.id ? '…' : 'Inizia' }}
+                </button>
                 <!-- Chevron -->
                 <svg
                   class="w-5 h-5 text-habit-text-subtle flex-shrink-0 transition-transform duration-200"
@@ -309,6 +349,16 @@ onMounted(() => {
                 </svg>
               </div>
               <p v-if="workout.notes" class="text-habit-text-muted text-xs mt-2 italic pl-[52px]">{{ workout.notes }}</p>
+              <!-- Bottone Inizia (full-width mobile) -->
+              <button
+                @click.stop="startWorkout(workout)"
+                :disabled="startingWorkoutId === workout.id"
+                class="sm:hidden mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-gradient-to-r from-habit-orange to-habit-orange-light text-white text-sm font-bold shadow-habit-glow hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              >
+                <svg v-if="startingWorkoutId !== workout.id" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                {{ startingWorkoutId === workout.id ? 'Avvio in corso…' : 'Inizia allenamento' }}
+              </button>
             </div>
 
             <!-- Expanded Exercise List -->
@@ -322,7 +372,7 @@ onMounted(() => {
                   <div class="flex items-start gap-3">
                     <!-- Order number -->
                     <div class="w-7 h-7 rounded-full bg-habit-orange/10 border border-habit-orange/20 text-habit-orange flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      {{ idx + 1 }}
+                      {{ Number(idx) + 1 }}
                     </div>
 
                     <div class="flex-1 min-w-0">

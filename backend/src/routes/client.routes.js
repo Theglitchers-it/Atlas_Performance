@@ -9,6 +9,7 @@ const router = express.Router();
 const clientController = require('../controllers/client.controller');
 const { validate } = require('../middlewares/validate');
 const { verifyToken, requireRole } = require('../middlewares/auth');
+const { uploadImage, handleUploadError: handlePhotoUploadError } = require('../middlewares/upload');
 const {
     createClientSchema,
     updateClientSchema,
@@ -38,6 +39,7 @@ router.use(verifyToken);
  *         description: Non autenticato
  */
 router.get('/me', requireRole('client'), clientController.getMyProfile);
+router.put('/me/preferred-location', requireRole('client'), clientController.updateMyPreferredLocation);
 
 /**
  * @swagger
@@ -224,6 +226,16 @@ router.put('/:id', requireRole('tenant_owner', 'staff', 'super_admin'), validate
  */
 router.delete('/:id', requireRole('tenant_owner', 'staff', 'super_admin'), clientController.delete);
 
+// Fase 7: foto cliente
+router.post('/:id/photo',
+    requireRole('tenant_owner', 'staff', 'super_admin', 'client'),
+    uploadImage.single('photo'),
+    handlePhotoUploadError,
+    clientController.uploadPhoto);
+router.delete('/:id/photo',
+    requireRole('tenant_owner', 'staff', 'super_admin', 'client'),
+    clientController.deletePhoto);
+
 /**
  * @swagger
  * /clients/{id}/stats:
@@ -318,6 +330,8 @@ router.post('/:id/goals', requireRole('tenant_owner', 'staff', 'super_admin'), v
  *         description: Cliente non trovato
  */
 router.post('/:id/injuries', requireRole('tenant_owner', 'staff', 'super_admin'), validate(addInjurySchema), clientController.addInjury);
+router.delete('/:id/injuries/:injuryId', requireRole('tenant_owner', 'staff', 'super_admin'), clientController.deleteInjury);
+router.put('/:id/injuries/:injuryId/status', requireRole('tenant_owner', 'staff', 'super_admin'), clientController.updateInjuryStatus);
 
 /**
  * @swagger
@@ -352,5 +366,68 @@ router.post('/:id/injuries', requireRole('tenant_owner', 'staff', 'super_admin')
  *         description: Cliente non trovato
  */
 router.post('/:id/xp', requireRole('tenant_owner', 'staff', 'super_admin'), clientController.addXP);
+
+// ============================================
+// CLIENT TAGS (fidelizzazione: nuovo/medio/top/vecchio/dormiente + custom)
+// ============================================
+const clientTagsController = require('../controllers/clientTags.controller');
+
+// Route batch PRIMA delle route con :id per evitare match accidentale
+router.post('/recompute-tags', requireRole('tenant_owner', 'super_admin'), clientTagsController.recomputeAll.bind(clientTagsController));
+router.get('/:id/tags', requireRole('tenant_owner', 'staff', 'super_admin'), clientTagsController.getTags.bind(clientTagsController));
+router.post('/:id/tags', requireRole('tenant_owner', 'staff', 'super_admin'), clientTagsController.addTag.bind(clientTagsController));
+router.delete('/:id/tags/:tag', requireRole('tenant_owner', 'staff', 'super_admin'), clientTagsController.removeTag.bind(clientTagsController));
+
+// ============================================
+// CLIENT FILES (Cartella Cliente Digitale)
+// ============================================
+const clientFilesController = require('../controllers/clientFiles.controller');
+const { uploadDocument, handleUploadError } = require('../middlewares/upload');
+
+// ============================================
+// FOOD LOG (Diario alimentare cliente - Iter 9b-9c)
+// ============================================
+const foodLogController = require('../controllers/foodLog.controller');
+const { uploadMeal } = require('../middlewares/upload');
+const { requireAIAvailable } = require('../middlewares/aiGuard');
+
+router.get('/:clientId/food-log', foodLogController.listDay.bind(foodLogController));
+router.get('/:clientId/food-log/summary', foodLogController.summary.bind(foodLogController));
+router.post('/:clientId/food-log', foodLogController.create.bind(foodLogController));
+router.post('/:clientId/food-log/analyze-photo',
+    requireAIAvailable,
+    uploadMeal.single('photo'),
+    handleUploadError,
+    foodLogController.analyzePhoto.bind(foodLogController)
+);
+router.put('/:clientId/food-log/:entryId', foodLogController.update.bind(foodLogController));
+router.delete('/:clientId/food-log/:entryId', foodLogController.delete.bind(foodLogController));
+
+// ============================================
+// KEY EXERCISES (Iter 10b - performance tracking)
+// ============================================
+const keyExerciseController = require('../controllers/keyExercise.controller');
+router.get('/:clientId/key-exercises',
+    requireRole('tenant_owner', 'staff', 'super_admin'),
+    keyExerciseController.list.bind(keyExerciseController));
+router.post('/:clientId/key-exercises',
+    requireRole('tenant_owner', 'staff', 'super_admin'),
+    keyExerciseController.add.bind(keyExerciseController));
+router.delete('/:clientId/key-exercises/:exerciseId',
+    requireRole('tenant_owner', 'staff', 'super_admin'),
+    keyExerciseController.remove.bind(keyExerciseController));
+router.get('/:clientId/key-exercises/:exerciseId/progression',
+    requireRole('tenant_owner', 'staff', 'super_admin'),
+    keyExerciseController.progression.bind(keyExerciseController));
+
+router.get('/:clientId/files', requireRole('tenant_owner', 'staff', 'super_admin'), clientFilesController.list.bind(clientFilesController));
+router.post('/:clientId/files',
+    requireRole('tenant_owner', 'staff', 'super_admin'),
+    uploadDocument.single('file'),
+    handleUploadError,
+    clientFilesController.upload.bind(clientFilesController)
+);
+router.get('/:clientId/files/:fileId/download', requireRole('tenant_owner', 'staff', 'super_admin'), clientFilesController.download.bind(clientFilesController));
+router.delete('/:clientId/files/:fileId', requireRole('tenant_owner', 'staff', 'super_admin'), clientFilesController.delete.bind(clientFilesController));
 
 module.exports = router;

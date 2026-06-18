@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
 import { useProgramStore } from "@/store/program";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import api from "@/services/api";
+import { formatDate } from "@/composables/useFormatters";
 
 const props = defineProps<{ clientId: number | string }>();
 
@@ -55,15 +57,6 @@ const statusClass = (status: any) => {
     cancelled: "bg-red-500/15 text-red-400",
   };
   return classes[status] || "bg-habit-skeleton/50 text-habit-text-subtle";
-};
-
-const formatDate = (dateStr: any) => {
-  if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 };
 
 const handleFilterStatus = (e: any) => {
@@ -125,6 +118,7 @@ const handleStatusChange = async (programId: any, newStatus: any) => {
   const result = (await store.updateStatus(programId, newStatus)) as any;
   if (result && result.success) {
     toast.success("Stato del programma aggiornato");
+    if (newStatus === "completed") historyLoaded.value = false;
   } else {
     toast.error(result?.error || "Errore durante l'aggiornamento dello stato");
   }
@@ -142,10 +136,43 @@ const nextPage = () => {
 const initPrograms = async () => {
   if (initialized.value) return;
   initialized.value = true;
-  store.filters.clientId = Number(props.clientId);
-  store.filters.status = null;
-  store.pagination.page = 1;
-  await store.fetchPrograms();
+  await store.initClientScope(Number(props.clientId));
+};
+
+interface HistoryProgram {
+  id: number;
+  name: string;
+  status: string;
+  weeks?: number;
+  days_per_week?: number;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
+const historyPrograms = ref<HistoryProgram[]>([]);
+const historyLoaded = ref(false);
+const historyLoading = ref(false);
+
+const loadHistoryPrograms = async () => {
+  if (historyLoaded.value || historyLoading.value) return;
+  historyLoading.value = true;
+  const res = await api
+    .get("/programs", {
+      params: {
+        clientId: props.clientId,
+        status: "completed",
+        limit: 100,
+      },
+    })
+    .catch(() => null);
+  historyPrograms.value = res?.data?.data?.programs || res?.data?.data || [];
+  historyLoaded.value = true;
+  historyLoading.value = false;
+};
+
+const onHistoryToggle = (e: Event) => {
+  const details = e.target as HTMLDetailsElement;
+  if (details.open) loadHistoryPrograms();
 };
 
 onMounted(() => {
@@ -166,7 +193,6 @@ onMounted(() => {
           <option value="">Tutti gli stati</option>
           <option value="draft">Bozza</option>
           <option value="active">Attivo</option>
-          <option value="completed">Completato</option>
           <option value="cancelled">Annullato</option>
         </select>
       </div>
@@ -276,6 +302,61 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Programmi completati (archivio storico, lazy load) -->
+    <details
+      @toggle="onHistoryToggle"
+      class="group mt-4 border border-habit-border rounded-lg bg-habit-bg-light/40"
+    >
+      <summary class="flex items-center justify-between cursor-pointer px-3 py-2 select-none">
+        <div class="flex items-center gap-2">
+          <svg class="w-3.5 h-3.5 text-habit-text-muted transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="text-xs font-medium text-habit-text">Programmi completati</span>
+          <span
+            v-if="historyLoaded && historyPrograms.length > 0"
+            class="text-[10px] px-1.5 py-0.5 bg-blue-500/15 text-blue-400 rounded-full"
+          >
+            {{ historyPrograms.length }}
+          </span>
+        </div>
+      </summary>
+      <div class="px-3 pb-3">
+        <div v-if="historyLoading" class="space-y-2 pt-1">
+          <div v-for="i in 2" :key="i" class="h-12 bg-habit-skeleton rounded animate-pulse"></div>
+        </div>
+        <div
+          v-else-if="historyLoaded && historyPrograms.length === 0"
+          class="text-xs text-habit-text-subtle py-3 text-center"
+        >
+          Nessun programma completato
+        </div>
+        <div v-else-if="historyLoaded" class="space-y-1.5 pt-1">
+          <router-link
+            v-for="p in historyPrograms"
+            :key="p.id"
+            :to="`/programs/${p.id}`"
+            class="flex items-center justify-between px-2.5 py-2 rounded hover:bg-habit-card-hover transition-colors"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-medium text-habit-text truncate">
+                {{ p.name }}
+              </p>
+              <p class="text-[10px] text-habit-text-subtle mt-0.5">
+                <span v-if="p.start_date && p.end_date">
+                  {{ formatDate(p.start_date) }} → {{ formatDate(p.end_date) }}
+                </span>
+                <span v-else-if="p.weeks">{{ p.weeks }} settimane</span>
+              </p>
+            </div>
+            <svg class="w-3.5 h-3.5 text-habit-text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </router-link>
+        </div>
+      </div>
+    </details>
 
     <!-- Pagination -->
     <div v-if="!loading && programs.length > 0 && totalPages > 1" class="flex items-center justify-between mt-4">

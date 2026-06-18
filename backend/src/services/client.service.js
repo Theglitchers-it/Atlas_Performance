@@ -11,53 +11,110 @@ class ClientService {
      * Ottieni tutti i clienti del tenant
      */
     async getAll(tenantId, options = {}) {
-        const { status, fitnessLevel, assignedTo, search, page = 1, limit = 20 } = options;
+        const { status, fitnessLevel, assignedTo, search, page = 1, limit = 20, sort = 'created_desc' } = options;
         const offset = (page - 1) * limit;
 
-        let sql = `
-            SELECT c.id, c.first_name, c.last_name, c.email, c.phone,
-                   c.date_of_birth, c.gender, c.fitness_level, c.primary_goal,
-                   c.current_weight_kg, c.height_cm, c.status, c.xp_points,
-                   c.level, c.streak_days, c.last_workout_at, c.created_at,
-                   u.first_name as assigned_first_name, u.last_name as assigned_last_name
-            FROM clients c
-            LEFT JOIN users u ON c.assigned_to = u.id
-            WHERE c.tenant_id = ?
-        `;
-        const params = [tenantId];
+        // Sort whitelist server-side. Usa c.last_workout_at denormalizzato per evitare
+        // filesort sulla colonna derivata vca.last_workout_at.
+        const sortMap = {
+            name_asc: 'c.last_name ASC, c.first_name ASC',
+            name_desc: 'c.last_name DESC, c.first_name DESC',
+            created_desc: 'c.created_at DESC',
+            created_asc: 'c.created_at ASC',
+            last_session_desc: 'c.last_workout_at DESC',
+            last_session_asc: 'c.last_workout_at ASC',
+            subscription_end_asc: 'cs.active_subscription_end_date ASC',
+            subscription_end_desc: 'cs.active_subscription_end_date DESC'
+        };
+        const orderBy = sortMap[sort] || sortMap.created_desc;
+
+        // Costruisci filtri dinamici WHERE (condivisi tra count e data query)
+        let whereClause = 'WHERE c.tenant_id = ?';
+        const filterParams = [tenantId];
 
         if (status) {
-            sql += ' AND c.status = ?';
-            params.push(status);
+            whereClause += ' AND c.status = ?';
+            filterParams.push(status);
         }
 
         if (fitnessLevel) {
-            sql += ' AND c.fitness_level = ?';
-            params.push(fitnessLevel);
+            whereClause += ' AND c.fitness_level = ?';
+            filterParams.push(fitnessLevel);
         }
 
         if (assignedTo) {
-            sql += ' AND c.assigned_to = ?';
-            params.push(assignedTo);
+            whereClause += ' AND c.assigned_to = ?';
+            filterParams.push(assignedTo);
         }
 
         if (search) {
             const sanitizedSearch = search.replace(/[%_]/g, '\\$&');
-            sql += ' AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ?)';
+            whereClause += ' AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ?)';
             const searchPattern = `%${sanitizedSearch}%`;
-            params.push(searchPattern, searchPattern, searchPattern);
+            filterParams.push(searchPattern, searchPattern, searchPattern);
         }
 
-        // Count totale
-        const countSql = sql.replace(/SELECT.*FROM/s, 'SELECT COUNT(*) as total FROM');
-        const countResult = await query(countSql, params);
+        // Count totale (senza JOIN aggiuntivi per performance)
+        const countSql = `SELECT COUNT(*) as total FROM clients c ${whereClause}`;
+        const countResult = await query(countSql, filterParams);
         const total = countResult[0]?.total || 0;
 
-        // Aggiungi paginazione
-        sql += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
-        params.push(limit, offset);
-
-        const clients = await query(sql, params);
+        // Query principale con JOIN arricchimento (abbonamento, misurazioni, lifetime, tag, activity recap).
+        // Rimosso JOIN users u ON c.assigned_to: il frontend usa primary_trainer_* dalla view.
+        const sql = `
+            SELECT c.id, c.first_name, c.last_name, c.email, c.phone,
+                   c.date_of_birth, c.gender, c.fitness_level, c.primary_goal,
+                   c.current_weight_kg, c.height_cm, c.status, c.xp_points,
+                   c.level, c.streak_days, c.last_workout_at, c.created_at,
+                   c.photo_url,
+                   cs.active_subscription_end_date,
+                   bm.last_measurement_date,
+                   lt.lifetime_subscription_months,
+                   lt.first_subscription_date,
+                   lt.days_since_last_sub_end,
+                   COALESCE(tg.tags, JSON_ARRAY()) AS tags,
+                   vca.last_workout_at AS recap_last_workout_at,
+                   vca.last_checkin_at AS recap_last_checkin_at,
+                   vca.weight_trend_30d,
+                   vca.primary_trainer_id,
+                   pt.first_name AS primary_trainer_first_name,
+                   pt.last_name AS primary_trainer_last_name
+            FROM clients c
+            LEFT JOIN (
+                SELECT client_id, MAX(end_date) AS active_subscription_end_date
+                FROM client_subscriptions
+                WHERE tenant_id = ? AND status = 'active'
+                GROUP BY client_id
+            ) cs ON c.id = cs.client_id
+            LEFT JOIN (
+                SELECT client_id, MAX(measurement_date) AS last_measurement_date
+                FROM body_measurements
+                WHERE tenant_id = ?
+                GROUP BY client_id
+            ) bm ON c.id = bm.client_id
+            LEFT JOIN (
+                SELECT client_id,
+                       ROUND(SUM(DATEDIFF(end_date, start_date) / 30.44), 1) AS lifetime_subscription_months,
+                       MIN(start_date) AS first_subscription_date,
+                       DATEDIFF(CURDATE(), MAX(end_date)) AS days_since_last_sub_end
+                FROM client_subscriptions
+                WHERE tenant_id = ?
+                GROUP BY client_id
+            ) lt ON c.id = lt.client_id
+            LEFT JOIN (
+                SELECT client_id, JSON_ARRAYAGG(tag) AS tags
+                FROM client_tags
+                WHERE tenant_id = ?
+                GROUP BY client_id
+            ) tg ON c.id = tg.client_id
+            LEFT JOIN v_client_activity_summary vca ON vca.client_id = c.id
+            LEFT JOIN users pt ON pt.id = vca.primary_trainer_id
+            ${whereClause}
+            ORDER BY ${orderBy}
+            LIMIT ? OFFSET ?
+        `;
+        const queryParams = [tenantId, tenantId, tenantId, tenantId, ...filterParams, limit, offset];
+        const clients = await query(sql, queryParams);
 
         return {
             clients,
@@ -104,21 +161,21 @@ class ClientService {
 
         const client = clients[0];
 
-        // Ottieni obiettivi attivi
-        const goals = await query(
-            `SELECT * FROM client_goals
+        // Obiettivi e infortuni attivi: query indipendenti → caricate in parallelo.
+        const [goals, injuries] = await Promise.all([
+            query(
+                `SELECT * FROM client_goals
              WHERE client_id = ? AND status = 'active'
              ORDER BY priority ASC`,
-            [id]
-        );
-
-        // Ottieni infortuni attivi
-        const injuries = await query(
-            `SELECT * FROM injuries
+                [id]
+            ),
+            query(
+                `SELECT * FROM injuries
              WHERE client_id = ? AND status != 'recovered'
              ORDER BY injury_date DESC`,
-            [id]
-        );
+                [id]
+            )
+        ]);
 
         return {
             ...client,
@@ -136,19 +193,18 @@ class ClientService {
             heightCm, initialWeightKg, fitnessLevel, primaryGoal,
             secondaryGoals, medicalNotes, dietaryRestrictions,
             emergencyContactName, emergencyContactPhone, notes,
-            trainingLocation, assignedTo, createAccount, password
+            trainingLocation, assignedTo,
+            sportHistory, occupationType, dailyStepsAvg, jointPainAreas,
+            previousDiets, foodAllergies, currentDietPhase,
+            baselineStressLevel, mealsPerDayHabit,
+            createAccount, password
         } = clientData;
 
-        // Verifica limite clienti
-        const [tenantData] = await query(
-            'SELECT max_clients FROM tenants WHERE id = ?',
-            [tenantId]
-        );
-
-        const [clientCount] = await query(
-            'SELECT COUNT(*) as count FROM clients WHERE tenant_id = ? AND status = "active"',
-            [tenantId]
-        );
+        // Verifica limite clienti: le due letture sono indipendenti → in parallelo.
+        const [[tenantData], [clientCount]] = await Promise.all([
+            query('SELECT max_clients FROM tenants WHERE id = ?', [tenantId]),
+            query('SELECT COUNT(*) as count FROM clients WHERE tenant_id = ? AND status = "active"', [tenantId])
+        ]);
 
         if (clientCount.count >= tenantData.max_clients) {
             throw { status: 403, message: 'Hai raggiunto il limite massimo di clienti per il tuo piano' };
@@ -185,21 +241,30 @@ class ClientService {
                 `INSERT INTO clients (
                     tenant_id, user_id, first_name, last_name, email, phone,
                     date_of_birth, gender, height_cm, initial_weight_kg, current_weight_kg,
-                    fitness_level, primary_goal, secondary_goals, medical_notes,
+                    fitness_level, primary_goal, sport_history, occupation_type,
+                    daily_steps_avg, joint_pain_areas, secondary_goals, medical_notes,
                     dietary_restrictions, emergency_contact_name, emergency_contact_phone,
-                    notes, training_location, assigned_to, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+                    notes, training_location, assigned_to,
+                    previous_diets, food_allergies, current_diet_phase,
+                    baseline_stress_level, meals_per_day_habit, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
                 [
                     tenantId, userId, firstName, lastName, email || null, phone || null,
                     dateOfBirth || null, gender || null, heightCm || null,
                     initialWeightKg || null, initialWeightKg || null,
                     fitnessLevel || 'beginner', primaryGoal || 'general_fitness',
+                    sportHistory || null, occupationType || null,
+                    dailyStepsAvg || null,
+                    jointPainAreas ? JSON.stringify(jointPainAreas) : null,
                     secondaryGoals ? JSON.stringify(secondaryGoals) : null,
                     medicalNotes || null,
                     dietaryRestrictions ? JSON.stringify(dietaryRestrictions) : null,
                     emergencyContactName || null, emergencyContactPhone || null,
                     notes || null, trainingLocation || 'hybrid',
-                    assignedTo || createdBy
+                    assignedTo || createdBy,
+                    previousDiets || null, foodAllergies || null,
+                    currentDietPhase || 'free',
+                    baselineStressLevel || null, mealsPerDayHabit || null
                 ]
             );
 
@@ -211,15 +276,19 @@ class ClientService {
      * Aggiorna cliente
      */
     async update(id, tenantId, clientData) {
-        // Verifica esistenza
-        await this.getById(id, tenantId);
+        // Verifica esistenza e snapshot fase dieta prima dell'update
+        const previous = await this.getById(id, tenantId);
+        const oldDietPhase = previous.current_diet_phase;
 
         const {
             firstName, lastName, email, phone, dateOfBirth, gender,
             heightCm, currentWeightKg, fitnessLevel, primaryGoal,
             secondaryGoals, medicalNotes, dietaryRestrictions,
             emergencyContactName, emergencyContactPhone, notes,
-            trainingLocation, assignedTo, status
+            trainingLocation, assignedTo, status,
+            sportHistory, occupationType, dailyStepsAvg, jointPainAreas,
+            previousDiets, foodAllergies, currentDietPhase,
+            baselineStressLevel, mealsPerDayHabit
         } = clientData;
 
         await query(
@@ -234,6 +303,10 @@ class ClientService {
                 current_weight_kg = COALESCE(?, current_weight_kg),
                 fitness_level = COALESCE(?, fitness_level),
                 primary_goal = COALESCE(?, primary_goal),
+                sport_history = COALESCE(?, sport_history),
+                occupation_type = COALESCE(?, occupation_type),
+                daily_steps_avg = COALESCE(?, daily_steps_avg),
+                joint_pain_areas = COALESCE(?, joint_pain_areas),
                 secondary_goals = COALESCE(?, secondary_goals),
                 medical_notes = COALESCE(?, medical_notes),
                 dietary_restrictions = COALESCE(?, dietary_restrictions),
@@ -242,19 +315,38 @@ class ClientService {
                 notes = COALESCE(?, notes),
                 training_location = COALESCE(?, training_location),
                 assigned_to = COALESCE(?, assigned_to),
+                previous_diets = COALESCE(?, previous_diets),
+                food_allergies = COALESCE(?, food_allergies),
+                current_diet_phase = COALESCE(?, current_diet_phase),
+                baseline_stress_level = COALESCE(?, baseline_stress_level),
+                meals_per_day_habit = COALESCE(?, meals_per_day_habit),
                 status = COALESCE(?, status),
                 updated_at = NOW()
              WHERE id = ? AND tenant_id = ?`,
             [
                 firstName, lastName, email, phone, dateOfBirth, gender,
                 heightCm, currentWeightKg, fitnessLevel, primaryGoal,
+                sportHistory, occupationType, dailyStepsAvg,
+                jointPainAreas ? JSON.stringify(jointPainAreas) : null,
                 secondaryGoals ? JSON.stringify(secondaryGoals) : null,
                 medicalNotes,
                 dietaryRestrictions ? JSON.stringify(dietaryRestrictions) : null,
                 emergencyContactName, emergencyContactPhone, notes,
-                trainingLocation, assignedTo, status, id, tenantId
+                trainingLocation, assignedTo,
+                previousDiets, foodAllergies, currentDietPhase,
+                baselineStressLevel, mealsPerDayHabit,
+                status, id, tenantId
             ]
         );
+
+        if (currentDietPhase && currentDietPhase !== oldDietPhase) {
+            try {
+                const alertService = require('./alert.service');
+                await alertService.onDietPhaseChanged(id, tenantId, currentDietPhase, oldDietPhase);
+            } catch (err) {
+                // Best-effort: non fa fallire l'update se l'alert va in errore
+            }
+        }
 
         return this.getById(id, tenantId);
     }
@@ -306,6 +398,28 @@ class ClientService {
         );
 
         return { id: result.insertId };
+    }
+
+    /**
+     * Rimuovi infortunio (hard delete)
+     */
+    async deleteInjury(injuryId, tenantId) {
+        const result = await query(
+            'DELETE FROM injuries WHERE id = ? AND tenant_id = ?',
+            [injuryId, tenantId]
+        );
+        return result.affectedRows > 0;
+    }
+
+    /**
+     * Aggiorna stato infortunio (active/recovering/recovered)
+     */
+    async updateInjuryStatus(injuryId, tenantId, status) {
+        const result = await query(
+            'UPDATE injuries SET status = ? WHERE id = ? AND tenant_id = ?',
+            [status, injuryId, tenantId]
+        );
+        return result.affectedRows > 0;
     }
 
     /**
@@ -459,6 +573,71 @@ class ClientService {
             workoutsThisWeek: weekStats.workouts_this_week || 0,
             weightHistory
         };
+    }
+
+    async getAIContext(clientId, tenantId, { includeInjuries = false, includeLifetime = false } = {}) {
+        const baseSelect = includeLifetime
+            ? `SELECT c.first_name, c.fitness_level, c.primary_goal, c.joint_pain_areas,
+                      c.last_workout_at,
+                      lt.lifetime_months, lt.days_since_last_end
+               FROM clients c
+               LEFT JOIN (
+                   SELECT client_id,
+                          ROUND(SUM(DATEDIFF(end_date, start_date) / 30.44), 1) AS lifetime_months,
+                          DATEDIFF(CURDATE(), MAX(end_date)) AS days_since_last_end
+                   FROM client_subscriptions
+                   WHERE tenant_id = ?
+                   GROUP BY client_id
+               ) lt ON c.id = lt.client_id
+               WHERE c.id = ? AND c.tenant_id = ?`
+            : `SELECT c.first_name, c.fitness_level, c.primary_goal, c.joint_pain_areas,
+                      c.last_workout_at
+               FROM clients c
+               WHERE c.id = ? AND c.tenant_id = ?`;
+
+        const params = includeLifetime
+            ? [tenantId, clientId, tenantId]
+            : [clientId, tenantId];
+
+        const [rows, injuries] = await Promise.all([
+            query(baseSelect, params),
+            includeInjuries
+                ? query(
+                    `SELECT body_part, severity FROM injuries
+                     WHERE client_id = ? AND tenant_id = ? AND status != 'recovered'`,
+                    [clientId, tenantId]
+                  )
+                : Promise.resolve(null)
+        ]);
+
+        const client = rows[0];
+        if (!client) return null;
+
+        let parsedPainAreas = [];
+        try {
+            parsedPainAreas = typeof client.joint_pain_areas === 'string'
+                ? JSON.parse(client.joint_pain_areas)
+                : (client.joint_pain_areas || []);
+        } catch { parsedPainAreas = []; }
+
+        const result = {
+            firstName: client.first_name,
+            fitnessLevel: client.fitness_level,
+            primaryGoal: client.primary_goal,
+            lastWorkoutAt: client.last_workout_at,
+            jointPainAreas: parsedPainAreas
+        };
+
+        if (includeLifetime) {
+            result.lifetimeMonths = client.lifetime_months;
+            result.daysSinceLastSubEnd = client.days_since_last_end;
+        }
+
+        if (injuries !== null) {
+            result.injuries = injuries;
+        }
+
+        return result;
     }
 }
 

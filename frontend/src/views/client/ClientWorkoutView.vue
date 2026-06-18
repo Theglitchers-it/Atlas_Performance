@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
+import { useToast } from "vue-toastification";
 import { useAuthStore } from "@/store/auth";
+import { useSessionStore } from "@/store/session";
 import api from "@/services/api";
 import type { PaginationMeta } from "@/types";
 
@@ -27,6 +29,88 @@ interface FeelingConfig {
 
 const router = useRouter();
 const auth = useAuthStore();
+const toast = useToast();
+const sessionStore = useSessionStore();
+
+// Kebab menu state (id sessione con menu aperto)
+const openMenuId = ref<number | null>(null);
+const actionLoading = ref<number | null>(null);
+
+const toggleMenu = (sessionId: number, e: Event) => {
+  e.stopPropagation();
+  openMenuId.value = openMenuId.value === sessionId ? null : sessionId;
+};
+
+const closeMenu = () => {
+  openMenuId.value = null;
+};
+
+// Chiudo menu se click fuori (registro listener globale)
+const onDocumentClick = () => closeMenu();
+onMounted(() => document.addEventListener("click", onDocumentClick));
+onUnmounted(() => document.removeEventListener("click", onDocumentClick));
+
+// Azioni rapide menu sessione
+const resumeSession = (session: any, e: Event) => {
+  e.stopPropagation();
+  closeMenu();
+  router.push(`/my-session/${session.id}`);
+};
+
+const quickComplete = async (session: any, e: Event) => {
+  e.stopPropagation();
+  closeMenu();
+  if (!confirm("Completare la sessione adesso senza specificare feeling?")) return;
+  actionLoading.value = session.id;
+  try {
+    const res = await api.post(`/sessions/${session.id}/complete`, {});
+    if (res.data?.success) {
+      toast.success("Sessione completata!");
+      await loadSessions(pagination.value.page);
+      await loadStats();
+    } else {
+      toast.error(res.data?.message || "Errore");
+    }
+  } catch (err: any) {
+    toast.error(err?.response?.data?.message || "Errore nel completare");
+  } finally {
+    actionLoading.value = null;
+  }
+};
+
+const quickSkip = async (session: any, e: Event) => {
+  e.stopPropagation();
+  closeMenu();
+  const reason = prompt("Motivo opzionale per saltare la sessione:", "") || "";
+  if (reason === null) return; // utente ha annullato
+  if (!confirm("Confermi di saltare questa sessione?")) return;
+  actionLoading.value = session.id;
+  const res = await sessionStore.skipSession(session.id, reason);
+  actionLoading.value = null;
+  if (res.success) {
+    toast.success("Sessione saltata");
+    await loadSessions(pagination.value.page);
+    await loadStats();
+  } else {
+    toast.error(res.message || "Errore");
+  }
+};
+
+const quickDelete = async (session: any, e: Event) => {
+  e.stopPropagation();
+  closeMenu();
+  if (!confirm(`Eliminare definitivamente questa sessione (id ${session.id})? L'azione è irreversibile.`)) return;
+  actionLoading.value = session.id;
+  const res = await sessionStore.deleteSession(session.id);
+  actionLoading.value = null;
+  if (res.success) {
+    toast.success("Sessione eliminata");
+    await loadSessions(pagination.value.page);
+    await loadStats();
+  } else {
+    toast.error(res.message || "Errore");
+  }
+};
 
 const loading = ref(true);
 const sessions = ref<any[]>([]);
@@ -262,48 +346,52 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-5xl mx-auto">
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
-        Il Mio Allenamento
-      </h1>
-      <p class="text-habit-text-muted text-sm mt-1">
-        Storico delle tue sessioni di allenamento
-      </p>
+  <div class="p-3 sm:p-4 md:p-6 max-w-5xl mx-auto">
+    <!-- Header glass-mesh 2026 -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 p-5 sm:p-6 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.04)]">
+      <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-habit-orange/15 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-red-500/10 blur-3xl"></div>
+      <div class="relative">
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-habit-text tracking-tight leading-tight">
+          Il Mio <span class="bg-gradient-to-r from-habit-orange to-red-500 bg-clip-text text-transparent">Allenamento</span>
+        </h1>
+        <p class="text-habit-text-muted text-sm mt-1.5">
+          Storico delle tue sessioni di allenamento
+        </p>
+      </div>
     </div>
 
     <!-- Stats -->
-    <div v-if="sessionStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <div class="card-dark p-4 text-center">
-        <div class="text-2xl font-bold text-habit-text">
+    <div v-if="sessionStats" class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+        <div class="text-xl sm:text-2xl font-bold text-habit-text">
           {{ sessionStats.total_sessions || 0 }}
         </div>
-        <div class="text-habit-text-subtle text-xs mt-1">Sessioni Totali</div>
+        <div class="text-habit-text-subtle text-[11px] sm:text-xs mt-1 leading-tight">Sessioni Totali</div>
       </div>
-      <div class="card-dark p-4 text-center">
-        <div class="text-2xl font-bold text-green-400">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+        <div class="text-xl sm:text-2xl font-bold text-green-400">
           {{ sessionStats.completed_sessions || 0 }}
         </div>
-        <div class="text-habit-text-subtle text-xs mt-1">Completate</div>
+        <div class="text-habit-text-subtle text-[11px] sm:text-xs mt-1 leading-tight">Completate</div>
       </div>
-      <div class="card-dark p-4 text-center">
-        <div class="text-2xl font-bold text-habit-orange">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+        <div class="text-xl sm:text-2xl font-bold text-habit-orange">
           {{ sessionStats.total_minutes || 0 }}
         </div>
-        <div class="text-habit-text-subtle text-xs mt-1">Minuti Totali</div>
+        <div class="text-habit-text-subtle text-[11px] sm:text-xs mt-1 leading-tight">Minuti Totali</div>
       </div>
-      <div class="card-dark p-4 text-center">
-        <div class="text-2xl font-bold text-habit-text">
+      <div class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+        <div class="text-xl sm:text-2xl font-bold text-habit-text">
           {{ sessionStats.total_xp || 0 }}
         </div>
-        <div class="text-habit-text-subtle text-xs mt-1">XP Guadagnati</div>
+        <div class="text-habit-text-subtle text-[11px] sm:text-xs mt-1 leading-tight">XP Guadagnati</div>
       </div>
     </div>
 
     <!-- I Miei Programmi -->
     <div v-if="loadingPrograms" class="mb-6">
-      <div class="card-dark p-4 animate-pulse">
+      <div class="bg-habit-card border border-white/10 rounded-3xl p-4 animate-pulse">
         <div class="h-5 bg-habit-skeleton rounded w-1/3 mb-3"></div>
         <div class="h-4 bg-habit-skeleton rounded w-2/3"></div>
       </div>
@@ -314,14 +402,14 @@ onMounted(async () => {
         <div
           v-for="program in programs"
           :key="program.id"
-          class="card-dark overflow-hidden"
+          class="bg-habit-card border border-white/10 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
         >
           <!-- Program Header (clickable) -->
           <div
             @click="toggleProgram(program.id)"
             class="p-4 cursor-pointer hover:bg-habit-bg-light/50 transition-colors"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 mb-1">
                   <h3 class="font-semibold text-habit-text text-sm truncate">
@@ -350,11 +438,11 @@ onMounted(async () => {
                   <span v-if="program.end_date">al {{ formatDate(program.end_date) }}</span>
                 </div>
               </div>
-              <div class="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              <div class="flex items-center justify-between sm:justify-end gap-2 flex-shrink-0 w-full sm:w-auto sm:mt-0.5">
                 <!-- Vedi Esercizi button -->
                 <button
                   @click.stop="router.push(`/my-workout/program/${program.id}`)"
-                  class="text-xs px-3 py-1.5 rounded-lg bg-habit-orange/10 text-habit-orange hover:bg-habit-orange/20 transition-colors font-medium"
+                  class="text-xs px-3 py-1.5 rounded-lg bg-habit-orange/10 text-habit-orange hover:bg-habit-orange/20 transition-colors font-medium flex-1 sm:flex-none"
                 >
                   Vedi Esercizi
                 </button>
@@ -477,7 +565,7 @@ onMounted(async () => {
     <h2 v-if="programs.length > 0" class="text-base font-semibold text-habit-text mb-3">Sessioni</h2>
 
     <!-- Filtri -->
-    <div class="flex gap-2 flex-wrap mb-6">
+    <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-6">
       <button
         @click="handleFilter('all')"
         class="pill text-xs"
@@ -498,7 +586,7 @@ onMounted(async () => {
 
     <!-- Loading -->
     <div v-if="loading" class="space-y-3">
-      <div v-for="i in 5" :key="i" class="card-dark p-4 animate-pulse">
+      <div v-for="i in 5" :key="i" class="bg-habit-card border border-white/10 rounded-3xl p-4 animate-pulse">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-habit-skeleton rounded-full"></div>
           <div class="flex-1 space-y-2">
@@ -510,7 +598,7 @@ onMounted(async () => {
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="sessions.length === 0" class="card-dark p-12 text-center">
+    <div v-else-if="sessions.length === 0" class="bg-habit-card border border-white/10 rounded-3xl p-12 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
       <div class="text-5xl mb-4">🏋️</div>
       <h3 class="text-lg font-semibold text-habit-text mb-2">
         Nessuna sessione trovata
@@ -537,7 +625,7 @@ onMounted(async () => {
         v-for="session in sessions"
         :key="session.id"
         @click="openSessionDetail(session.id)"
-        class="card-dark p-4 cursor-pointer hover:border-habit-orange/30 transition-all"
+        class="bg-habit-card border border-white/10 rounded-3xl p-4 cursor-pointer hover:border-habit-orange/30 hover:shadow-lg transition-all shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
       >
         <div class="flex items-center gap-4">
           <!-- Status Icon -->
@@ -574,7 +662,7 @@ onMounted(async () => {
           </div>
 
           <!-- Right -->
-          <div class="flex items-center gap-3 flex-shrink-0">
+          <div class="flex items-center gap-2 flex-shrink-0">
             <!-- Feeling -->
             <div v-if="session.overall_feeling" class="text-center">
               <span class="text-xl">{{
@@ -587,6 +675,76 @@ onMounted(async () => {
               class="text-sm font-bold text-habit-orange"
             >
               +{{ session.xp_earned }} XP
+            </div>
+            <!-- Kebab menu (azioni rapide) -->
+            <div class="relative">
+              <button
+                @click="toggleMenu(session.id, $event)"
+                :disabled="actionLoading === session.id"
+                class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-habit-bg-light active:scale-95 disabled:opacity-50 transition-all"
+                :aria-expanded="openMenuId === session.id ? 'true' : 'false'"
+                aria-label="Apri menu azioni"
+              >
+                <svg v-if="actionLoading !== session.id" class="w-5 h-5 text-habit-text-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01" />
+                </svg>
+                <svg v-else class="w-4 h-4 animate-spin text-habit-orange" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+              </button>
+              <!-- Dropdown -->
+              <transition
+                enter-active-class="transition ease-out duration-150"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <div
+                  v-if="openMenuId === session.id"
+                  @click.stop
+                  class="absolute right-0 top-full mt-2 w-52 bg-habit-card border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.18)] z-30 py-1.5 origin-top-right"
+                  role="menu"
+                >
+                  <template v-if="session.status === 'in_progress'">
+                    <button
+                      @click="resumeSession(session, $event)"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-habit-text hover:bg-habit-orange/10 hover:text-habit-orange transition-colors"
+                      role="menuitem"
+                    >
+                      <svg class="w-4 h-4 text-habit-orange" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      Riprendi
+                    </button>
+                    <button
+                      @click="quickComplete(session, $event)"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-habit-text hover:bg-habit-cyan/10 hover:text-habit-cyan transition-colors"
+                      role="menuitem"
+                    >
+                      <svg class="w-4 h-4 text-habit-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                      Completa rapido
+                    </button>
+                    <button
+                      @click="quickSkip(session, $event)"
+                      class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-habit-text hover:bg-yellow-500/10 hover:text-yellow-500 transition-colors"
+                      role="menuitem"
+                    >
+                      <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+                      Salta sessione
+                    </button>
+                    <div class="my-1 border-t border-habit-border"></div>
+                  </template>
+                  <button
+                    @click="quickDelete(session, $event)"
+                    class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-habit-red hover:bg-habit-red/10 transition-colors"
+                    role="menuitem"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>
+                    Elimina
+                  </button>
+                </div>
+              </transition>
             </div>
             <!-- Arrow -->
             <svg
@@ -645,7 +803,7 @@ onMounted(async () => {
         @click="showSessionDetail = false"
       ></div>
       <div
-        class="relative card-dark p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        class="relative bg-habit-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
       >
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-habit-text">

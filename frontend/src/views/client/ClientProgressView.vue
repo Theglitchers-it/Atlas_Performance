@@ -163,8 +163,8 @@ const goalWeight = computed(() =>
   clientGoal.value ? Number(clientGoal.value) : null,
 );
 
-// Navigate to checkin
-const goToCheckin = () => router.push("/checkin");
+// Navigate to readiness check-in (benessere)
+const goToCheckin = () => router.push({ name: "Readiness" });
 
 // Handle client measurement save
 const handleClientSave = async (
@@ -335,16 +335,18 @@ onMounted(loadProgress);
 
 <template>
   <div class="min-h-screen bg-habit-bg">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1
-        class="text-2xl sm:text-4xl md:text-5xl font-bold text-habit-text leading-[0.9] tracking-tight mb-2"
-      >
-        I tuoi <span class="text-habit-orange">Progressi</span>
-      </h1>
-      <p class="text-habit-text/60 text-lg">
-        Monitora il tuo percorso di trasformazione
-      </p>
+    <!-- Header glass-mesh 2026 -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-habit-card via-habit-card to-habit-bg-light/40 border border-white/10 p-5 sm:p-6 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.04)]">
+      <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-emerald-500/15 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-habit-cyan/10 blur-3xl"></div>
+      <div class="relative">
+        <h1 class="text-2xl sm:text-4xl md:text-5xl font-bold text-habit-text leading-[0.9] tracking-tight mb-2">
+          I tuoi <span class="bg-gradient-to-r from-emerald-500 to-habit-cyan bg-clip-text text-transparent">Progressi</span>
+        </h1>
+        <p class="text-habit-text/60 text-base sm:text-lg">
+          Monitora il tuo percorso di trasformazione
+        </p>
+      </div>
     </div>
 
     <!-- Loading -->

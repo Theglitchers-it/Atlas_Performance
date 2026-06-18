@@ -51,6 +51,9 @@ export const useClientStore = defineStore('client', () => {
         goalType: null
     })
 
+    // Fase 10: sort param
+    const sort = ref<string>('created_desc')
+
     // Pagination
     const pagination = ref<PaginationMeta>({
         page: 1,
@@ -89,6 +92,7 @@ export const useClientStore = defineStore('client', () => {
             if (filters.value.search) params.search = filters.value.search
             if (filters.value.status) params.status = filters.value.status
             if (filters.value.goalType) params.goalType = filters.value.goalType
+            if (sort.value) params.sort = sort.value
 
             const response = await api.get('/clients', { params })
 
@@ -291,6 +295,12 @@ export const useClientStore = defineStore('client', () => {
         fetchClients()
     }
 
+    const setSort = (s: string): void => {
+        sort.value = s
+        pagination.value.page = 1
+        fetchClients()
+    }
+
     const resetFilters = (): void => {
         filters.value = { search: '', status: null, goalType: null }
         pagination.value.page = 1
@@ -307,6 +317,17 @@ export const useClientStore = defineStore('client', () => {
         error.value = null
     }
 
+    /** Patch in-place di un cliente nella lista (usato dopo emit dai card per evitare refetch full). */
+    const patchClient = (id: number, partial: Partial<Client>): void => {
+        const idx = clients.value.findIndex(c => c.id === id)
+        if (idx >= 0) {
+            clients.value[idx] = { ...clients.value[idx], ...partial }
+        }
+        if (currentClient.value?.id === id) {
+            currentClient.value = { ...currentClient.value, ...partial }
+        }
+    }
+
     const initialize = async (): Promise<void> => {
         await Promise.all([fetchClients(), fetchProgramSummaries()])
     }
@@ -320,7 +341,7 @@ export const useClientStore = defineStore('client', () => {
         fetchClients, fetchClientById, fetchProgramSummaries, createClient, updateClient, deleteClient,
         updateClientStatus, addGoal, updateGoal, deleteGoal,
         addInjury, updateInjury,
-        setFilter, setSearch, resetFilters, setPage,
+        setFilter, setSearch, setSort, sort, resetFilters, setPage, patchClient,
         clearCurrentClient, initialize
     }
 })
