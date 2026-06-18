@@ -94,16 +94,29 @@
         </div>
       </div>
 
-      <!-- Show all link -->
+      <!-- Toggle espansione inline -->
       <div
-        v-if="activities.length > maxItems"
+        v-if="hasMore"
         class="mt-4 pt-4 border-t border-habit-border text-center"
       >
         <button
-          class="text-sm text-habit-orange hover:text-habit-orange-light transition-colors font-medium"
-          @click="$emit('view-all')"
+          type="button"
+          class="text-sm text-habit-orange hover:text-habit-orange-light transition-colors font-medium inline-flex items-center gap-1.5"
+          :aria-expanded="isExpanded"
+          :aria-label="isExpanded ? 'Mostra meno attività' : `Mostra tutte le ${activities.length} attività`"
+          @click="isExpanded = !isExpanded"
         >
-          Vedi tutto ({{ activities.length }})
+          <span>{{ isExpanded ? 'Mostra meno' : `Vedi tutto (${activities.length})` }}</span>
+          <svg
+            class="w-3.5 h-3.5 transition-transform duration-200"
+            :class="{ 'rotate-180': isExpanded }"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
       </div>
     </div>
@@ -111,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 interface Activity {
   id: number | string;
@@ -134,16 +147,23 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   activities: () => [],
-  maxItems: 10,
+  maxItems: 3,
 });
 
-defineEmits<{
-  (e: "view-all"): void;
-}>();
+const isExpanded = ref(false);
+
+// Reset isExpanded quando la lista di activities cambia (es. refresh dati),
+// così non resta "espanso" su un nuovo set di attività che l'utente non ha mai espanso.
+watch(() => props.activities, () => {
+  isExpanded.value = false;
+});
 
 const visibleActivities = computed(() => {
+  if (isExpanded.value) return props.activities;
   return props.activities.slice(0, props.maxItems);
 });
+
+const hasMore = computed(() => props.activities.length > props.maxItems);
 
 const activityStyles: Record<string, ActivityStyleConfig> = {
   session_completed: { icon: "\u2705", bgClass: "bg-green-500/15" },

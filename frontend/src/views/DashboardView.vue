@@ -1,17 +1,37 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/store/auth";
 // import { useNotificationStore } from '@/store/notification'
-import StatsCard from "@/components/ui/StatsCard.vue";
 import ChartWidget from "@/components/ui/ChartWidget.vue";
+import ClientSegmentsWidget from "@/components/dashboard/ClientSegmentsWidget.vue";
 import SparkLine from "@/components/ui/SparkLine.vue";
 import ActivityTimeline from "@/components/dashboard/ActivityTimeline.vue";
+import ActionItemsCard from "@/components/dashboard/ActionItemsCard.vue";
 import DashboardSkeleton from "@/components/skeleton/DashboardSkeleton.vue";
 import PullToRefresh from "@/components/mobile/PullToRefresh.vue";
+import HeroGlassCard from "@/components/ui/HeroGlassCard.vue";
+import StatTile from "@/components/ui/StatTile.vue";
+import {
+  PlusIcon,
+  ClipboardDocumentListIcon,
+  CalendarDaysIcon,
+  ChatBubbleLeftRightIcon,
+  BellAlertIcon,
+  CheckCircleIcon,
+  ChartBarIcon,
+  UsersIcon,
+} from "@heroicons/vue/24/outline";
 import api from "@/services/api";
 import { useSlowRequest } from "@/composables/useSlowRequest";
-import type { Client, AnalyticsOverview, SessionTrendPoint } from "@/types";
+import type {
+  Client,
+  AnalyticsOverview,
+  SessionTrendPoint,
+  ActionItem,
+  ActionItemsCounts,
+  ActionTypeFilter,
+} from "@/types";
 
 interface DashboardAppointment {
   id: number;
@@ -25,9 +45,13 @@ interface DashboardAppointment {
 
 interface DashboardAlert {
   id: number;
+  client_id?: number;
+  first_name?: string;
+  last_name?: string;
   type?: string;
   alert_type?: string;
   severity?: string;
+  title?: string;
   message?: string;
   created_at?: string;
 }
@@ -65,6 +89,12 @@ const todayAppointments = ref<DashboardAppointment[]>([]);
 const smartAlerts = ref<DashboardAlert[]>([]);
 const analyticsData = ref<AnalyticsOverview | null>(null);
 const sessionTrend = ref<SessionTrendPoint[]>([]);
+const actionItems = ref<ActionItem[]>([]);
+const actionCounts = ref<ActionItemsCounts | null>(null);
+const actionItemsLoading = ref(true);
+const actionItemsInitialized = ref(false);
+const actionTypeFilter = ref<ActionTypeFilter>("all");
+const thresholdDays = ref(30);
 const statsLoading = ref(true);
 const chartsLoading = ref(true);
 const clientsLoading = ref(true);
@@ -119,28 +149,111 @@ const dailyQuote = computed(() => {
   return motivationalQuotes[dayOfYear % motivationalQuotes.length];
 });
 
+// Azioni rapide unificate nell'hero card (pill row)
+const quickActions = computed(() => [
+  {
+    to: "/clients/new",
+    label: "Nuovo Cliente",
+    icon: PlusIcon,
+    accent: "text-habit-orange",
+    bg: "bg-habit-orange/10 hover:bg-habit-orange/20",
+  },
+  {
+    to: "/workouts/builder",
+    label: "Crea Scheda",
+    icon: ClipboardDocumentListIcon,
+    accent: "text-emerald-400",
+    bg: "bg-emerald-400/10 hover:bg-emerald-400/20",
+  },
+  {
+    to: "/calendar",
+    label: "Calendario",
+    icon: CalendarDaysIcon,
+    accent: "text-habit-cyan",
+    bg: "bg-habit-cyan/10 hover:bg-habit-cyan/20",
+  },
+  {
+    to: "/chat",
+    label: "Messaggi",
+    icon: ChatBubbleLeftRightIcon,
+    accent: "text-blue-400",
+    bg: "bg-blue-400/10 hover:bg-blue-400/20",
+  },
+]);
+
+const alertDotClass = (severity?: string): string => {
+  if (severity === "critical" || severity === "high") return "bg-red-400";
+  if (severity === "medium" || severity === "warning") return "bg-habit-orange";
+  return "bg-yellow-400";
+};
+
 // Top clients progress
 const topClientsProgress = ref<TopClientProgress[]>([]);
 const topClientsLoading = ref(true);
 
 // Chart computed properties
+const formatSessionLabel = (period: string): string => {
+  if (!period) return "";
+  // Daily format: "YYYY-MM-DD"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(period)) {
+    const date = new Date(period + "T00:00:00");
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" });
+    }
+  }
+  // Weekly ISO format: "YYYY-Www"
+  const weekMatch = period.match(/^(\d{4})-W(\d{1,2})$/);
+  if (weekMatch) return `S${weekMatch[2]}`;
+  // Monthly format: "YYYY-MM"
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const [y, m] = period.split("-");
+    const date = new Date(Number(y), Number(m) - 1, 1);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString("it-IT", { month: "short" });
+    }
+  }
+  return period;
+};
+
 const sessionChartData = computed(() => {
-  if (!sessionTrend.value.length) return { labels: [], datasets: [] };
+  // Build a map of API data points keyed by ISO date (YYYY-MM-DD)
+  const dataMap = new Map<string, { total: number; completed: number }>();
+  for (const d of sessionTrend.value) {
+    const key = ((d as any).period || (d as any).date || "").toString();
+    if (key) {
+      dataMap.set(key, {
+        total: Number((d as any).total) || 0,
+        completed: Number((d as any).completed) || 0,
+      });
+    }
+  }
+  // Always render last 7 days so the chart looks sensible with few data points
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const labels: string[] = [];
+  const completedData: number[] = [];
+  const totalData: number[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+    const isoKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    labels.push(formatSessionLabel(isoKey));
+    const point = dataMap.get(isoKey);
+    completedData.push(point?.completed ?? 0);
+    totalData.push(point?.total ?? 0);
+  }
   return {
-    labels: sessionTrend.value.map((d) => {
-      const date = new Date(d.date);
-      return date.toLocaleDateString("it-IT", { weekday: "short" });
-    }),
+    labels,
     datasets: [
       {
         label: "Completate",
-        data: sessionTrend.value.map((d) => d.completed || 0),
+        data: completedData,
         backgroundColor: "#22c55e",
         borderRadius: 8,
       },
       {
         label: "Totali",
-        data: sessionTrend.value.map((d) => d.total || 0),
+        data: totalData,
         backgroundColor: "#3b82f6",
         borderRadius: 8,
       },
@@ -164,22 +277,35 @@ const clientDistributionData = computed(() => ({
   ],
 }));
 
-// Sparkline data
+// Subtitle inline per i 2 chart (riassumono i dati nel titolo)
+const sessionsSummary = computed(() => {
+  const completed = sessionChartData.value.datasets?.[0]?.data || [];
+  const totals = sessionChartData.value.datasets?.[1]?.data || [];
+  const safeSum = (arr: number[]) =>
+    arr.reduce((s: number, n: number) => s + Math.max(0, Number(n) || 0), 0);
+  const totalSum = safeSum(totals);
+  const completedSum = safeSum(completed);
+  if (totalSum === 0) return "Nessuna sessione negli ultimi 7 giorni";
+  // Clamp 0-100% per evitare anomalie da dati inconsistenti (completed > total).
+  const pct = Math.min(100, Math.round((completedSum / totalSum) * 100));
+  return `Ultimi 7 giorni · ${totalSum} totali · ${completedSum} completate (${pct}%)`;
+});
+
+const clientsSummary = computed(() => {
+  const labels = clientDistributionData.value.labels || [];
+  const data = (clientDistributionData.value.datasets?.[0]?.data || []) as number[];
+  const tot = data.reduce((s, n) => s + Math.max(0, Number(n) || 0), 0);
+  if (tot === 0) return "Nessun cliente in portafoglio";
+  // Lookup dinamico dell'indice "Attivi" per robustezza se l'ordine dei dataset cambia.
+  const activeIdx = labels.indexOf("Attivi");
+  const active = activeIdx >= 0 ? (data[activeIdx] || 0) : (data[0] || 0);
+  const pct = Math.min(100, Math.round((active / tot) * 100));
+  return `${tot} ${tot === 1 ? "cliente" : "clienti"} · ${pct}% attivi`;
+});
+
+// Sparkline for "Clienti Totali" card
 const clientsTrendData = computed(() => {
-  // Use real data if available, otherwise placeholder
   return [12, 15, 13, 18, 20, 19, stats.value.totalClients || 22];
-});
-const sessionsTrendData = computed(() => {
-  return sessionTrend.value.length
-    ? sessionTrend.value.map((d) => d.completed || 0)
-    : [3, 5, 4, 6, 8, 5, 7];
-});
-const completionTrendData = computed(() => {
-  return sessionTrend.value.length
-    ? sessionTrend.value.map((d) =>
-        d.total ? Math.round((d.completed / d.total) * 100) : 0,
-      )
-    : [70, 75, 80, 65, 85, 90, 78];
 });
 
 // Responsive chart height
@@ -240,6 +366,38 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener("resize", onResize);
+  if (reloadActionItemsTimer) {
+    clearTimeout(reloadActionItemsTimer);
+    reloadActionItemsTimer = null;
+  }
+});
+
+// Ricarica Azioni Richieste quando cambiano le soglie (filtri dropdown)
+const reloadActionItems = async () => {
+  actionItemsLoading.value = true;
+  const res = await api
+    .get("/analytics/action-items", {
+      params: {
+        renewalDays: thresholdDays.value,
+        checkinDays: thresholdDays.value,
+      },
+    })
+    .catch(() => null);
+  if (res?.data?.data) {
+    actionItems.value = res.data.data.items || [];
+    actionCounts.value = res.data.data.counts || null;
+  }
+  actionItemsLoading.value = false;
+};
+
+let reloadActionItemsTimer: ReturnType<typeof setTimeout> | null = null;
+watch(thresholdDays, () => {
+  if (!actionItemsInitialized.value) return;
+  if (reloadActionItemsTimer) clearTimeout(reloadActionItemsTimer);
+  reloadActionItemsTimer = setTimeout(() => {
+    reloadActionItems();
+    reloadActionItemsTimer = null;
+  }, 300);
 });
 
 // Progressive loading: stats first (above the fold), then appointments, then charts + clients
@@ -251,6 +409,7 @@ const loadAllData = async (resolve?: () => void) => {
   appointmentsLoading.value = true;
   chartsLoading.value = true;
   clientsLoading.value = true;
+  actionItemsLoading.value = true;
 
   try {
     // Phase 1: Load stats (above the fold - highest priority)
@@ -262,22 +421,37 @@ const loadAllData = async (resolve?: () => void) => {
     statsLoading.value = false;
     initialLoad.value = false;
 
-    // Phase 2: Load appointments
+    // Phase 2: Load appointments + action items
     const appointmentsPromise = api.get("/booking/today").catch(() => null);
     const alertsPromise = api.get("/alerts").catch(() => null);
-    const [appointmentsRes, smartRes] = await Promise.all([
+    const actionItemsPromise = api
+      .get("/analytics/action-items", {
+        params: {
+          renewalDays: thresholdDays.value,
+          checkinDays: thresholdDays.value,
+        },
+      })
+      .catch(() => null);
+    const [appointmentsRes, smartRes, actionRes] = await Promise.all([
       appointmentsPromise,
       alertsPromise,
+      actionItemsPromise,
     ]);
     todayAppointments.value = appointmentsRes?.data?.data?.appointments || [];
     smartAlerts.value =
       smartRes?.data?.data?.alerts || smartRes?.data?.data || [];
+    if (actionRes?.data?.data) {
+      actionItems.value = actionRes.data.data.items || [];
+      actionCounts.value = actionRes.data.data.counts || null;
+    }
+    actionItemsLoading.value = false;
+    actionItemsInitialized.value = true;
     appointmentsLoading.value = false;
 
     // Phase 3: Load charts + clients + top clients progress (below the fold)
     const [trendRes, clientsRes, topClientsRes] = await Promise.all([
       api
-        .get("/analytics/sessions-trend", { params: { groupBy: "daily" } })
+        .get("/analytics/sessions-trend", { params: { groupBy: "day" } })
         .catch(() => null),
       api.get("/clients", { params: { limit: 5 } }).catch(() => null),
       api.get("/analytics/top-clients-progress", { params: { limit: 5 } }).catch(() => null),
@@ -306,6 +480,7 @@ const loadAllData = async (resolve?: () => void) => {
     chartsLoading.value = false;
     clientsLoading.value = false;
     topClientsLoading.value = false;
+    actionItemsLoading.value = false;
     initialLoad.value = false;
   } finally {
     if (resolve) resolve();
@@ -320,145 +495,233 @@ const loadAllData = async (resolve?: () => void) => {
       La richiesta sta impiegando piu tempo del previsto...
     </p>
     <div v-else class="min-h-screen bg-habit-bg space-y-4 sm:space-y-6">
-      <!-- Welcome Banner -->
-      <div class="bg-habit-card border border-habit-border rounded-habit p-4 sm:p-6">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <!-- Welcome Banner unificato (glass-mesh 2026): greeting + azioni rapide + avvisi -->
+      <HeroGlassCard mb="mb-0">
+        <!-- Sezione 1: Greeting + data + quote -->
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div class="flex-1 min-w-0">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <h1 class="text-xl sm:text-2xl font-bold text-habit-text">
-                {{ greeting }}, {{ userName }}!
-              </h1>
-              <router-link
-                to="/clients/new"
-                class="hidden sm:inline-flex items-center px-4 py-2 bg-habit-orange text-white rounded-habit hover:bg-habit-cyan transition-all duration-300 text-sm"
-              >
-                <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Nuovo Cliente
-              </router-link>
-            </div>
-            <p class="text-habit-text-subtle text-sm mt-1 capitalize">{{ todayDate }}</p>
+            <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-habit-text tracking-tight leading-tight">
+              {{ greeting }},
+              <span class="bg-gradient-to-r from-habit-orange to-pink-500 bg-clip-text text-transparent">{{ userName }}</span>
+              <span aria-hidden="true">👋</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-habit-text-subtle mt-1.5 capitalize">
+              {{ todayDate }}
+            </p>
           </div>
           <div class="flex items-start gap-2 sm:max-w-xs lg:max-w-sm">
-            <svg class="w-4 h-4 text-habit-orange flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 text-habit-orange flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <p class="text-xs sm:text-sm text-habit-text-muted italic leading-relaxed line-clamp-2 sm:line-clamp-none">{{ dailyQuote }}</p>
+            <p class="text-xs sm:text-sm text-habit-text-muted italic leading-relaxed line-clamp-2">
+              {{ dailyQuote }}
+            </p>
           </div>
         </div>
-        <!-- Mobile: New Client button -->
-        <router-link
-          to="/clients/new"
-          class="flex sm:hidden items-center justify-center px-4 py-2 bg-habit-orange text-white rounded-habit hover:bg-habit-cyan transition-all duration-300 w-full mt-3"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Nuovo Cliente
-        </router-link>
-      </div>
 
-      <!-- Stats Grid with Sparklines -->
+        <!-- Sezione 2: Azioni rapide pill row -->
+        <div class="mt-5 pt-4 border-t border-white/5">
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-habit-text-subtle mb-2.5">
+            Azioni rapide
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <router-link
+              v-for="action in quickActions"
+              :key="action.to"
+              :to="action.to"
+              class="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium text-habit-text transition-colors"
+              :class="action.bg"
+            >
+              <component :is="action.icon" class="w-4 h-4" :class="action.accent" />
+              <span>{{ action.label }}</span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- Sezione 3: Avvisi compatti -->
+        <div class="mt-5 pt-4 border-t border-white/5">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-habit-text-subtle flex items-center gap-1.5">
+              <BellAlertIcon class="w-3.5 h-3.5" />
+              <span>Avvisi</span>
+              <span v-if="smartAlerts.length" class="text-habit-orange">({{ smartAlerts.length }})</span>
+            </div>
+            <router-link
+              v-if="smartAlerts.length > 3"
+              to="/clients"
+              class="text-xs text-habit-cyan hover:underline"
+            >
+              Vedi tutti →
+            </router-link>
+          </div>
+          <div
+            v-if="!smartAlerts.length"
+            class="flex items-center gap-2 text-xs text-emerald-400/90"
+          >
+            <CheckCircleIcon class="w-4 h-4 flex-shrink-0" />
+            <span>Nessun avviso attivo, tutti i clienti sono in regola</span>
+          </div>
+          <ul v-else class="space-y-1">
+            <li v-for="alert in smartAlerts.slice(0, 3)" :key="alert.id">
+              <router-link
+                :to="alert.client_id ? `/clients/${alert.client_id}` : '/clients'"
+                class="flex items-start gap-2 text-sm py-1.5 px-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors group"
+              >
+                <span
+                  class="w-1.5 h-1.5 mt-2 rounded-full flex-shrink-0"
+                  :class="alertDotClass(alert.severity)"
+                ></span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-baseline gap-1.5 flex-wrap">
+                    <span v-if="alert.first_name" class="font-semibold text-habit-text">
+                      {{ alert.first_name }} {{ alert.last_name }}
+                    </span>
+                    <span class="text-xs text-habit-text-subtle">{{ alert.title || alert.alert_type }}</span>
+                  </div>
+                  <p class="text-xs text-habit-text-subtle/80 truncate mt-0.5">
+                    {{ alert.message }}
+                  </p>
+                </div>
+                <svg
+                  class="w-3 h-3 text-habit-text-subtle/40 group-hover:text-habit-cyan group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-2"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                </svg>
+              </router-link>
+            </li>
+          </ul>
+        </div>
+      </HeroGlassCard>
+
+      <!-- Stats Grid (glass-mesh 2026) -->
       <div
-        class="grid grid-cols-2 lg:grid-cols-4 gap-3"
+        class="grid grid-cols-2 sm:grid-cols-3 gap-3"
         aria-live="polite"
         aria-label="Statistiche dashboard"
       >
-        <StatsCard
-          class=""
+        <StatTile
+          icon="👥"
           :value="statsLoading ? '...' : stats.totalClients"
           label="Clienti Totali"
-          icon-emoji="👥"
-          icon-color="blue"
-          :delay="0"
+          orb-color="bg-habit-cyan/15"
           :format-number="!statsLoading"
         >
-          <template #footer>
-            <SparkLine
-              :data="clientsTrendData"
-              color="#3b82f6"
-              :height="28"
-              :width="100"
-            />
+          <template #extra>
+            <!-- Sparkline solo su desktop -->
+            <div class="hidden sm:flex justify-center mt-2">
+              <SparkLine
+                :data="clientsTrendData"
+                color="#3b82f6"
+                :height="28"
+                :width="100"
+              />
+            </div>
           </template>
-        </StatsCard>
-        <StatsCard
-          class=""
-          :value="
-            statsLoading ? '...' : analyticsData?.sessions?.completed || 0
-          "
-          label="Sessioni Settimana"
-          icon-emoji="💪"
-          icon-color="green"
-          :delay="0.1"
-          :format-number="!statsLoading"
+        </StatTile>
+        <!-- Card combinata: Nuovi Iscritti + In Scadenza (glass-mesh 2026) -->
+        <div
+          class="relative overflow-hidden bg-habit-card border border-white/10 rounded-3xl p-3 sm:p-4 shadow-[0_4px_24px_rgba(0,0,0,0.04)] col-span-2 sm:col-span-1 order-last sm:order-none"
         >
-          <template #footer>
-            <SparkLine
-              :data="sessionsTrendData"
-              color="#22c55e"
-              :height="28"
-              :width="100"
-            />
-          </template>
-        </StatsCard>
-        <StatsCard
-          class=""
-          :value="
-            statsLoading ? '...' : analyticsData?.sessions?.completionRate || 0
-          "
-          label="Tasso Completamento"
-          icon-emoji="📊"
-          icon-color="orange"
-          suffix="%"
-          :delay="0.2"
-          :format-number="!statsLoading"
-        >
-          <template #footer>
-            <SparkLine
-              :data="completionTrendData"
-              color="#ff4c00"
-              :height="28"
-              :width="100"
-            />
-          </template>
-        </StatsCard>
-        <StatsCard
-          class=""
+          <div class="pointer-events-none absolute -top-8 -right-8 w-20 h-20 rounded-full bg-emerald-500/15 blur-2xl"></div>
+          <div class="relative grid grid-cols-2 divide-x divide-white/10 h-full">
+            <!-- Nuovi Iscritti -->
+            <router-link
+              to="/clients?filter=new_no_check"
+              class="pr-3 flex flex-col items-center text-center hover:opacity-80 transition-opacity"
+            >
+              <div class="text-2xl sm:text-3xl mb-1">🆕</div>
+              <div class="text-xl sm:text-2xl font-bold text-habit-text">
+                {{
+                  statsLoading
+                    ? "..."
+                    : (analyticsData?.clients?.new_clients_30d || 0).toLocaleString("it-IT")
+                }}
+              </div>
+              <div class="text-habit-text-subtle text-xs">Nuovi (30gg)</div>
+            </router-link>
+
+            <!-- In Scadenza -->
+            <router-link
+              to="/clients?filter=subscription_expiring"
+              class="pl-3 flex flex-col items-center text-center hover:opacity-80 transition-opacity"
+            >
+              <div class="text-2xl sm:text-3xl mb-1">⏰</div>
+              <div class="text-xl sm:text-2xl font-bold text-habit-orange">
+                {{
+                  actionItemsLoading
+                    ? "..."
+                    : (actionCounts?.expiring_subscriptions || 0).toLocaleString("it-IT")
+                }}
+              </div>
+              <div class="text-habit-text-subtle text-xs">In scadenza ({{ thresholdDays }}gg)</div>
+            </router-link>
+          </div>
+        </div>
+        <StatTile
+          icon="📅"
           :value="appointmentsLoading ? '...' : todayAppointments.length"
           label="Appuntamenti Oggi"
-          icon-emoji="📅"
-          icon-color="purple"
-          :delay="0.3"
+          orb-color="bg-purple-500/15"
           :format-number="!appointmentsLoading"
         />
       </div>
 
+      <!-- Segmenti clienti (fidelizzazione) -->
+      <ClientSegmentsWidget />
+
       <!-- Charts Row -->
-      <div class="grid md:grid-cols-2 gap-4 sm:gap-6">
+      <div class="grid md:grid-cols-2 gap-4 sm:gap-6 [&>*]:min-w-0">
         <ChartWidget
           type="bar"
           title="Sessioni Settimana"
+          :subtitle="sessionsSummary"
+          :icon="ChartBarIcon"
           :chart-data="sessionChartData"
           :loading="chartsLoading"
           :height="chartHeight"
           @chart-click="router.push('/programs?tab=sessioni')"
-        />
+        >
+          <template #actions>
+            <router-link
+              to="/programs?tab=sessioni"
+              class="text-xs text-habit-cyan hover:text-habit-orange transition-colors inline-flex items-center gap-1"
+            >
+              Vedi tutte
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+              </svg>
+            </router-link>
+          </template>
+        </ChartWidget>
         <ChartWidget
           type="doughnut"
           title="Distribuzione Clienti"
+          :subtitle="clientsSummary"
+          :icon="UsersIcon"
           :chart-data="clientDistributionData"
           :loading="chartsLoading"
           :height="chartHeight"
           @chart-click="router.push('/clients')"
-        />
+        >
+          <template #actions>
+            <router-link
+              to="/clients"
+              class="text-xs text-habit-cyan hover:text-habit-orange transition-colors inline-flex items-center gap-1"
+            >
+              Vedi tutti
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+              </svg>
+            </router-link>
+          </template>
+        </ChartWidget>
       </div>
 
       <!-- Top Clients Progress + Revenue Mockup -->
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Top Clients Progress -->
-        <div class="md:col-span-2 lg:col-span-2 bg-habit-card border border-habit-border rounded-habit">
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 [&>*]:min-w-0">
+        <!-- Top Clients Progress (glass-mesh 2026) -->
+        <div class="md:col-span-2 lg:col-span-2 bg-habit-card border border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden">
           <div class="p-4 xs:p-6 border-b border-habit-border flex items-center justify-between">
             <h2 class="text-lg font-semibold text-habit-text">Progressi Top Clienti</h2>
             <router-link to="/insights" class="text-sm text-habit-cyan hover:text-habit-orange transition-colors">
@@ -537,72 +800,21 @@ const loadAllData = async (resolve?: () => void) => {
           </div>
         </div>
 
-        <!-- Revenue Mockup Widget -->
-        <div class="bg-habit-card border border-habit-border rounded-habit p-4 xs:p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-habit-text">Entrate</h2>
-            <span class="text-[10px] px-2 py-0.5 bg-habit-orange/15 text-habit-orange rounded-full font-medium uppercase tracking-wider">Demo</span>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="bg-habit-bg border border-habit-border rounded-xl p-3">
-              <div class="flex items-center gap-2 mb-1.5">
-                <div class="w-7 h-7 bg-habit-success/15 rounded-lg flex items-center justify-center">
-                  <svg class="w-3.5 h-3.5 text-habit-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <p class="text-lg font-bold text-habit-text">€2.450</p>
-              <p class="text-[11px] text-habit-text-subtle">Entrate mese</p>
-            </div>
-            <div class="bg-habit-bg border border-habit-border rounded-xl p-3">
-              <div class="flex items-center gap-2 mb-1.5">
-                <div class="w-7 h-7 bg-habit-cyan/15 rounded-lg flex items-center justify-center">
-                  <svg class="w-3.5 h-3.5 text-habit-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-              </div>
-              <p class="text-lg font-bold text-habit-text">12</p>
-              <p class="text-[11px] text-habit-text-subtle">Abbonamenti attivi</p>
-            </div>
-            <div class="bg-habit-bg border border-habit-border rounded-xl p-3">
-              <div class="flex items-center gap-2 mb-1.5">
-                <div class="w-7 h-7 bg-habit-orange/15 rounded-lg flex items-center justify-center">
-                  <svg class="w-3.5 h-3.5 text-habit-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <p class="text-lg font-bold text-habit-orange">3</p>
-              <p class="text-[11px] text-habit-text-subtle">In scadenza</p>
-            </div>
-            <div class="bg-habit-bg border border-habit-border rounded-xl p-3">
-              <div class="flex items-center gap-2 mb-1.5">
-                <div class="w-7 h-7 bg-purple-500/15 rounded-lg flex items-center justify-center">
-                  <svg class="w-3.5 h-3.5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </div>
-              </div>
-              <p class="text-lg font-bold text-habit-text">5</p>
-              <p class="text-[11px] text-habit-text-subtle">Referral attivi</p>
-            </div>
-          </div>
-          <router-link to="/settings" class="flex items-center justify-center gap-1.5 mt-4 text-xs text-habit-text-subtle hover:text-habit-cyan transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            Collega Stripe per dati reali
-          </router-link>
-        </div>
+        <!-- Action Items (scadenze abbonamenti, check periodici, nuovi senza primo check) -->
+        <ActionItemsCard
+          :items="actionItems"
+          :counts="actionCounts"
+          :loading="actionItemsLoading"
+          v-model:action-type-filter="actionTypeFilter"
+          v-model:threshold-days="thresholdDays"
+        />
       </div>
 
       <!-- Main Content: Recent Clients + Activity Timeline -->
       <div class="grid lg:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Recent Clients -->
+        <!-- Recent Clients (glass-mesh 2026) -->
         <div
-          class="lg:col-span-2 bg-habit-card border border-habit-border rounded-habit"
+          class="lg:col-span-2 bg-habit-card border border-white/10 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] overflow-hidden"
         >
           <div
             class="p-4 xs:p-6 border-b border-habit-border flex items-center justify-between"
@@ -701,197 +913,6 @@ const loadAllData = async (resolve?: () => void) => {
         <ActivityTimeline :activities="recentActivities" />
       </div>
 
-      <!-- Quick Actions + Smart Alerts -->
-      <div class="grid md:grid-cols-2 gap-4 sm:gap-6">
-        <!-- Quick Actions - compact 2x2 grid -->
-        <div
-          class="bg-habit-card border border-habit-border rounded-habit p-4 xs:p-6"
-        >
-          <h2 class="text-lg font-semibold text-habit-text mb-4">
-            Azioni Rapide
-          </h2>
-          <div class="grid grid-cols-2 gap-2 xs:gap-3">
-            <router-link
-              to="/clients/new"
-              class="flex flex-col items-center gap-1.5 xs:gap-2 p-3 xs:p-4 rounded-xl bg-habit-bg hover:bg-habit-card-hover transition-all duration-200 border border-habit-border hover:border-habit-cyan group"
-            >
-              <div
-                class="w-8 h-8 xs:w-10 xs:h-10 bg-habit-cyan/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-              >
-                <svg
-                  class="w-4 h-4 xs:w-5 xs:h-5 text-habit-cyan"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                  />
-                </svg>
-              </div>
-              <span class="text-xs font-medium text-habit-text-muted"
-                >Nuovo Cliente</span
-              >
-            </router-link>
-
-            <router-link
-              to="/workouts/builder"
-              class="flex flex-col items-center gap-1.5 xs:gap-2 p-3 xs:p-4 rounded-xl bg-habit-bg hover:bg-habit-card-hover transition-all duration-200 border border-habit-border hover:border-habit-cyan group"
-            >
-              <div
-                class="w-8 h-8 xs:w-10 xs:h-10 bg-habit-success/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-              >
-                <svg
-                  class="w-4 h-4 xs:w-5 xs:h-5 text-habit-success"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
-              </div>
-              <span class="text-xs font-medium text-habit-text-muted"
-                >Crea Scheda</span
-              >
-            </router-link>
-
-            <router-link
-              to="/calendar"
-              class="flex flex-col items-center gap-1.5 xs:gap-2 p-3 xs:p-4 rounded-xl bg-habit-bg hover:bg-habit-card-hover transition-all duration-200 border border-habit-border hover:border-habit-cyan group"
-            >
-              <div
-                class="w-8 h-8 xs:w-10 xs:h-10 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-              >
-                <svg
-                  class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <span class="text-xs font-medium text-habit-text-muted"
-                >Calendario</span
-              >
-            </router-link>
-
-            <router-link
-              to="/chat"
-              class="flex flex-col items-center gap-1.5 xs:gap-2 p-3 xs:p-4 rounded-xl bg-habit-bg hover:bg-habit-card-hover transition-all duration-200 border border-habit-border hover:border-habit-cyan group"
-            >
-              <div
-                class="w-8 h-8 xs:w-10 xs:h-10 bg-habit-orange/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-              >
-                <svg
-                  class="w-4 h-4 xs:w-5 xs:h-5 text-habit-orange"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
-              </div>
-              <span class="text-xs font-medium text-habit-text-muted"
-                >Messaggi</span
-              >
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Smart Alerts -->
-        <div
-          v-if="smartAlerts.length > 0"
-          class="bg-habit-card border border-habit-border rounded-habit"
-        >
-          <div class="p-4 border-b border-habit-border">
-            <h2
-              class="text-sm font-semibold text-habit-text flex items-center gap-2"
-            >
-              <svg
-                class="w-4 h-4 text-habit-orange"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              Avvisi ({{ smartAlerts.length }})
-            </h2>
-          </div>
-          <div class="divide-y divide-habit-border max-h-60 overflow-y-auto">
-            <div
-              v-for="alert in smartAlerts.slice(0, 5)"
-              :key="alert.id"
-              class="p-3 flex items-start gap-3"
-            >
-              <div
-                class="w-2 h-2 mt-1.5 rounded-full flex-shrink-0"
-                :class="{
-                  'bg-red-400': alert.severity === 'high',
-                  'bg-habit-orange': alert.severity === 'medium',
-                  'bg-yellow-400': alert.severity === 'low',
-                }"
-              ></div>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs text-habit-text">{{ alert.message }}</p>
-                <p class="text-[10px] text-habit-text-subtle mt-0.5">
-                  {{ alert.alert_type || alert.type }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div
-          v-else
-          class="bg-habit-card border border-habit-border rounded-habit p-6 flex flex-col items-center justify-center text-center"
-        >
-          <div
-            class="w-12 h-12 bg-green-500/15 rounded-full flex items-center justify-center mb-3"
-          >
-            <svg
-              class="w-6 h-6 text-green-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <p class="text-sm text-habit-text-muted">Nessun avviso attivo</p>
-          <p class="text-xs text-habit-text-subtle mt-1">
-            Tutti i clienti sono in regola
-          </p>
-        </div>
-      </div>
     </div>
   </PullToRefresh>
 </template>
