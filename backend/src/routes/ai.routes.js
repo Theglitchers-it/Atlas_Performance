@@ -7,6 +7,7 @@ const router = express.Router();
 
 const aiController = require('../controllers/ai.controller');
 const { verifyToken, requireRole } = require('../middlewares/auth');
+const { requireAIAvailable } = require('../middlewares/aiGuard');
 
 router.use(verifyToken);
 
@@ -65,7 +66,7 @@ router.get('/status', aiController.getStatus.bind(aiController));
  *       500:
  *         description: Errore server
  */
-router.post('/alternative-exercises', requireRole('tenant_owner', 'staff'), aiController.suggestAlternativeExercises.bind(aiController));
+router.post('/alternative-exercises', requireRole('tenant_owner', 'staff'), requireAIAvailable, aiController.suggestAlternativeExercises.bind(aiController));
 
 /**
  * @swagger
@@ -100,7 +101,7 @@ router.post('/alternative-exercises', requireRole('tenant_owner', 'staff'), aiCo
  *       500:
  *         description: Errore server
  */
-router.post('/answer-question', aiController.answerClientQuestion.bind(aiController));
+router.post('/answer-question', requireAIAvailable, aiController.answerClientQuestion.bind(aiController));
 
 /**
  * @swagger
@@ -137,7 +138,7 @@ router.post('/answer-question', aiController.answerClientQuestion.bind(aiControl
  *       500:
  *         description: Errore server
  */
-router.post('/meal-plan', requireRole('tenant_owner', 'staff'), aiController.generateMealPlan.bind(aiController));
+router.post('/meal-plan', requireRole('tenant_owner', 'staff'), requireAIAvailable, aiController.generateMealPlan.bind(aiController));
 
 /**
  * @swagger
@@ -171,7 +172,7 @@ router.post('/meal-plan', requireRole('tenant_owner', 'staff'), aiController.gen
  *       500:
  *         description: Errore server
  */
-router.post('/analyze-progress', requireRole('tenant_owner', 'staff'), aiController.analyzeProgress.bind(aiController));
+router.post('/analyze-progress', requireRole('tenant_owner', 'staff'), requireAIAvailable, aiController.analyzeProgress.bind(aiController));
 
 /**
  * @swagger
@@ -205,6 +206,56 @@ router.post('/analyze-progress', requireRole('tenant_owner', 'staff'), aiControl
  *       500:
  *         description: Errore server
  */
-router.post('/suggest-workout', aiController.suggestWorkout.bind(aiController));
+router.post('/suggest-workout', requireAIAvailable, aiController.suggestWorkout.bind(aiController));
+
+/**
+ * @swagger
+ * /ai/generate-followup-message:
+ *   post:
+ *     tags: [AI]
+ *     summary: Genera 3 varianti di messaggio follow-up per un cliente
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clientId: { type: integer }
+ *               context:
+ *                 type: string
+ *                 enum: [dormant, expiring, milestone]
+ *                 default: dormant
+ *     responses:
+ *       200:
+ *         description: Varianti messaggio
+ */
+router.post('/generate-followup-message', requireAIAvailable, aiController.generateFollowUpMessage.bind(aiController));
+
+/**
+ * @swagger
+ * /ai/suggest-exercises:
+ *   post:
+ *     tags: [AI]
+ *     summary: Suggerisci esercizi personalizzati per un cliente
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clientId: { type: integer }
+ *               focus: { type: string, example: "strength" }
+ *               equipmentAvailable: { type: array, items: { type: string } }
+ *               sessionDurationMin: { type: integer, default: 60 }
+ *               count: { type: integer, default: 6 }
+ *     responses:
+ *       200:
+ *         description: Lista esercizi suggeriti dall'AI
+ */
+router.post('/suggest-exercises', requireAIAvailable, aiController.suggestExercisesForClient.bind(aiController));
 
 module.exports = router;

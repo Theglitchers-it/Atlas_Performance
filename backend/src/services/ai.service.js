@@ -28,13 +28,10 @@ class AIService {
     /**
      * Chiamata generica a OpenAI
      */
-    async chatCompletion(messages, options = {}) {
+    async _rawOpenAICall(body) {
         if (!this.isConfigured()) {
             throw new Error('OpenAI API key non configurata. Aggiungi OPENAI_API_KEY nelle variabili d\'ambiente.');
         }
-
-        const { temperature = 0.7, maxTokens = 1000 } = options;
-
         try {
             const response = await fetch(this.baseUrl, {
                 method: 'POST',
@@ -42,25 +39,28 @@ class AIService {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.apiKey}`
                 },
-                body: JSON.stringify({
-                    model: this.model,
-                    messages,
-                    temperature,
-                    max_tokens: maxTokens
-                })
+                body: JSON.stringify(body)
             });
-
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(`OpenAI API error: ${response.status} - ${error.error?.message || 'Unknown error'}`);
             }
-
             const data = await response.json();
             return data.choices[0]?.message?.content || '';
         } catch (error) {
             logger.error('Errore chiamata OpenAI', { error: error.message });
             throw error;
         }
+    }
+
+    async chatCompletion(messages, options = {}) {
+        const { temperature = 0.7, maxTokens = 1000 } = options;
+        return this._rawOpenAICall({
+            model: this.model,
+            messages,
+            temperature,
+            max_tokens: maxTokens
+        });
     }
 
     /**
@@ -289,6 +289,150 @@ class AIService {
         } catch (err) {
             // Tabella potrebbe non esistere
             return { used: 0, limit: 500, remaining: 500, withinLimit: true };
+        }
+    }
+
+    /**
+     * Suggerisci una lista di esercizi per un cliente in base a livello, goal, focus.
+     * Ritorna JSON con array exercises.
+     */
+    async suggestExercisesForClient(clientData, options) {
+        const {
+            firstName, fitnessLevel, primaryGoal, injuries = [], jointPainAreas = []
+        } = clientData;
+        const { focus = 'strength', equipmentAvailable = [], sessionDurationMin = 60, count = 6 } = options;
+
+        const systemPrompt = `Sei un personal trainer esperto. Rispondi SOLO con un oggetto JSON in questo formato:
+{"exercises":[{"name":"...","sets":4,"reps":"8-10","rest_seconds":90,"reasoning":"..."}]}
+Gli esercizi devono essere adatti al livello del cliente e sicuri considerando gli infortuni. Italiano, breve, concreto.`;
+
+        const injuryList = injuries.length ? injuries.map(i => `${i.body_part} (${i.severity})`).join(', ') : 'nessuno';
+        const painList = jointPainAreas.length ? jointPainAreas.join(', ') : 'nessuno';
+        const equipmentList = equipmentAvailable.length ? equipmentAvailable.join(', ') : 'palestra attrezzata';
+
+        const userPrompt = `Genera ${count} esercizi per:
+- Cliente: ${firstName}
+- Livello: ${fitnessLevel || 'intermediate'}
+- Obiettivo: ${primaryGoal || 'general_fitness'}
+- Focus sessione: ${focus}
+- Durata sessione: ${sessionDurationMin} minuti
+- Attrezzatura: ${equipmentList}
+- Infortuni attivi: ${injuryList}
+- Dolori articolari ricorrenti: ${painList}`;
+
+        const raw = await this.chatCompletion(
+            [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            { temperature: 0.7, maxTokens: 1000 }
+        );
+
+        try {
+            const cleaned = raw.replace(/```json\s*|\s*```/g, '').trim();
+            return JSON.parse(cleaned);
+        } catch (e) {
+            logger.error('Parsing JSON suggest-exercises fallito', { raw });
+            throw new Error('Risposta AI non valida');
+        }
+    }
+
+    /**
+     * Genera 3 varianti di messaggio follow-up per cliente.
+     * Tone: caloroso / professionale / motivazionale.
+     */
+    async generateFollowUpMessage(clientData, context = 'dormant') {
+        const {
+            firstName,
+            primaryGoal,
+            lifetimeMonths,
+            daysSinceLastSubEnd,
+            lastWorkoutAt
+        } = clientData;
+
+        const contextDescriptions = {
+            dormant: 'cliente dormiente che non rinnova abbonamento',
+            expiring: 'cliente con abbonamento in scadenza entro 14 giorni',
+            milestone: 'cliente che ha raggiunto un traguardo significativo'
+        };
+
+        const systemPrompt = `Sei un copywriter italiano esperto in marketing per personal trainer.
+Devi generare ESATTAMENTE 3 varianti di messaggio WhatsApp breve (max 280 caratteri ciascuno) da inviare a un cliente.
+Rispondi SOLO con un oggetto JSON in questo formato esatto:
+{"variants":[{"tone":"caloroso","message":"..."},{"tone":"professionale","message":"..."},{"tone":"motivazionale","message":"..."}]}
+Senza altre spiegazioni. I messaggi devono suonare naturali in italiano, includere il nome del cliente, e chiudere con una call-to-action concreta.`;
+
+        const userPrompt = `Genera 3 varianti per ${contextDescriptions[context] || 'recupero cliente'}.
+Dati cliente:
+- Nome: ${firstName}
+- Obiettivo: ${primaryGoal || 'fitness generale'}
+- Mesi totali di abbonamento: ${lifetimeMonths || 0}
+- Giorni dall'ultima scadenza: ${daysSinceLastSubEnd || 'N/D'}
+- Ultimo allenamento: ${lastWorkoutAt ? new Date(lastWorkoutAt).toLocaleDateString('it-IT') : 'N/D'}`;
+
+        const raw = await this.chatCompletion(
+            [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            { temperature: 0.8, maxTokens: 600 }
+        );
+
+        try {
+            const cleaned = raw.replace(/```json\s*|\s*```/g, '').trim();
+            return JSON.parse(cleaned);
+        } catch (e) {
+            logger.error('Parsing JSON follow-up fallito', { raw });
+            throw new Error('Risposta AI non valida');
+        }
+    }
+
+    /**
+     * Analizza foto di un piatto via GPT-4o Vision.
+     * Filosofia plan 4: media realistica, non ossessione clinica.
+     */
+    async analyzeMealPhoto(imageBase64, mimeType = 'image/jpeg', hint = null) {
+        const systemPrompt = `Sei un nutrizionista esperto che stima porzioni e macros da foto di piatti.
+Filosofia: fornisci MEDIE REALISTICHE, non esatte al grammo. Meglio approssimare che rifiutarsi di stimare.
+Rispondi SEMPRE con JSON valido in questo schema esatto:
+{
+  "items": [
+    {"name": "nome alimento in italiano", "estimated_quantity": 150, "unit": "g", "calories": 280, "protein": 25, "carbs": 30, "fat": 8, "confidence": "high|medium|low"}
+  ],
+  "totals": {"calories": 280, "protein": 25, "carbs": 30, "fat": 8},
+  "notes": "breve nota italiana su cosa hai visto e su eventuali incertezze"
+}
+Non aggiungere testo fuori dal JSON.`;
+
+        const userContent = [
+            {
+                type: 'text',
+                text: hint
+                    ? `Analizza questa foto di un pasto. Contesto utente: "${hint}".`
+                    : 'Analizza questa foto di un pasto e stima porzioni/macros.'
+            },
+            {
+                type: 'image_url',
+                image_url: { url: `data:${mimeType};base64,${imageBase64}` }
+            }
+        ];
+
+        const raw = await this._rawOpenAICall({
+            model: 'gpt-4o',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userContent }
+            ],
+            temperature: 0.3,
+            max_tokens: 1200
+        });
+
+        try {
+            const cleaned = raw.replace(/```json\s*|\s*```/g, '').trim();
+            return JSON.parse(cleaned);
+        } catch (e) {
+            logger.error('Parsing JSON meal photo fallito', { raw });
+            throw new Error('Risposta AI non valida');
         }
     }
 }
