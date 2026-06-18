@@ -4,14 +4,32 @@ import { useCommunityStore } from "@/store/community";
 import { useAuthStore } from "@/store/auth";
 import { useToast } from "vue-toastification";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import PostCard from "@/components/community/PostCard.vue";
+import BrowseByTabs from "@/components/community/BrowseByTabs.vue";
+import PostFiltersSheet from "@/components/community/PostFiltersSheet.vue";
+import PostCategoryPicker from "@/components/community/PostCategoryPicker.vue";
+import PostComposer from "@/components/community/PostComposer.vue";
+import PostReportModal from "@/components/community/PostReportModal.vue";
+import type { VisibilityType } from "@/services/community-moderation.service";
 
 const community = useCommunityStore() as any;
 const auth = useAuthStore();
 const toast = useToast();
 
-const isTrainer = computed(() =>
-  ["tenant_owner", "staff", "super_admin"].includes(auth.user?.role as string),
-);
+// Array-aware (ruolo primario + roles[] V2 mappati): coerente con backend e router,
+// così un gym_admin/community_moderator (definito in roles[]) vede gli strumenti di moderazione.
+const isTrainer = computed(() => auth.canModerate);
+
+// Fase 5: Report modal state
+const showReportModal = ref(false);
+const reportTargetPostId = ref<number>(0);
+const openReport = (postId: number) => {
+  reportTargetPostId.value = postId;
+  showReportModal.value = true;
+};
+const onReported = () => {
+  toast.success("Segnalazione inviata. Grazie!");
+};
 
 // Post types con colori
 const postTypes = [
@@ -60,31 +78,20 @@ const getPostType = (value: any) =>
 const showCreateModal = ref(false);
 const showDetailModal = ref(false);
 const showDeleteModal = ref(false);
+const showFiltersSheet = ref(false);
 const deleteTarget = ref<any>(null);
 const isDeleting = ref(false);
 
-// Form
-const newPost = ref({ content: "", postType: "announcement" });
+// Form (Fase 5: visibilityType per scope per-trainer)
+const newPost = ref<{ content: string; postType: string; visibilityType: VisibilityType }>({
+  content: "",
+  postType: "announcement",
+  visibilityType: "global",
+});
 const newComment = ref("");
 const selectedImage = ref<any>(null);
 const imagePreview = ref<any>(null);
 const imageInput = ref<any>(null);
-
-// Gestione immagine
-const handleImageSelect = (event: any) => {
-  const file = (event.target as any).files[0];
-  if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    toast.error("Immagine troppo grande (max 10MB)");
-    return;
-  }
-  selectedImage.value = file;
-  const reader = new FileReader();
-  reader.onload = (e: any) => {
-    imagePreview.value = e.target.result;
-  };
-  reader.readAsDataURL(file);
-};
 
 const removeImage = () => {
   selectedImage.value = null;
@@ -107,14 +114,45 @@ const getPostImages = (post: any) => {
 };
 
 // Crea post
+const showSuccessModal = ref(false);
+const createStep = ref<"category" | "compose">("category");
+const creatingPost = ref(false);
+
+const onComposerImage = (file: File) => {
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error("Immagine troppo grande (max 10MB)");
+    return;
+  }
+  selectedImage.value = file;
+  const reader = new FileReader();
+  reader.onload = (e: any) => {
+    imagePreview.value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+const openCreateWizard = () => {
+  createStep.value = "category";
+  newPost.value = { content: "", postType: "announcement", visibilityType: "global" };
+  removeImage();
+  showCreateModal.value = true;
+};
+
+const closeCreateWizard = () => {
+  showCreateModal.value = false;
+  createStep.value = "category";
+  newPost.value = { content: "", postType: "announcement", visibilityType: "global" };
+  removeImage();
+};
+
 const handleCreatePost = async () => {
-  if (!newPost.value.content.trim()) return;
+  if (!newPost.value.content.trim() || creatingPost.value) return;
+  creatingPost.value = true;
   const result = await community.createPost(newPost.value, selectedImage.value);
+  creatingPost.value = false;
   if (result.success) {
-    showCreateModal.value = false;
-    newPost.value = { content: "", postType: "announcement" };
-    removeImage();
-    toast.success("Post pubblicato con successo");
+    closeCreateWizard();
+    showSuccessModal.value = true;
   } else {
     toast.error(
       (result as any).error || "Errore durante la pubblicazione del post",
@@ -138,6 +176,15 @@ const toggleLike = async (post: any) => {
   }
 };
 
+// Save/Unsave
+const toggleSave = async (post: any) => {
+  if (post.user_saved) {
+    await community.unsavePost(post.id);
+  } else {
+    await community.savePost(post.id);
+  }
+};
+
 // Commenta
 const handleAddComment = async () => {
   if (!newComment.value.trim() || !community.currentPost) return;
@@ -155,9 +202,25 @@ const handleAddComment = async () => {
 };
 
 // Elimina post
-const confirmDeletePost = (post: any) => {
-  deleteTarget.value = { type: "post", id: post.id, label: "questo post" };
+const confirmDeletePostById = (postId: number) => {
+  deleteTarget.value = { type: "post", id: postId, label: "questo post" };
   showDeleteModal.value = true;
+};
+
+// Popup menu PostCard
+const menuOpenForId = ref<number | null>(null);
+const menuPosition = ref({ top: 0, left: 0 });
+const menuPostAuthorId = ref<number | null>(null);
+const menuPostIsPinned = ref(false);
+const openPostMenu = (post: any, target: HTMLElement) => {
+  const rect = target.getBoundingClientRect();
+  menuPosition.value = {
+    top: rect.bottom + 4,
+    left: Math.max(8, rect.right - 170),
+  };
+  menuPostAuthorId.value = post.author_id ?? null;
+  menuPostIsPinned.value = !!post.is_pinned;
+  menuOpenForId.value = post.id;
 };
 
 // Elimina commento
@@ -218,42 +281,59 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-4xl mx-auto">
+  <div class="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto overflow-x-hidden">
     <!-- Header -->
     <div
-      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
+      class="flex flex-row justify-between items-center gap-3 mb-4 sm:mb-6"
     >
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-habit-text">Community</h1>
-        <p class="text-sm text-habit-text-subtle mt-1">
+      <div class="min-w-0 flex-1">
+        <h1 class="text-lg sm:text-2xl font-bold text-habit-text truncate">Community</h1>
+        <p class="hidden sm:block text-sm text-habit-text-subtle mt-1">
           Condividi, motiva e interagisci con il tuo team
         </p>
       </div>
-      <button
-        @click="showCreateModal = true"
-        class="bg-habit-cyan text-habit-bg px-4 py-2 rounded-habit text-sm font-semibold hover:opacity-90 transition flex items-center gap-2"
-      >
-        <span class="text-lg">+</span> Nuovo Post
-      </button>
+      <div class="shrink-0 flex items-center gap-2">
+        <router-link
+          v-if="isTrainer"
+          to="/community/moderation"
+          title="Moderazione community"
+          class="shrink-0 bg-habit-card border border-white/10 text-habit-text-muted hover:text-habit-text px-3 py-2 sm:px-4 rounded-2xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <span class="hidden sm:inline">Moderazione</span>
+        </router-link>
+        <button
+          @click="openCreateWizard"
+          class="shrink-0 bg-gradient-to-r from-habit-cyan to-blue-600 text-white px-3 py-2 sm:px-4 rounded-2xl text-xs sm:text-sm font-semibold hover:shadow-lg hover:shadow-habit-cyan/30 transition-all flex items-center gap-1.5"
+        >
+          <span class="text-base sm:text-lg leading-none">+</span>
+          <span class="hidden sm:inline">Nuovo Post</span>
+          <span class="sm:hidden">Post</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Filtri tipo -->
-    <div class="flex flex-wrap gap-2 mb-6">
-      <button
-        v-for="type in postTypes"
-        :key="type.value"
-        @click="community.setFilterType(type.value)"
-        :class="[
-          'px-3 py-1.5 rounded-full text-xs font-medium transition',
-          community.filterType === type.value
-            ? 'bg-habit-cyan text-habit-bg'
-            : 'bg-habit-card text-habit-text-subtle hover:text-habit-text border border-habit-border',
-        ]"
-      >
-        <span v-if="type.icon" class="mr-1">{{ type.icon }}</span>
-        {{ type.label }}
-      </button>
-    </div>
+    <!-- Browse By chip + sort + filtri trigger -->
+    <BrowseByTabs
+      :tabs="postTypes"
+      :active-value="community.filterType"
+      :sort-by="community.sortBy"
+      @select="community.setFilterType($event)"
+      @toggle-sort="community.setSortBy(community.sortBy === 'trending' ? 'recent' : 'trending')"
+      @open-filters="showFiltersSheet = true"
+    />
+
+    <!-- BottomSheet filtri (mobile-first) -->
+    <PostFiltersSheet
+      v-model:open="showFiltersSheet"
+      :initial="{ postType: community.filterType, from: community.filterFrom, sortBy: community.sortBy }"
+      :categories="postTypes.filter(t => t.value)"
+      :total-count="community.pagination.total"
+      @apply="community.applyFilters($event)"
+      @reset="community.resetFilters()"
+    />
 
     <!-- Loading -->
     <div
@@ -263,7 +343,7 @@ onMounted(() => {
       <div
         v-for="i in 3"
         :key="i"
-        class="bg-habit-card rounded-habit p-6 animate-pulse"
+        class="bg-habit-card border border-white/10 rounded-3xl p-6 animate-pulse"
       >
         <div class="flex items-center gap-3 mb-4">
           <div class="w-10 h-10 bg-habit-skeleton rounded-full"></div>
@@ -280,7 +360,7 @@ onMounted(() => {
     <!-- Empty state -->
     <div
       v-else-if="!community.loading && community.posts.length === 0"
-      class="bg-habit-card rounded-habit p-12 text-center"
+      class="bg-habit-card border border-white/10 rounded-3xl p-12 text-center shadow-[0_4px_24px_rgba(0,0,0,0.04)]"
     >
       <div class="text-4xl mb-3">💬</div>
       <h3 class="text-lg font-semibold text-habit-text mb-2">Nessun post</h3>
@@ -288,8 +368,8 @@ onMounted(() => {
         Sii il primo a pubblicare qualcosa nella community!
       </p>
       <button
-        @click="showCreateModal = true"
-        class="bg-habit-cyan text-habit-bg px-4 py-2 rounded-habit text-sm font-semibold hover:opacity-90 transition"
+        @click="openCreateWizard"
+        class="bg-gradient-to-r from-habit-cyan to-blue-600 text-white px-4 py-2 rounded-2xl text-sm font-semibold hover:shadow-lg hover:shadow-habit-cyan/30 transition-all"
       >
         Crea il primo post
       </button>
@@ -297,170 +377,62 @@ onMounted(() => {
 
     <!-- Feed Post -->
     <div v-else class="space-y-4">
-      <div
+      <PostCard
         v-for="post in community.posts"
         :key="post.id"
-        :class="[
-          'bg-habit-card rounded-habit border transition hover:border-habit-border',
-          post.is_pinned ? 'border-habit-cyan/30' : 'border-habit-border',
-        ]"
+        :post="post"
+        @like="toggleLike"
+        @comment="openDetail($event.id)"
+        @open="openDetail($event.id)"
+        @save="toggleSave"
+        @menu="openPostMenu"
+      />
+    </div>
+
+    <!-- Popup menu post -->
+    <div
+      v-if="menuOpenForId"
+      class="fixed inset-0 z-40"
+      @click="menuOpenForId = null"
+    >
+      <div
+        class="absolute bg-habit-card border border-habit-border rounded-xl shadow-lg py-1 min-w-[160px]"
+        :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
+        @click.stop
       >
-        <!-- Pin badge -->
-        <div
-          v-if="post.is_pinned"
-          class="px-4 pt-3 flex items-center gap-1 text-habit-cyan text-xs font-medium"
+        <button
+          v-if="isTrainer"
+          @click="
+            handleTogglePin(menuOpenForId);
+            menuOpenForId = null;
+          "
+          class="block w-full text-left px-4 py-2 text-sm text-habit-text hover:bg-habit-bg-light"
         >
-          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              d="M10 2a1 1 0 011 1v1.323l3.954 1.582a1 1 0 01.588.978V9a1 1 0 01-.293.707L12 13l1 7-3-2-3 2 1-7-3.249-3.293A1 1 0 014 9V6.883a1 1 0 01.588-.978L8.542 4.323V3a1 1 0 011-1h.458z"
-            />
-          </svg>
-          Fissato in alto
-        </div>
-
-        <div class="p-4">
-          <!-- Autore & Meta -->
-          <div class="flex items-start justify-between mb-3">
-            <div class="flex items-center gap-3">
-              <div
-                class="w-10 h-10 rounded-full bg-gradient-to-br from-habit-cyan to-blue-600 flex items-center justify-center text-white font-bold text-sm"
-              >
-                {{ (post.author_first_name || "?")[0]
-                }}{{ (post.author_last_name || "?")[0] }}
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <span class="font-semibold text-habit-text text-sm">
-                    {{ post.author_first_name }} {{ post.author_last_name }}
-                  </span>
-                  <span
-                    v-if="
-                      post.author_role === 'tenant_owner' ||
-                      post.author_role === 'staff'
-                    "
-                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-habit-cyan/20 text-habit-cyan uppercase"
-                  >
-                    Trainer
-                  </span>
-                </div>
-                <span class="text-xs text-habit-text-subtle">{{
-                  formatDate(post.created_at)
-                }}</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <!-- Post type badge -->
-              <span
-                :class="[
-                  getPostType(post.post_type).bg,
-                  getPostType(post.post_type).color,
-                  'px-2 py-0.5 rounded-full text-xs font-medium',
-                ]"
-              >
-                {{ getPostType(post.post_type).icon }}
-                {{ getPostType(post.post_type).label }}
-              </span>
-              <!-- Pin button (trainer+) -->
-              <button
-                v-if="isTrainer"
-                @click.stop="handleTogglePin(post.id)"
-                :class="[
-                  'text-xs p-1 rounded transition',
-                  post.is_pinned
-                    ? 'text-habit-cyan'
-                    : 'text-habit-text-subtle hover:text-habit-text-muted',
-                ]"
-                :title="post.is_pinned ? 'Rimuovi pin' : 'Fissa in alto'"
-              >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    d="M10 2a1 1 0 011 1v1.323l3.954 1.582a1 1 0 01.588.978V9a1 1 0 01-.293.707L12 13l1 7-3-2-3 2 1-7-3.249-3.293A1 1 0 014 9V6.883a1 1 0 01.588-.978L8.542 4.323V3a1 1 0 011-1h.458z"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Contenuto -->
-          <p
-            class="text-habit-text-muted text-sm whitespace-pre-wrap mb-4 leading-relaxed"
-          >
-            {{ post.content }}
-          </p>
-
-          <!-- Immagine allegata -->
-          <div v-if="getPostImages(post).length" class="mb-4">
-            <img
-              v-for="(img, idx) in getPostImages(post)"
-              :key="idx"
-              :src="img.url"
-              :alt="img.originalName || 'Immagine post'"
-              class="w-full max-h-96 object-cover rounded-lg border border-habit-border cursor-pointer hover:opacity-90 transition"
-              @click="openDetail(post.id)"
-            />
-          </div>
-
-          <!-- Azioni -->
-          <div
-            class="flex items-center gap-4 pt-3 border-t border-habit-border"
-          >
-            <!-- Like -->
-            <button
-              @click="toggleLike(post)"
-              :class="[
-                'flex items-center gap-1.5 text-sm transition',
-                post.user_liked
-                  ? 'text-red-400'
-                  : 'text-habit-text-subtle hover:text-red-400',
-              ]"
-            >
-              <svg
-                class="w-4 h-4"
-                :fill="post.user_liked ? 'currentColor' : 'none'"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-              <span>{{ post.likes_count || 0 }}</span>
-            </button>
-
-            <!-- Commenti -->
-            <button
-              @click="openDetail(post.id)"
-              class="flex items-center gap-1.5 text-sm text-habit-text-subtle hover:text-habit-cyan transition"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-              <span>{{ post.comments_count || 0 }}</span>
-            </button>
-
-            <!-- Elimina (trainer+) -->
-            <button
-              v-if="isTrainer"
-              @click="confirmDeletePost(post)"
-              class="ml-auto text-xs text-habit-text-subtle hover:text-red-400 transition"
-            >
-              Elimina
-            </button>
-          </div>
-        </div>
+          {{ menuPostIsPinned ? "Rimuovi pin" : "Fissa in alto" }}
+        </button>
+        <button
+          v-if="
+            menuOpenForId &&
+            (isTrainer || auth.user?.id === menuPostAuthorId)
+          "
+          @click="
+            confirmDeletePostById(menuOpenForId);
+            menuOpenForId = null;
+          "
+          class="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-habit-bg-light"
+        >
+          Elimina post
+        </button>
+        <button
+          v-if="auth.user?.id !== menuPostAuthorId"
+          @click="
+            openReport(menuOpenForId);
+            menuOpenForId = null;
+          "
+          class="block w-full text-left px-4 py-2 text-sm text-habit-text hover:bg-habit-bg-light"
+        >
+          Segnala
+        </button>
       </div>
     </div>
 
@@ -472,7 +444,7 @@ onMounted(() => {
       <button
         @click="community.goToPage(community.pagination.page - 1)"
         :disabled="community.pagination.page <= 1"
-        class="px-3 py-1.5 rounded-habit text-sm bg-habit-card border border-habit-border text-habit-text-subtle hover:text-habit-text disabled:opacity-30 transition"
+        class="px-3 py-1.5 rounded-2xl text-sm bg-habit-card border border-white/10 text-habit-text-subtle hover:text-habit-text disabled:opacity-30 transition-colors"
       >
         Prec
       </button>
@@ -482,138 +454,42 @@ onMounted(() => {
       <button
         @click="community.goToPage(community.pagination.page + 1)"
         :disabled="community.pagination.page >= community.pagination.totalPages"
-        class="px-3 py-1.5 rounded-habit text-sm bg-habit-card border border-habit-border text-habit-text-subtle hover:text-habit-text disabled:opacity-30 transition"
+        class="px-3 py-1.5 rounded-2xl text-sm bg-habit-card border border-white/10 text-habit-text-subtle hover:text-habit-text disabled:opacity-30 transition-colors"
       >
         Succ
       </button>
     </div>
 
-    <!-- Modale Crea Post -->
+    <!-- Wizard Crea Post (mockup #3) -->
     <Teleport to="body">
       <div
         v-if="showCreateModal"
-        class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-        @click.self="showCreateModal = false"
+        class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4"
+        @click.self="closeCreateWizard"
       >
         <div
-          class="bg-habit-card rounded-habit border border-habit-border w-full max-w-lg max-h-[90vh] overflow-y-auto"
+          class="bg-habit-card rounded-2xl border border-habit-border w-full max-w-[calc(100vw-1.5rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-5"
         >
-          <div
-            class="p-4 border-b border-habit-border flex justify-between items-center"
-          >
-            <h3 class="text-lg font-semibold text-habit-text">Nuovo Post</h3>
-            <button
-              @click="showCreateModal = false"
-              class="text-habit-text-subtle hover:text-habit-text text-xl"
-            >
-              &times;
-            </button>
-          </div>
-          <div class="p-4 space-y-4">
-            <!-- Tipo post -->
-            <div>
-              <label
-                class="block text-sm font-medium text-habit-text-muted mb-2"
-                >Tipo</label
-              >
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="type in postTypes.filter((t) => t.value)"
-                  :key="type.value"
-                  @click="newPost.postType = type.value"
-                  :class="[
-                    'px-3 py-1.5 rounded-full text-xs font-medium transition border',
-                    newPost.postType === type.value
-                      ? type.bg + ' ' + type.color + ' border-current'
-                      : 'bg-habit-bg text-habit-text-subtle border-habit-border hover:text-habit-text',
-                  ]"
-                >
-                  {{ type.icon }} {{ type.label }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Contenuto -->
-            <div>
-              <label
-                class="block text-sm font-medium text-habit-text-muted mb-1"
-                >Contenuto</label
-              >
-              <textarea
-                v-model="newPost.content"
-                rows="5"
-                class="w-full bg-habit-bg border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan focus:outline-none resize-none"
-                placeholder="Scrivi qualcosa per la community..."
-              ></textarea>
-            </div>
-
-            <!-- Upload Immagine -->
-            <div>
-              <label
-                class="block text-sm font-medium text-habit-text-muted mb-2"
-                >Immagine (opzionale)</label
-              >
-              <div v-if="!imagePreview" class="flex items-center gap-3">
-                <label
-                  class="flex items-center gap-2 px-4 py-2 bg-habit-bg border border-habit-border rounded-habit text-sm text-habit-text-subtle hover:text-habit-text hover:border-habit-cyan cursor-pointer transition"
-                >
-                  <svg
-                    class="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                    />
-                  </svg>
-                  Carica immagine
-                  <input
-                    ref="imageInput"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    class="hidden"
-                    @change="handleImageSelect"
-                  />
-                </label>
-                <span class="text-xs text-habit-text-subtle"
-                  >JPG, PNG, WebP, GIF (max 10MB)</span
-                >
-              </div>
-              <div v-else class="relative">
-                <img
-                  :src="imagePreview"
-                  alt="Anteprima"
-                  class="w-full max-h-48 object-cover rounded-lg border border-habit-border"
-                />
-                <button
-                  @click="removeImage"
-                  type="button"
-                  class="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition shadow-lg text-sm font-bold"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="p-4 border-t border-habit-border flex justify-end gap-2">
-            <button
-              @click="showCreateModal = false"
-              class="px-4 py-2 rounded-habit text-sm text-habit-text-subtle hover:text-habit-text transition"
-            >
-              Annulla
-            </button>
-            <button
-              @click="handleCreatePost"
-              :disabled="!newPost.content.trim()"
-              class="bg-habit-cyan text-habit-bg px-4 py-2 rounded-habit text-sm font-semibold hover:opacity-90 transition disabled:opacity-50"
-            >
-              Pubblica
-            </button>
-          </div>
+          <PostCategoryPicker
+            v-if="createStep === 'category'"
+            v-model="newPost.postType"
+            @continue="createStep = 'compose'"
+            @cancel="closeCreateWizard"
+          />
+          <PostComposer
+            v-else
+            :category="getPostType(newPost.postType).label"
+            :content="newPost.content"
+            :visibility-type="newPost.visibilityType"
+            :image-preview="imagePreview"
+            :submitting="creatingPost"
+            @update:content="newPost.content = $event"
+            @update:visibility-type="newPost.visibilityType = $event"
+            @select-image="onComposerImage"
+            @remove-image="removeImage"
+            @back="createStep = 'category'"
+            @submit="handleCreatePost"
+          />
         </div>
       </div>
     </Teleport>
@@ -626,7 +502,7 @@ onMounted(() => {
         @click.self="showDetailModal = false"
       >
         <div
-          class="bg-habit-card rounded-habit border border-habit-border w-full max-w-lg max-h-[85vh] flex flex-col"
+          class="bg-habit-card rounded-3xl border border-white/10 w-full max-w-lg max-h-[85vh] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
         >
           <!-- Header -->
           <div
@@ -792,14 +668,14 @@ onMounted(() => {
               <input
                 v-model="newComment"
                 type="text"
-                class="flex-1 bg-habit-bg border border-habit-border rounded-habit px-3 py-2 text-habit-text text-sm focus:border-habit-cyan focus:outline-none"
+                class="flex-1 bg-habit-bg-light/60 border border-white/10 rounded-2xl px-3.5 py-2.5 text-habit-text text-sm focus:border-habit-cyan/60 focus:ring-2 focus:ring-habit-cyan/20 outline-none transition-all"
                 placeholder="Scrivi un commento..."
                 @keyup.enter="handleAddComment"
               />
               <button
                 @click="handleAddComment"
                 :disabled="!newComment.trim()"
-                class="bg-habit-cyan text-habit-bg px-4 py-2 rounded-habit text-sm font-semibold hover:opacity-90 transition disabled:opacity-50"
+                class="bg-gradient-to-r from-habit-cyan to-blue-600 text-white px-4 py-2 rounded-2xl text-sm font-semibold hover:shadow-lg hover:shadow-habit-cyan/30 transition-all disabled:opacity-50"
               >
                 Invia
               </button>
@@ -812,13 +688,34 @@ onMounted(() => {
     <!-- Modale Conferma Elimina -->
     <ConfirmDialog
       :open="showDeleteModal"
-      title="Conferma eliminazione"
-      message="Sei sicuro? Questa azione non puo essere annullata."
-      confirmText="Elimina"
+      title="Eliminare il post?"
+      message="Sei sicuro di voler eliminare questo post? L'operazione non puo essere annullata."
+      confirm-text="Sì, elimina"
+      cancel-text="No, annulla"
       variant="danger"
       :loading="isDeleting"
       @confirm="handleDelete"
       @cancel="showDeleteModal = false"
+    />
+
+    <!-- Modale Success Post -->
+    <ConfirmDialog
+      :open="showSuccessModal"
+      title="Post pubblicato!"
+      message="Il tuo post è online. Vuoi dare un'occhiata adesso?"
+      confirm-text="Vedi il mio post"
+      variant="success"
+      hide-cancel
+      @confirm="showSuccessModal = false"
+      @cancel="showSuccessModal = false"
+    />
+
+    <!-- Modale Segnala Post (Fase 5) -->
+    <PostReportModal
+      :visible="showReportModal"
+      :post-id="reportTargetPostId"
+      @close="showReportModal = false"
+      @reported="onReported"
     />
   </div>
 </template>

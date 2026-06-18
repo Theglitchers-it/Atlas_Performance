@@ -1,199 +1,271 @@
 <script setup lang="ts">
-import {} from "vue";
+import { computed } from "vue";
+import { useRouter } from "vue-router";
+import Avatar from "@/components/ui/Avatar.vue";
+import {
+  HeartIcon as HeartOutline,
+  ChatBubbleOvalLeftIcon,
+  BookmarkIcon as BookmarkOutline,
+  EllipsisHorizontalIcon,
+  EyeIcon,
+} from "@heroicons/vue/24/outline";
+import {
+  HeartIcon as HeartSolid,
+  BookmarkIcon as BookmarkSolid,
+} from "@heroicons/vue/24/solid";
+
+interface PostAttachment {
+  type: string;
+  url: string;
+  originalName?: string;
+}
 
 interface Post {
   id: number;
-  author_name: string;
-  content: string;
-  created_at: string;
-  is_liked: boolean;
-  likes_count: number;
-  comments_count: number;
-  [key: string]: unknown;
+  author_id?: number;
+  author_first_name?: string | null;
+  author_last_name?: string | null;
+  author_role?: string | null;
+  author_avatar_url?: string | null;
+  content?: string;
+  post_type?: string;
+  attachments?: PostAttachment[] | string | null;
+  likes_count?: number;
+  comments_count?: number;
+  views_count?: number;
+  user_liked?: boolean;
+  user_saved?: boolean;
+  is_pinned?: boolean;
+  visibility_type?: string;
+  created_at?: string;
 }
 
 interface Props {
   post: Post;
+  showMenu?: boolean;
+  saveable?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showMenu: true,
+  saveable: true,
+});
 
 const emit = defineEmits<{
   (e: "like", post: Post): void;
   (e: "comment", post: Post): void;
-  (e: "click", post: Post): void;
+  (e: "save", post: Post): void;
+  (e: "menu", post: Post, target: HTMLElement): void;
+  (e: "open", post: Post): void;
 }>();
 
-const timeAgo = (date: string): string => {
-  const seconds = Math.floor(
-    (new Date().getTime() - new Date(date).getTime()) / 1000,
+const router = useRouter();
+
+const fullName = computed(
+  () => `${props.post.author_first_name || ""} ${props.post.author_last_name || ""}`.trim() || "Utente",
+);
+
+const isVerified = computed(() =>
+  ["tenant_owner", "staff", "super_admin"].includes(props.post.author_role || ""),
+);
+
+const timeAgo = computed(() => {
+  if (!props.post.created_at) return "";
+  const d = new Date(props.post.created_at);
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "ora";
+  if (min < 60) return `${min}m fa`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h fa`;
+  const days = Math.floor(h / 24);
+  if (days < 7) return `${days}g fa`;
+  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+});
+
+const attachments = computed<PostAttachment[]>(() => {
+  const raw = props.post.attachments;
+  if (!raw) return [];
+  try {
+    const list = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(list) ? list.filter((a) => a?.type === "image") : [];
+  } catch {
+    return [];
+  }
+});
+
+const gridClass = computed(() => {
+  const n = attachments.value.length;
+  if (n <= 1) return "grid-cols-1";
+  if (n === 2) return "grid-cols-2";
+  return "grid-cols-2 grid-rows-2";
+});
+
+const aspectClass = computed(() => {
+  const n = attachments.value.length;
+  if (n === 1) return "aspect-[16/10]";
+  if (n === 2) return "aspect-[4/3]";
+  return "aspect-square";
+});
+
+const contentHtml = computed(() => {
+  const text = props.post.content || "";
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped.replace(
+    /#([\p{L}\p{N}_]+)/gu,
+    '<span class="text-habit-orange font-medium">#$1</span>',
   );
+});
 
-  const intervals = {
-    anno: 31536000,
-    mese: 2592000,
-    settimana: 604800,
-    giorno: 86400,
-    ora: 3600,
-    minuto: 60,
-  };
-
-  for (const [name, value] of Object.entries(intervals)) {
-    const interval = Math.floor(seconds / value);
-    if (interval >= 1) {
-      return interval === 1 ? `1 ${name} fa` : `${interval} ${name}i fa`;
-    }
+const goToProfile = () => {
+  if (props.post.author_id) {
+    router.push(`/community/users/${props.post.author_id}`);
   }
-
-  return "Adesso";
 };
 
-const handleLike = (): void => {
-  emit("like", props.post);
-};
-
-const handleComment = (): void => {
-  emit("comment", props.post);
-};
-
-const handleClick = (): void => {
-  emit("click", props.post);
-};
-
-const formatCount = (count: number): string => {
-  if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}K`;
-  }
-  return count.toString();
+const onMenu = (e: MouseEvent) => {
+  emit("menu", props.post, e.currentTarget as HTMLElement);
 };
 </script>
 
 <template>
   <article
-    class="bg-habit-card rounded-xl p-6 border border-habit-border hover:border-habit-orange transition-all hover:shadow-lg cursor-pointer"
-    @click="handleClick"
+    :class="[
+      'bg-habit-card rounded-3xl border shadow-sm hover:shadow-md transition-all overflow-hidden',
+      post.is_pinned ? 'border-habit-orange/40' : 'border-habit-border',
+    ]"
   >
-    <!-- Header -->
-    <div class="flex items-start justify-between mb-4">
-      <div class="flex items-center gap-3">
-        <div
-          class="w-12 h-12 bg-gradient-to-br from-habit-orange to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-lg"
+    <!-- Pin badge -->
+    <div
+      v-if="post.is_pinned"
+      class="px-4 pt-3 flex items-center gap-1.5 text-habit-orange text-xs font-semibold"
+    >
+      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582a1 1 0 01.588.978V9a1 1 0 01-.293.707L12 13l1 7-3-2-3 2 1-7-3.249-3.293A1 1 0 014 9V6.883a1 1 0 01.588-.978L8.542 4.323V3a1 1 0 011-1h.458z" />
+      </svg>
+      In evidenza
+    </div>
+
+    <div class="p-3 sm:p-4">
+      <!-- Header autore -->
+      <header class="flex items-start justify-between gap-3 mb-3 min-w-0">
+        <button
+          type="button"
+          class="flex items-start gap-3 min-w-0 flex-1 text-left"
+          @click="goToProfile"
         >
-          {{ post.author_name.charAt(0).toUpperCase() }}
-        </div>
-        <div>
-          <h3 class="font-semibold text-habit-text">{{ post.author_name }}</h3>
-          <p class="text-sm text-habit-text-subtle">
-            {{ timeAgo(post.created_at) }}
-          </p>
-        </div>
+          <Avatar
+            :src="post.author_avatar_url"
+            :first-name="post.author_first_name"
+            :last-name="post.author_last_name"
+            :verified="isVerified"
+            size="md"
+          />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="font-semibold text-habit-text text-sm truncate">{{ fullName }}</span>
+            </div>
+            <span class="text-xs text-habit-text-subtle">Pubblicato {{ timeAgo }}</span>
+          </div>
+        </button>
+        <button
+          v-if="showMenu"
+          type="button"
+          @click="onMenu"
+          class="p-1 rounded-lg text-habit-text-subtle hover:text-habit-text hover:bg-habit-bg-light transition-colors"
+          aria-label="Apri menu post"
+        >
+          <EllipsisHorizontalIcon class="w-5 h-5" />
+        </button>
+      </header>
+
+      <!-- Contenuto con hashtag highlight -->
+      <p
+        v-if="post.content"
+        class="text-habit-text text-sm whitespace-pre-wrap leading-relaxed mb-3"
+        v-html="contentHtml"
+      ></p>
+
+      <!-- Gallery / immagini -->
+      <div
+        v-if="attachments.length"
+        :class="['grid gap-1 mb-3 rounded-xl overflow-hidden', gridClass]"
+      >
+        <button
+          v-for="(img, idx) in attachments.slice(0, 4)"
+          :key="idx"
+          type="button"
+          @click="emit('open', post)"
+          :class="[
+            'relative bg-habit-bg-light',
+            attachments.length === 3 && idx === 0 ? 'row-span-2' : '',
+          ]"
+        >
+          <img
+            :src="img.url"
+            :alt="img.originalName || 'Immagine post'"
+            :class="['w-full h-full object-cover', aspectClass]"
+            loading="lazy"
+          />
+          <span
+            v-if="idx === 3 && attachments.length > 4"
+            class="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xl font-bold"
+          >
+            +{{ attachments.length - 4 }}
+          </span>
+        </button>
       </div>
 
-      <button
-        aria-label="Altre opzioni"
-        class="w-8 h-8 flex items-center justify-center hover:bg-habit-card-hover rounded-full transition-colors"
-        @click.stop
-      >
-        <svg
-          class="w-5 h-5 text-habit-text-subtle"
-          fill="currentColor"
-          viewBox="0 0 24 24"
+      <!-- Footer azioni stile mockup -->
+      <footer class="flex items-center gap-3 sm:gap-4 text-xs flex-wrap">
+        <span
+          v-if="post.views_count != null"
+          class="flex items-center gap-1 text-habit-text-muted"
         >
-          <path
-            d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
-          />
-        </svg>
-      </button>
-    </div>
-
-    <!-- Content -->
-    <div class="mb-4">
-      <p class="text-habit-text-muted whitespace-pre-wrap leading-relaxed">
-        {{ post.content }}
-      </p>
-    </div>
-
-    <!-- Actions -->
-    <div
-      class="flex items-center gap-3 sm:gap-6 pt-4 border-t border-habit-border"
-    >
-      <button
-        @click.stop="handleLike"
-        :class="[
-          'flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:bg-habit-card-hover',
-          post.is_liked
-            ? 'text-red-500'
-            : 'text-habit-text-muted hover:text-red-500',
-        ]"
-      >
-        <svg
+          <EyeIcon class="w-4 h-4" />
+          <span class="font-semibold">{{ (post.views_count || 0).toLocaleString("it-IT") }}</span>
+        </span>
+        <button
+          type="button"
+          @click="emit('like', post)"
           :class="[
-            'w-5 h-5 transition-transform',
-            post.is_liked ? 'scale-110' : '',
+            'flex items-center gap-1 transition-colors',
+            post.user_liked ? 'text-red-500' : 'text-habit-text-muted hover:text-red-500',
           ]"
-          :fill="post.is_liked ? 'currentColor' : 'none'"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          :aria-pressed="post.user_liked"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-        <span class="text-sm font-medium">
-          {{
-            post.likes_count > 0 ? formatCount(post.likes_count) : "Mi piace"
-          }}
-        </span>
-      </button>
-
-      <button
-        @click.stop="handleComment"
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-habit-text-muted hover:text-habit-cyan hover:bg-habit-card-hover transition-all"
-      >
-        <svg
-          class="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          <HeartSolid v-if="post.user_liked" class="w-4 h-4 text-red-500" />
+          <HeartOutline v-else class="w-4 h-4" />
+          <span class="font-semibold">{{ (post.likes_count || 0).toLocaleString("it-IT") }}</span>
+        </button>
+        <button
+          type="button"
+          @click="emit('comment', post)"
+          class="flex items-center gap-1 text-habit-text-muted hover:text-habit-orange transition-colors"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-        <span class="text-sm font-medium">
-          {{
-            post.comments_count > 0
-              ? formatCount(post.comments_count)
-              : "Commenta"
-          }}
-        </span>
-      </button>
-
-      <button
-        @click.stop
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-habit-text-muted hover:text-habit-orange hover:bg-habit-card-hover transition-all ml-auto"
-      >
-        <svg
-          class="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          <ChatBubbleOvalLeftIcon class="w-4 h-4" />
+          <span class="font-semibold">{{ (post.comments_count || 0).toLocaleString("it-IT") }}</span>
+        </button>
+        <button
+          v-if="saveable"
+          type="button"
+          @click="emit('save', post)"
+          :class="[
+            'ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors',
+            post.user_saved
+              ? 'bg-habit-orange text-white'
+              : 'bg-habit-bg-light text-habit-text hover:bg-habit-text hover:text-habit-card',
+          ]"
+          :aria-pressed="post.user_saved"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-          />
-        </svg>
-        <span class="text-sm font-medium">Condividi</span>
-      </button>
+          <BookmarkSolid v-if="post.user_saved" class="w-3.5 h-3.5" />
+          <BookmarkOutline v-else class="w-3.5 h-3.5" />
+          {{ post.user_saved ? 'Salvato' : 'Salva' }}
+        </button>
+      </footer>
     </div>
   </article>
 </template>
