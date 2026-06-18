@@ -272,7 +272,8 @@ describe('GamificationController', () => {
 
             expect(gamificationService.getLeaderboard).toHaveBeenCalledWith('tenant-1', {
                 limit: 20,
-                page: 1
+                page: 1,
+                locationId: null
             });
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
@@ -290,7 +291,8 @@ describe('GamificationController', () => {
 
             expect(gamificationService.getLeaderboard).toHaveBeenCalledWith('tenant-1', {
                 limit: 10,
-                page: 3
+                page: 3,
+                locationId: null
             });
         });
     });

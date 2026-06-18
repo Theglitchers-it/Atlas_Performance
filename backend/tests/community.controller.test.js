@@ -67,7 +67,12 @@ describe('CommunityController', () => {
                 postType: 'discussion',
                 limit: '10',
                 page: '1',
-                userId: 1
+                userId: 1,
+                isAdmin: true,
+                creatorTrainerId: undefined,
+                from: undefined,
+                sortBy: undefined,
+                authorId: undefined
             });
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
@@ -145,8 +150,10 @@ describe('CommunityController', () => {
             expect(communityService.createPost).toHaveBeenCalledWith('tenant-1', 1, {
                 content: 'New post content',
                 postType: 'discussion',
-                attachments: null
-            });
+                attachments: null,
+                visibilityType: undefined,
+                specificClientUserIds: undefined
+            }, []);
             expect(res.status).toHaveBeenCalledWith(201);
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
@@ -181,13 +188,14 @@ describe('CommunityController', () => {
             expect(communityService.createPost).toHaveBeenCalledWith('tenant-1', 1, {
                 content: 'Post with image',
                 postType: undefined,
-                attachments: expect.any(String)
-            });
+                attachments: expect.any(Array),
+                visibilityType: undefined,
+                specificClientUserIds: undefined
+            }, []);
 
             // Verify the attachments JSON structure
             const callArgs = communityService.createPost.mock.calls[0][2];
-            const attachments = JSON.parse(callArgs.attachments);
-            expect(attachments).toEqual([{
+            expect(callArgs.attachments).toEqual([{
                 type: 'image',
                 url: expect.stringContaining('uploads/image.jpg'),
                 originalName: 'photo.jpg'
@@ -241,14 +249,14 @@ describe('CommunityController', () => {
 
     describe('deletePost', () => {
         test('returns success on deletion', async () => {
-            communityService.deletePost.mockResolvedValue();
+            communityService.deletePost.mockResolvedValue(true);
 
             const req = mockReq({ params: { id: '5' } });
             const res = mockRes();
 
             await communityController.deletePost(req, res, mockNext);
 
-            expect(communityService.deletePost).toHaveBeenCalledWith('5', 'tenant-1');
+            expect(communityService.deletePost).toHaveBeenCalledWith('5', 'tenant-1', 1, true);
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
                 message: 'Post eliminato'
@@ -294,7 +302,7 @@ describe('CommunityController', () => {
 
             await communityController.likePost(req, res, mockNext);
 
-            expect(communityService.likePost).toHaveBeenCalledWith('5', 1);
+            expect(communityService.likePost).toHaveBeenCalledWith('5', 'tenant-1', 1);
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
                 message: 'Like aggiunto'
@@ -323,7 +331,7 @@ describe('CommunityController', () => {
 
             await communityController.unlikePost(req, res, mockNext);
 
-            expect(communityService.unlikePost).toHaveBeenCalledWith('5', 1);
+            expect(communityService.unlikePost).toHaveBeenCalledWith('5', 'tenant-1', 1);
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
                 message: 'Like rimosso'
@@ -343,7 +351,7 @@ describe('CommunityController', () => {
 
             await communityController.addComment(req, res, mockNext);
 
-            expect(communityService.addComment).toHaveBeenCalledWith('5', 1, {
+            expect(communityService.addComment).toHaveBeenCalledWith('5', 'tenant-1', 1, {
                 content: 'Great post!',
                 parentId: null
             });
@@ -377,7 +385,7 @@ describe('CommunityController', () => {
 
             await communityController.deleteComment(req, res, mockNext);
 
-            expect(communityService.deleteComment).toHaveBeenCalledWith('20', 1);
+            expect(communityService.deleteComment).toHaveBeenCalledWith('20', 'tenant-1', 1);
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
                 message: 'Commento eliminato'

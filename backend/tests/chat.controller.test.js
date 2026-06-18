@@ -285,7 +285,7 @@ describe('ChatController', () => {
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith({
                 success: false,
-                message: 'Contenuto obbligatorio'
+                message: 'Messaggio vuoto: serve testo o allegato'
             });
         });
 

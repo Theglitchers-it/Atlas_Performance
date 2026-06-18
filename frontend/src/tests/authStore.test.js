@@ -22,7 +22,11 @@ vi.mock('@/services/api', () => ({
         get: (...args) => mockGet(...args),
         put: (...args) => mockPut(...args),
         defaults: { headers: { common: {} } }
-    }
+    },
+    setNativeToken: vi.fn(),
+    clearNativeToken: vi.fn(),
+    startProactiveRefresh: vi.fn(),
+    stopProactiveRefresh: vi.fn()
 }))
 
 describe('Auth Store', () => {

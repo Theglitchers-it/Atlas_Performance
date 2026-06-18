@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 
 // Mock the router module
 vi.mock('@/router', () => ({
@@ -20,6 +21,11 @@ describe('useAppLifecycle', () => {
         vi.resetModules()
         window.Capacitor = undefined
         vi.clearAllMocks()
+
+        // Pinia attiva: useAppLifecycle::init() ora chiama useUiStore() per coordinare
+        // il back button con il drawer aperto. Senza Pinia attiva l'init throw → listener
+        // backButton non viene registrato e i test del back button crashano.
+        setActivePinia(createPinia())
 
         vi.doMock('@/router', () => ({
             default: {

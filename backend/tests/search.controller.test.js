@@ -60,7 +60,7 @@ describe('SearchController', () => {
 
             await searchController.globalSearch(req, res);
 
-            expect(searchService.globalSearch).toHaveBeenCalledWith('tenant-1', 'Mario', 'tenant_owner');
+            expect(searchService.globalSearch).toHaveBeenCalledWith('tenant-1', 'Mario', 'tenant_owner', 1);
             expect(res.json).toHaveBeenCalledWith({ success: true, data: results });
         });
 
@@ -72,7 +72,7 @@ describe('SearchController', () => {
 
             await searchController.globalSearch(req, res);
 
-            expect(searchService.globalSearch).toHaveBeenCalledWith('tenant-1', 'Squat', 'tenant_owner');
+            expect(searchService.globalSearch).toHaveBeenCalledWith('tenant-1', 'Squat', 'tenant_owner', 1);
         });
 
         test('returns 400 when query is missing', async () => {
@@ -139,7 +139,7 @@ describe('SearchController', () => {
 
             await searchController.globalSearch(req, res);
 
-            expect(searchService.globalSearch).toHaveBeenCalledWith('tenant-1', 'bench press', 'client');
+            expect(searchService.globalSearch).toHaveBeenCalledWith('tenant-1', 'bench press', 'client', 2);
         });
     });
 });

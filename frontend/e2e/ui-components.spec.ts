@@ -13,8 +13,8 @@ test.describe('UI Components Rendering', () => {
         await expect(emailInput).toBeVisible()
         await expect(emailInput).toBeEnabled()
 
-        // Password input should be styled
-        const passwordInput = page.locator('input[type="password"]')
+        // Password input should be styled (ignora il decoy anti-autofill aria-hidden)
+        const passwordInput = page.locator('input[type="password"]:not([aria-hidden="true"])')
         await expect(passwordInput).toBeVisible()
         await expect(passwordInput).toBeEnabled()
     })
@@ -30,9 +30,11 @@ test.describe('UI Components Rendering', () => {
 
     test('fonts should be loaded', async ({ page }) => {
         await page.goto('/login')
-        // Check that Inter font is loaded (from Google Fonts)
+        // Check that Inter font is loaded (from Google Fonts) — può esserci più di 1 link
+        // (preconnect + stylesheet) quindi verifichiamo solo che almeno 1 sia presente
         const fontLink = page.locator('link[href*="fonts.googleapis.com"]')
-        await expect(fontLink).toHaveCount(1)
+        const count = await fontLink.count()
+        expect(count).toBeGreaterThanOrEqual(1)
     })
 
     test('PWA manifest should be present', async ({ page }) => {

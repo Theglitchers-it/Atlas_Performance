@@ -460,3 +460,224 @@ describe('UserService.getBusinessInfo', () => {
         }));
     });
 });
+
+// =============================================
+// updateMyProfile — whitelist + security fixes
+// =============================================
+describe('UserService.updateMyProfile', () => {
+    beforeEach(() => mockQuery.mockReset());
+
+    test('updates whitelisted fields and returns sanitized profile', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ affectedRows: 1 })
+            .mockResolvedValueOnce([{
+                id: 1, first_name: 'Mario', last_name: 'Rossi',
+                email: 'm@r.com', role: 'client', avatar_url: null,
+                bio: 'New bio', city: 'Roma'
+            }]);
+
+        const result = await userService.updateMyProfile(1, {
+            firstName: '  Mario  ',
+            lastName: 'Rossi',
+            bio: 'New bio',
+            city: 'Roma'
+        });
+
+        expect(result).toEqual(expect.objectContaining({
+            firstName: 'Mario', lastName: 'Rossi', bio: 'New bio', city: 'Roma'
+        }));
+        // First query is UPDATE — verify SQL has all 4 whitelisted columns
+        const updateSql = mockQuery.mock.calls[0][0];
+        expect(updateSql).toMatch(/first_name = \?/i);
+        expect(updateSql).toMatch(/last_name = \?/i);
+        expect(updateSql).toMatch(/bio = \?/i);
+        expect(updateSql).toMatch(/city = \?/i);
+    });
+
+    test('ignores non-whitelisted fields (role, email, tenant_id)', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ affectedRows: 1 })
+            .mockResolvedValueOnce([{ id: 1, first_name: 'X', last_name: '', email: 'a@b', role: 'client' }]);
+
+        await userService.updateMyProfile(1, {
+            firstName: 'X',
+            role: 'super_admin',
+            email: 'evil@x',
+            tenant_id: 'other-tenant'
+        });
+
+        const updateSql = mockQuery.mock.calls[0][0];
+        expect(updateSql).not.toMatch(/role\s*=/i);
+        expect(updateSql).not.toMatch(/email\s*=/i);
+        expect(updateSql).not.toMatch(/tenant_id\s*=/i);
+    });
+
+    test('rejects non-string bio (no String() coerce)', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ affectedRows: 1 })
+            .mockResolvedValueOnce([{ id: 1, first_name: 'X', last_name: '' }]);
+
+        // bio is an object — should be ignored (not coerced to "[object Object]")
+        await userService.updateMyProfile(1, { firstName: 'X', bio: { malicious: true } });
+
+        const updateSql = mockQuery.mock.calls[0][0];
+        expect(updateSql).not.toMatch(/bio\s*=/i);
+    });
+
+    test('accepts bio = null (explicit clear)', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ affectedRows: 1 })
+            .mockResolvedValueOnce([{ id: 1, first_name: 'X', last_name: '', bio: null }]);
+
+        await userService.updateMyProfile(1, { firstName: 'X', bio: null });
+
+        const params = mockQuery.mock.calls[0][1];
+        expect(params).toContain(null);
+    });
+
+    test('caps bio to 1000 chars', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ affectedRows: 1 })
+            .mockResolvedValueOnce([{ id: 1 }]);
+
+        const longBio = 'a'.repeat(2000);
+        await userService.updateMyProfile(1, { firstName: 'X', bio: longBio });
+
+        const params = mockQuery.mock.calls[0][1];
+        const bioParam = params.find(p => typeof p === 'string' && p.startsWith('aaa'));
+        expect(bioParam.length).toBe(1000);
+    });
+
+    test('returns null when no whitelisted field is provided', async () => {
+        const result = await userService.updateMyProfile(1, {
+            role: 'super_admin',
+            email: 'evil@x'
+        });
+        expect(result).toBeNull();
+        expect(mockQuery).not.toHaveBeenCalled();
+    });
+});
+
+// =============================================
+// getPublicProfile — tenant isolation + email leak guard
+// =============================================
+describe('UserService.getPublicProfile', () => {
+    beforeEach(() => mockQuery.mockReset());
+
+    test('returns profile with stats when target exists in viewer tenant', async () => {
+        mockQuery
+            .mockResolvedValueOnce([{
+                id: 3, first_name: 'Personal', last_name: 'Trainer', email: 'p@t.com',
+                role: 'tenant_owner', avatar_url: null, bio: null, city: null,
+                tenant_id: 'tenant-1'
+            }])
+            .mockResolvedValueOnce([{ posts: 5, followers: 10, following: 2, is_following: 0 }]);
+
+        const result = await userService.getPublicProfile(3, 'tenant-1', 1);
+
+        expect(result.user.id).toBe(3);
+        expect(result.stats).toEqual({ posts: 5, followers: 10, following: 2 });
+        expect(result.isFollowing).toBe(false);
+        expect(result.isSelf).toBe(false);
+        // Email NOT exposed (viewer != target)
+        expect(result.user).not.toHaveProperty('email');
+    });
+
+    test('exposes email only when isSelf=true', async () => {
+        mockQuery
+            .mockResolvedValueOnce([{
+                id: 1, first_name: 'Me', last_name: 'Self', email: 'me@self.com',
+                role: 'client', avatar_url: null, bio: null, city: null, tenant_id: 'tenant-1'
+            }])
+            .mockResolvedValueOnce([{ posts: 0, followers: 0, following: 0, is_following: 0 }]);
+
+        const result = await userService.getPublicProfile(1, 'tenant-1', 1);
+
+        expect(result.isSelf).toBe(true);
+        expect(result.user.email).toBe('me@self.com');
+    });
+
+    test('returns null when target user is in different tenant', async () => {
+        mockQuery.mockResolvedValueOnce([]); // SELECT trova nulla
+
+        const result = await userService.getPublicProfile(99, 'tenant-1', 1);
+        expect(result).toBeNull();
+    });
+
+    test('super_admin (tenantId=null) can view any profile', async () => {
+        mockQuery
+            .mockResolvedValueOnce([{
+                id: 5, first_name: 'X', last_name: 'Y', email: 'x@y.com',
+                role: 'client', avatar_url: null, bio: null, city: null,
+                tenant_id: 'tenant-other'
+            }])
+            .mockResolvedValueOnce([{ posts: 0, followers: 0, following: 0, is_following: 0 }]);
+
+        const result = await userService.getPublicProfile(5, null, 99);
+
+        expect(result.user.id).toBe(5);
+        // Target lookup SQL must NOT include tenant_id filter when viewer is super_admin
+        const lookupSql = mockQuery.mock.calls[0][0];
+        expect(lookupSql).not.toMatch(/tenant_id\s*=\s*\?/i);
+    });
+
+    test('isFollowing query is tenant-scoped (no cross-tenant leak)', async () => {
+        mockQuery
+            .mockResolvedValueOnce([{
+                id: 3, first_name: 'A', last_name: 'B', email: 'a@b',
+                role: 'client', avatar_url: null, bio: null, city: null,
+                tenant_id: 'tenant-1'
+            }])
+            .mockResolvedValueOnce([{ posts: 1, followers: 1, following: 1, is_following: 1 }]);
+
+        await userService.getPublicProfile(3, 'tenant-1', 1);
+
+        // 2nd query è il SELECT con sotto-COUNTS — verifica che is_following sia tenant-scoped
+        const statsSql = mockQuery.mock.calls[1][0];
+        // Estrai la subquery che termina con "AS is_following": (...)  AS is_following
+        const isFollowingPart = statsSql.match(/\(SELECT[\s\S]*?\)\s*AS\s+is_following/i)[0];
+        expect(isFollowingPart).toMatch(/tenant_id\s*=\s*\?/i);
+    });
+});
+
+// =============================================
+// followUser / unfollowUser — idempotency + tenant scope
+// =============================================
+describe('UserService.followUser / unfollowUser', () => {
+    beforeEach(() => mockQuery.mockReset());
+
+    test('follow creates relationship and returns updated followers count', async () => {
+        mockQuery
+            .mockResolvedValueOnce([{ ok: 1 }]) // target exists
+            .mockResolvedValueOnce({ affectedRows: 1 }) // INSERT IGNORE
+            .mockResolvedValueOnce([{ c: 11 }]); // followers count
+
+        const result = await userService.followUser(1, 3, 'tenant-1');
+
+        expect(result).toEqual({ ok: true, followers: 11 });
+        // Verify INSERT IGNORE (idempotent)
+        const insertSql = mockQuery.mock.calls[1][0];
+        expect(insertSql).toMatch(/INSERT\s+IGNORE/i);
+    });
+
+    test('follow returns 404 when target does not exist in tenant', async () => {
+        mockQuery.mockResolvedValueOnce([]); // target not found
+
+        const result = await userService.followUser(1, 99, 'tenant-1');
+
+        expect(result.ok).toBe(false);
+        expect(result.status).toBe(404);
+    });
+
+    test('unfollow deletes scoped by tenant and returns updated count', async () => {
+        mockQuery
+            .mockResolvedValueOnce({ affectedRows: 1 }) // DELETE
+            .mockResolvedValueOnce([{ c: 4 }]); // followers count
+
+        const result = await userService.unfollowUser(1, 3, 'tenant-1');
+
+        expect(result.followers).toBe(4);
+        const deleteSql = mockQuery.mock.calls[0][0];
+        expect(deleteSql).toMatch(/tenant_id\s*=\s*\?/i);
+    });
+});

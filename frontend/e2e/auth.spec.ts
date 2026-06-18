@@ -5,7 +5,7 @@ test.describe('Authentication Flow', () => {
         await page.goto('/login')
         await expect(page).toHaveURL(/\/login/)
         await expect(page.locator('input[type="email"], input[placeholder*="email" i]')).toBeVisible()
-        await expect(page.locator('input[type="password"]')).toBeVisible()
+        await expect(page.locator('input[type="password"]:not([aria-hidden="true"])')).toBeVisible()
     })
 
     test('login page should have submit button', async ({ page }) => {
@@ -25,8 +25,8 @@ test.describe('Authentication Flow', () => {
     test('register page should be accessible', async ({ page }) => {
         await page.goto('/register')
         await expect(page).toHaveURL(/\/register/)
+        // Registrazione è wizard multi-step: step 1 = dati personali/email, step 2 = password
         await expect(page.locator('input[type="email"], input[placeholder*="email" i]')).toBeVisible()
-        await expect(page.locator('input[type="password"]').first()).toBeVisible()
     })
 
     test('login page should have link to register', async ({ page }) => {
@@ -37,13 +37,10 @@ test.describe('Authentication Flow', () => {
 
     test('register page should have all required fields', async ({ page }) => {
         await page.goto('/register')
-        // Should have name fields
+        // Step 1 del wizard: nome + email (password è in step 2)
         const nameInputs = page.locator('input[type="text"], input[placeholder*="nome" i], input[placeholder*="name" i]')
         await expect(nameInputs.first()).toBeVisible()
-        // Should have email
         await expect(page.locator('input[type="email"], input[placeholder*="email" i]')).toBeVisible()
-        // Should have password
-        await expect(page.locator('input[type="password"]').first()).toBeVisible()
     })
 
     test('register page should have link back to login', async ({ page }) => {
@@ -62,9 +59,13 @@ test.describe('Authentication Flow', () => {
 
     test('login form should validate email format', async ({ page }) => {
         await page.goto('/login')
+        // Login ha pattern anti-autofill: inputs sono readonly fino al primo click/focus,
+        // quindi serve cliccare prima di fillare per triggerare onFieldInteract → removeAttribute('readonly')
         const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]')
+        await emailInput.click()
         await emailInput.fill('invalid-email')
-        const passwordInput = page.locator('input[type="password"]')
+        const passwordInput = page.locator('input[type="password"]:not([aria-hidden="true"])')
+        await passwordInput.click()
         await passwordInput.fill('testpassword')
         const submitBtn = page.locator('button[type="submit"], button:has-text("Accedi"), button:has-text("Login")')
         await submitBtn.click()
@@ -74,10 +75,10 @@ test.describe('Authentication Flow', () => {
 
     test('password field should toggle visibility', async ({ page }) => {
         await page.goto('/login')
-        const passwordInput = page.locator('input[type="password"]')
+        const passwordInput = page.locator('input[type="password"]:not([aria-hidden="true"])')
         await expect(passwordInput).toBeVisible()
         // Check if there's a toggle button near the password field
-        const toggleBtn = page.locator('button:near(input[type="password"]), [role="button"]:near(input[type="password"])')
+        const toggleBtn = page.locator('button:near(input[type="password"]:not([aria-hidden="true"])), [role="button"]:near(input[type="password"]:not([aria-hidden="true"]))')
         const toggleCount = await toggleBtn.count()
         // If toggle exists, click it and verify type changes
         if (toggleCount > 0) {

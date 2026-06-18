@@ -12,7 +12,11 @@ jest.mock('../src/services/user.service', () => ({
     delete: jest.fn(),
     updateAvatar: jest.fn(),
     getBusinessInfo: jest.fn(),
-    updateBusinessInfo: jest.fn()
+    updateBusinessInfo: jest.fn(),
+    getPublicProfile: jest.fn(),
+    followUser: jest.fn(),
+    unfollowUser: jest.fn(),
+    updateMyProfile: jest.fn()
 }));
 
 jest.mock('../src/middlewares/upload', () => ({
@@ -333,6 +337,93 @@ describe('UserController', () => {
         });
     });
 
+    describe('updateAvatar', () => {
+        test('owner aggiorna il proprio avatar con URL /uploads/ valido', async () => {
+            const updatedUser = { id: 1, avatarUrl: '/uploads/avatars/1.jpg' };
+            userService.updateAvatar.mockResolvedValue(updatedUser);
+
+            const req = mockReq({
+                user: { id: 1, tenantId: 'tenant-1', role: 'client' },
+                params: { id: '1' },
+                body: { avatarUrl: '/uploads/avatars/1.jpg' }
+            });
+            const res = mockRes();
+
+            await userController.updateAvatar(req, res, mockNext);
+
+            expect(userService.updateAvatar).toHaveBeenCalledWith(1, 'tenant-1', '/uploads/avatars/1.jpg');
+            expect(res.json).toHaveBeenCalledWith({ success: true, data: { user: updatedUser } });
+        });
+
+        test('admin (tenant_owner) può aggiornare avatar di altro user', async () => {
+            const updatedUser = { id: 42, avatarUrl: 'https://cdn.example.com/avatar.png' };
+            userService.updateAvatar.mockResolvedValue(updatedUser);
+
+            const req = mockReq({
+                user: { id: 1, tenantId: 'tenant-1', role: 'tenant_owner' },
+                params: { id: '42' },
+                body: { avatarUrl: 'https://cdn.example.com/avatar.png' }
+            });
+            const res = mockRes();
+
+            await userController.updateAvatar(req, res, mockNext);
+
+            expect(userService.updateAvatar).toHaveBeenCalledWith(42, 'tenant-1', 'https://cdn.example.com/avatar.png');
+            expect(res.json).toHaveBeenCalledWith({ success: true, data: { user: updatedUser } });
+        });
+
+        test('non-owner non-admin (client) riceve 403 su altro user', async () => {
+            const req = mockReq({
+                user: { id: 1, tenantId: 'tenant-1', role: 'client' },
+                params: { id: '42' },
+                body: { avatarUrl: '/uploads/avatars/42.jpg' }
+            });
+            const res = mockRes();
+
+            await userController.updateAvatar(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(res.json).toHaveBeenCalledWith({
+                success: false,
+                message: 'Non autorizzato a modificare questo profilo'
+            });
+            expect(userService.updateAvatar).not.toHaveBeenCalled();
+        });
+
+        test('rifiuta avatarUrl con scheme non http(s) o /uploads/ (400)', async () => {
+            const req = mockReq({
+                user: { id: 1, tenantId: 'tenant-1', role: 'tenant_owner' },
+                params: { id: '1' },
+                body: { avatarUrl: 'javascript:alert(1)' }
+            });
+            const res = mockRes();
+
+            await userController.updateAvatar(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({
+                success: false,
+                message: 'avatarUrl deve essere http(s) o path /uploads/'
+            });
+            expect(userService.updateAvatar).not.toHaveBeenCalled();
+        });
+
+        test('rifiuta id non numerico (400)', async () => {
+            const req = mockReq({
+                user: { id: 1, tenantId: 'tenant-1', role: 'tenant_owner' },
+                params: { id: 'abc' },
+                body: { avatarUrl: '/uploads/x.jpg' }
+            });
+            const res = mockRes();
+
+            await userController.updateAvatar(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ success: false, message: 'id non valido' });
+            expect(userService.updateAvatar).not.toHaveBeenCalled();
+        });
+    });
+
     describe('uploadMyAvatar', () => {
         test('returns 400 when no file uploaded', async () => {
             const req = mockReq(); // no req.file
@@ -367,6 +458,144 @@ describe('UserController', () => {
                 success: true,
                 message: 'Avatar aggiornato'
             }));
+        });
+    });
+
+    describe('getPublicProfile', () => {
+        test('returns public profile for valid id', async () => {
+            const profile = {
+                user: { id: 3, firstName: 'Personal', lastName: 'Trainer', role: 'tenant_owner', isVerified: true },
+                stats: { posts: 5, followers: 10, following: 2 },
+                isFollowing: false,
+                isSelf: false
+            };
+            userService.getPublicProfile.mockResolvedValue(profile);
+
+            const req = mockReq({ params: { id: '3' } });
+            const res = mockRes();
+
+            await userController.getPublicProfile(req, res, mockNext);
+
+            expect(userService.getPublicProfile).toHaveBeenCalledWith(3, 'tenant-1', 1);
+            expect(res.json).toHaveBeenCalledWith({ success: true, data: profile });
+        });
+
+        test('returns 400 when id is not a valid integer', async () => {
+            const req = mockReq({ params: { id: 'abc' } });
+            const res = mockRes();
+
+            await userController.getPublicProfile(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(userService.getPublicProfile).not.toHaveBeenCalled();
+        });
+
+        test('returns 404 when service returns null', async () => {
+            userService.getPublicProfile.mockResolvedValue(null);
+
+            const req = mockReq({ params: { id: '999' } });
+            const res = mockRes();
+
+            await userController.getPublicProfile(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+    });
+
+    describe('followUser', () => {
+        test('creates follow relationship', async () => {
+            userService.followUser.mockResolvedValue({ ok: true, followers: 11 });
+
+            const req = mockReq({ params: { id: '3' } });
+            const res = mockRes();
+
+            await userController.followUser(req, res, mockNext);
+
+            expect(userService.followUser).toHaveBeenCalledWith(1, 3, 'tenant-1');
+            expect(res.status).toHaveBeenCalledWith(201);
+            expect(res.json).toHaveBeenCalledWith({
+                success: true,
+                data: { isFollowing: true, followers: 11 }
+            });
+        });
+
+        test('returns 400 on self-follow', async () => {
+            const req = mockReq({ params: { id: '1' } }); // user.id = 1, target = 1
+            const res = mockRes();
+
+            await userController.followUser(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(userService.followUser).not.toHaveBeenCalled();
+        });
+
+        test('forwards service errors via status', async () => {
+            userService.followUser.mockResolvedValue({ ok: false, status: 404, message: 'Utente non trovato' });
+
+            const req = mockReq({ params: { id: '99' } });
+            const res = mockRes();
+
+            await userController.followUser(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+    });
+
+    describe('unfollowUser', () => {
+        test('removes follow and returns updated count', async () => {
+            userService.unfollowUser.mockResolvedValue({ followers: 5 });
+
+            const req = mockReq({ params: { id: '3' } });
+            const res = mockRes();
+
+            await userController.unfollowUser(req, res, mockNext);
+
+            expect(userService.unfollowUser).toHaveBeenCalledWith(1, 3, 'tenant-1');
+            expect(res.json).toHaveBeenCalledWith({
+                success: true,
+                data: { isFollowing: false, followers: 5 }
+            });
+        });
+    });
+
+    describe('updateMyProfile', () => {
+        test('forwards whitelisted body to service', async () => {
+            const updated = { id: 1, firstName: 'Mario', lastName: 'Rossi', bio: 'New bio', city: 'Roma' };
+            userService.updateMyProfile.mockResolvedValue(updated);
+
+            const req = mockReq({ body: { firstName: 'Mario', lastName: 'Rossi', bio: 'New bio', city: 'Roma' } });
+            const res = mockRes();
+
+            await userController.updateMyProfile(req, res, mockNext);
+
+            expect(userService.updateMyProfile).toHaveBeenCalledWith(1, req.body);
+            expect(res.json).toHaveBeenCalledWith({ success: true, data: updated });
+        });
+
+        test('returns 404 when service returns null (no fields to update)', async () => {
+            userService.updateMyProfile.mockResolvedValue(null);
+
+            const req = mockReq({ body: {} });
+            const res = mockRes();
+
+            await userController.updateMyProfile(req, res, mockNext);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        test('forwards extra fields to service (whitelist enforced at service)', async () => {
+            // Controller passes req.body raw; service-side whitelist drops role/email/tenantId
+            userService.updateMyProfile.mockResolvedValue({ id: 1 });
+
+            const req = mockReq({ body: { firstName: 'X', role: 'super_admin', email: 'evil@x' } });
+            const res = mockRes();
+
+            await userController.updateMyProfile(req, res, mockNext);
+
+            const callArg = userService.updateMyProfile.mock.calls[0][1];
+            expect(callArg.role).toBe('super_admin');
+            expect(callArg.email).toBe('evil@x');
+            // Service is responsible for ignoring these — covered separately in user.service.test
         });
     });
 });

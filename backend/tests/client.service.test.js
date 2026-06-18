@@ -276,7 +276,9 @@ describe('ClientService.delete', () => {
 // =============================================
 describe('ClientService.addGoal', () => {
     test('adds goal to client', async () => {
-        mockQuery.mockResolvedValueOnce({ insertId: 5 });
+        mockQuery
+            .mockResolvedValueOnce([{ id: 1 }]) // assertOwnership SELECT
+            .mockResolvedValueOnce({ insertId: 5 }); // INSERT client_goals
 
         const result = await clientService.addGoal(1, 'tenant-1', {
             goalType: 'weight_loss',
@@ -294,7 +296,9 @@ describe('ClientService.addGoal', () => {
 // =============================================
 describe('ClientService.addInjury', () => {
     test('adds injury to client', async () => {
-        mockQuery.mockResolvedValueOnce({ insertId: 3 });
+        mockQuery
+            .mockResolvedValueOnce([{ id: 1 }]) // assertOwnership SELECT
+            .mockResolvedValueOnce({ insertId: 3 }); // INSERT injuries
 
         const result = await clientService.addInjury(1, 'tenant-1', {
             bodyPart: 'knee',
@@ -312,6 +316,7 @@ describe('ClientService.addInjury', () => {
 describe('ClientService.getStats', () => {
     test('returns client workout statistics', async () => {
         mockQuery
+            .mockResolvedValueOnce([{ id: 1 }]) // assertOwnership SELECT
             .mockResolvedValueOnce([{ total_workouts: 20, total_minutes: 600, avg_duration: 30 }])
             .mockResolvedValueOnce([{ workouts_this_week: 3 }])
             .mockResolvedValueOnce([{ measurement_date: '2026-01-01', weight_kg: 75 }]);
@@ -326,6 +331,7 @@ describe('ClientService.getStats', () => {
 
     test('handles zero stats', async () => {
         mockQuery
+            .mockResolvedValueOnce([{ id: 1 }]) // assertOwnership SELECT
             .mockResolvedValueOnce([{ total_workouts: null, total_minutes: null, avg_duration: null }])
             .mockResolvedValueOnce([{ workouts_this_week: 0 }])
             .mockResolvedValueOnce([]);

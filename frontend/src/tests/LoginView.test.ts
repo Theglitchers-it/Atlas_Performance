@@ -20,12 +20,18 @@ vi.mock("vue-router", () => ({
 // Mock auth store
 const mockLogin = vi.fn();
 const mockSocialLogin = vi.fn();
+const mockLoadOAuthProviders = vi.fn(() => Promise.resolve([]));
 vi.mock("@/store/auth", () => ({
   useAuthStore: () => ({
     loading: false,
     login: mockLogin,
     socialLogin: mockSocialLogin,
     error: null,
+    // OAuth providers mock — usato da onMounted di LoginView e dai computed
+    loadOAuthProviders: mockLoadOAuthProviders,
+    isOAuthProviderEnabled: () => false,
+    enabledOAuthProviders: [],
+    oauthProvidersLoaded: false,
   }),
 }));
 
@@ -67,8 +73,10 @@ describe("LoginView", () => {
   it("renders the login form with email and password fields", () => {
     const wrapper = mountComponent();
 
-    const emailInput = wrapper.find("input#email");
-    const passwordInput = wrapper.find("input#password");
+    // I campi usano id anti-autofill ("atlas-login-id" / "atlas-login-secret")
+    // invece dei classici "email" / "password" per evitare auto-compilazione del browser.
+    const emailInput = wrapper.find('input[type="email"]');
+    const passwordInput = wrapper.find('input[type="password"]:not([aria-hidden="true"])');
 
     expect(emailInput.exists()).toBe(true);
     expect(passwordInput.exists()).toBe(true);
@@ -103,9 +111,13 @@ describe("LoginView", () => {
 
     const wrapper = mountComponent();
 
-    // Fill in email and password
-    await wrapper.find("input#email").setValue("test@example.com");
-    await wrapper.find("input#password").setValue("wrongpassword");
+    // Fill in email and password (i campi sono readonly fino al primo focus per anti-autofill)
+    const emailInput = wrapper.find('input[type="email"]');
+    const passwordInput = wrapper.find('input[type="password"]:not([aria-hidden="true"])');
+    await emailInput.trigger("focus");
+    await passwordInput.trigger("focus");
+    await emailInput.setValue("test@example.com");
+    await passwordInput.setValue("wrongpassword");
 
     // Submit the form
     const form = wrapper.find("form");
@@ -122,8 +134,12 @@ describe("LoginView", () => {
 
     const wrapper = mountComponent();
 
-    await wrapper.find("input#email").setValue("admin@demo.local");
-    await wrapper.find("input#password").setValue("demo1234");
+    const emailInput = wrapper.find('input[type="email"]');
+    const passwordInput = wrapper.find('input[type="password"]:not([aria-hidden="true"])');
+    await emailInput.trigger("focus");
+    await passwordInput.trigger("focus");
+    await emailInput.setValue("personaltrainer@demo.local");
+    await passwordInput.setValue("demo1234");
 
     const form = wrapper.find("form");
     await form.trigger("submit.prevent");
@@ -132,7 +148,7 @@ describe("LoginView", () => {
     // Wait for the success animation timeout (600ms)
     await new Promise((resolve) => setTimeout(resolve, 700));
 
-    expect(mockLogin).toHaveBeenCalledWith("admin@demo.local", "demo1234");
+    expect(mockLogin).toHaveBeenCalledWith("personaltrainer@demo.local", "demo1234");
     expect(mockPush).toHaveBeenCalledWith("/");
   });
 

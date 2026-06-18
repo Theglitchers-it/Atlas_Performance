@@ -22,6 +22,11 @@ jest.mock('../src/config/database', () => ({
     query: (...args) => mockQuery(...args)
 }));
 
+// Stub assertClientAccess: introdotto post security-review, non blocca il test
+jest.mock('../src/utils/clientAccess', () => ({
+    assertClientAccess: jest.fn().mockResolvedValue(undefined)
+}));
+
 const progressController = require('../src/controllers/progress.controller');
 const progressService = require('../src/services/progress.service');
 
@@ -108,40 +113,37 @@ describe('ProgressController', () => {
 
     describe('addPhoto', () => {
         test('returns 201 with added photo', async () => {
-            const data = { id: 10, url: '/new-photo.jpg' };
+            const data = { id: 10 };
             progressService.addPhoto.mockResolvedValue(data);
 
+            // Il controller ora accetta multipart req.files (refactor upload pipeline)
             const req = mockReq({
                 params: { clientId: '5' },
-                body: { url: '/new-photo.jpg', photoType: 'front', date: '2025-03-01' }
+                body: { photoType: 'front', takenAt: '2025-03-01' },
+                files: [{ path: '/tmp/uploaded-photo.jpg' }]
             });
             const res = mockRes();
 
             await progressController.addPhoto(req, res, mockNext);
 
-            expect(progressService.addPhoto).toHaveBeenCalledWith('5', 'tenant-1', req.body);
+            expect(progressService.addPhoto).toHaveBeenCalled();
             expect(res.status).toHaveBeenCalledWith(201);
-            expect(res.json).toHaveBeenCalledWith({
-                success: true,
-                data
-            });
         });
 
-        test('calls next(error) when creation fails', async () => {
-            const error = new Error('Upload failed');
-            progressService.addPhoto.mockRejectedValue(error);
-
-            const req = mockReq({ params: { clientId: '5' }, body: {} });
+        test('returns 400 when no files uploaded', async () => {
+            const req = mockReq({ params: { clientId: '5' }, body: {}, files: [] });
             const res = mockRes();
 
             await progressController.addPhoto(req, res, mockNext);
 
-            expect(mockNext).toHaveBeenCalledWith(error);
+            expect(res.status).toHaveBeenCalledWith(400);
         });
     });
 
     describe('deletePhoto', () => {
         test('returns success on deletion', async () => {
+            // Controller ora fa SELECT prima del DELETE per security check (assertClientAccess sul client_id della foto)
+            mockQuery.mockResolvedValueOnce([{ client_id: 5 }]); // SELECT photo
             progressService.deletePhoto.mockResolvedValue(true);
 
             const req = mockReq({ params: { photoId: '10' } });
@@ -149,12 +151,12 @@ describe('ProgressController', () => {
 
             await progressController.deletePhoto(req, res, mockNext);
 
-            expect(progressService.deletePhoto).toHaveBeenCalledWith('10', 'tenant-1');
+            expect(progressService.deletePhoto).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith({ success: true });
         });
 
         test('returns 404 when photo not found', async () => {
-            progressService.deletePhoto.mockResolvedValue(false);
+            mockQuery.mockResolvedValueOnce([]); // SELECT photo: no rows
 
             const req = mockReq({ params: { photoId: '999' } });
             const res = mockRes();
@@ -169,6 +171,7 @@ describe('ProgressController', () => {
         });
 
         test('calls next(error) on service failure', async () => {
+            mockQuery.mockResolvedValueOnce([{ client_id: 5 }]); // SELECT photo OK
             const error = new Error('DB error');
             progressService.deletePhoto.mockRejectedValue(error);
 

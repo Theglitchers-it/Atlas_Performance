@@ -14,7 +14,7 @@ describe('Cookie Utility', () => {
             expect(opts.httpOnly).toBe(true);
             expect(opts.secure).toBe(false);
             expect(opts.sameSite).toBe('lax');
-            expect(opts.path).toBe('/api');
+            expect(opts.path).toBe('/');
             expect(opts.maxAge).toBe(15 * 60 * 1000);
         });
 
@@ -24,7 +24,7 @@ describe('Cookie Utility', () => {
             expect(opts.httpOnly).toBe(true);
             expect(opts.secure).toBe(true);
             expect(opts.sameSite).toBe('strict');
-            expect(opts.path).toBe('/api');
+            expect(opts.path).toBe('/');
         });
 
         test('maxAge is 15 minutes', () => {
@@ -61,13 +61,13 @@ describe('Cookie Utility', () => {
 
     describe('setAuthCookies', () => {
         test('sets both access_token and refresh_token cookies', () => {
-            const res = { cookie: jest.fn() };
+            const res = { cookie: jest.fn(), clearCookie: jest.fn() };
             cookies.setAuthCookies(res, 'test-access', 'test-refresh');
 
             expect(res.cookie).toHaveBeenCalledTimes(2);
             expect(res.cookie).toHaveBeenCalledWith('access_token', 'test-access', expect.objectContaining({
                 httpOnly: true,
-                path: '/api'
+                path: '/'
             }));
             expect(res.cookie).toHaveBeenCalledWith('refresh_token', 'test-refresh', expect.objectContaining({
                 httpOnly: true,
@@ -76,7 +76,7 @@ describe('Cookie Utility', () => {
         });
 
         test('access token cookie has shorter maxAge than refresh token', () => {
-            const res = { cookie: jest.fn() };
+            const res = { cookie: jest.fn(), clearCookie: jest.fn() };
             cookies.setAuthCookies(res, 'a', 'r');
 
             const accessCall = res.cookie.mock.calls.find(c => c[0] === 'access_token');
@@ -92,7 +92,7 @@ describe('Cookie Utility', () => {
             cookies.clearAuthCookies(res);
 
             expect(res.clearCookie).toHaveBeenCalledTimes(2);
-            expect(res.clearCookie).toHaveBeenCalledWith('access_token', { path: '/api' });
+            expect(res.clearCookie).toHaveBeenCalledWith('access_token', { path: '/' });
             expect(res.clearCookie).toHaveBeenCalledWith('refresh_token', { path: '/api/auth' });
         });
     });

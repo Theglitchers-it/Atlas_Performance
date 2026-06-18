@@ -69,6 +69,8 @@ vi.mock("@/composables/useSidebarStats", () => ({
       stat2AccentClass: computed(() => "text-habit-orange"),
       xpProgress: ref(0),
       userRole: computed(() => mockUserRole),
+      statLinks: computed(() => ({ stat1Link: "/clients", stat2Link: "/settings" })),
+      quickActions: computed(() => []),
       refresh: vi.fn(),
     };
   },
@@ -78,7 +80,14 @@ vi.mock("@/composables/useSidebarStats", () => ({
 vi.mock("@/services/api", () => ({
   default: {
     defaults: { baseURL: "http://localhost:3000/api" },
+    get: vi.fn(() => Promise.resolve({ data: { data: {} } })),
+    post: vi.fn(() => Promise.resolve({ data: { data: {} } })),
+    put: vi.fn(() => Promise.resolve({ data: { data: {} } })),
   },
+  setNativeToken: vi.fn(),
+  clearNativeToken: vi.fn(),
+  startProactiveRefresh: vi.fn(),
+  stopProactiveRefresh: vi.fn(),
 }));
 
 // Mock heroicons
@@ -192,18 +201,15 @@ describe("AppSidebar", () => {
     expect(clientsLink).toBeDefined();
   });
 
-  it("shows settings and logout items", () => {
-    const wrapper = mountSidebar();
+  // NOTA: il logout button è stato spostato dalla sidebar desktop al drawer mobile
+  // (refactor 2026). Impostazioni è accessibile via bottom-nav "Profilo" su mobile
+  // e via avatar header su desktop. Test rimossi perché asserivano UI obsoleta.
+  // Sidebar desktop ora mostra solo gruppi di menu + Upgrade card.
 
-    const text = wrapper.text();
-    expect(text).toContain("Impostazioni");
-    expect(text).toContain("Esci");
-  });
+  it("has logout button with correct aria-label in drawer mode", () => {
+    const wrapper = mountSidebar({ drawer: true });
 
-  it("has logout button with correct aria-label", () => {
-    const wrapper = mountSidebar();
-
-    const logoutBtn = wrapper.find('button[aria-label="Disconnettiti"]');
+    const logoutBtn = wrapper.find('button[aria-label="Disconnetti"]');
     expect(logoutBtn.exists()).toBe(true);
   });
 });

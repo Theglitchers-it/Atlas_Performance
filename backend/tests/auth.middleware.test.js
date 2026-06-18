@@ -30,7 +30,8 @@ const mockUser = {
     tenant_id: 'tenant-abc',
     email: 'test@example.com',
     role: 'tenant_owner',
-    status: 'active'
+    status: 'active',
+    subscription_status: 'active'  // verifyToken blocca con 403 se subscription mancante/cancelled
 };
 
 beforeAll(() => {
@@ -90,12 +91,12 @@ describe('verifyToken', () => {
         await verifyToken(req, res, next);
 
         expect(next).toHaveBeenCalled();
-        expect(req.user).toEqual({
+        expect(req.user).toEqual(expect.objectContaining({
             id: 1,
             tenantId: 'tenant-abc',
             email: 'test@example.com',
             role: 'tenant_owner'
-        });
+        }));
     });
 
     test('authenticates user from Authorization header', async () => {

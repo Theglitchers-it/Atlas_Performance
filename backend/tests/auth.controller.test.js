@@ -170,7 +170,8 @@ describe('AuthController', () => {
             await authController.refreshToken(req, res, mockNext);
 
             expect(authService.refreshToken).toHaveBeenCalledWith('valid-refresh-token');
-            expect(setAuthCookies).toHaveBeenCalledWith(res, 'new-access-token', 'valid-refresh-token');
+            // Il controller refactorato non rinnova il refresh token (resta lo stesso del cookie)
+            expect(setAuthCookies).toHaveBeenCalledWith(res, 'new-access-token', undefined);
             expect(res.json).toHaveBeenCalledWith({
                 success: true,
                 data: { user: refreshResult.user }

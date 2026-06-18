@@ -71,7 +71,8 @@ describe('ClassController', () => {
                 page: 2,
                 limit: 10,
                 activeOnly: true,
-                instructorId: 3
+                instructorId: 3,
+                locationId: null
             });
             expect(res.json).toHaveBeenCalledWith({ success: true, data: result });
         });
@@ -88,7 +89,8 @@ describe('ClassController', () => {
                 page: 1,
                 limit: 20,
                 activeOnly: false,
-                instructorId: null
+                instructorId: null,
+                locationId: null
             });
         });
 
